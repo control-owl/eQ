@@ -1,0 +1,15 @@
+[package]
+name = "eQ"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = "0.32.2"
+eframe = "0.32.2"
+egui_extras = "0.32.3"
+sysinfo = "0.37.0"
+
+
+[lib]
+name = "eQ_lib"
+path = "src/lib.rs"
