@@ -14,3 +14,12 @@ pub fn get_free_memory_size() -> usize {
     260 // Minimum fallback
   }
 }
+
+pub fn calculate_max_text_width(ui: &mut egui::Ui, texts: &[&str], font_id: egui::FontId, color: egui::Color32) -> f32 {
+  ui.fonts(|f| {
+    texts
+      .iter()
+      .map(|&text| f.layout_no_wrap(text.into(), font_id.clone(), color).size().x)
+      .fold(0.0, f32::max)
+  })
+}
