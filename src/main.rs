@@ -47,34 +47,6 @@ impl CryptoWallet {
     }
   }
 
-  fn render_wallet_header(&mut self, ui: &mut egui::Ui) {
-    ui.vertical_centered(|ui| {
-      ui.heading("Your crypto, your entropy, your control");
-    });
-
-    ui.add_space(GUI_MARGIN as f32);
-
-    let entropy_width = self.dropdown_entropy_width(ui);
-    let derivation_width = self.dropdown_derivation_width(ui);
-
-    let total_needed = entropy_width + GUI_MARGIN as f32 + derivation_width;
-    let available = ui.available_width();
-
-    if available >= total_needed {
-      ui.horizontal_top(|ui| {
-        self.render_entropy_dropdown(ui);
-        ui.add_space(GUI_MARGIN as f32);
-        self.render_derivation_dropdown(ui);
-      });
-    } else {
-      ui.vertical(|ui| {
-        self.render_entropy_dropdown(ui);
-        ui.add_space(GUI_MARGIN as f32);
-        self.render_derivation_dropdown(ui);
-      });
-    }
-  }
-
   fn dropdown_entropy_width(&self, ui: &egui::Ui) -> f32 {
     let text = "Entropy Source";
     let font_id = ui
@@ -189,10 +161,39 @@ impl CryptoWallet {
     });
   }
 
+  fn render_wallet_header(&mut self, ui: &mut egui::Ui) {
+    ui.vertical_centered(|ui| {
+      ui.heading("Your crypto, your entropy, your control");
+    });
+
+    ui.add_space(GUI_MARGIN as f32);
+
+    let entropy_width = self.dropdown_entropy_width(ui);
+    let derivation_width = self.dropdown_derivation_width(ui);
+
+    let total_needed = entropy_width + GUI_MARGIN as f32 + derivation_width;
+    let available = ui.available_width();
+
+    if available >= total_needed {
+      ui.horizontal_top(|ui| {
+        self.render_entropy_dropdown(ui);
+        ui.add_space(GUI_MARGIN as f32);
+        self.render_derivation_dropdown(ui);
+      });
+    } else {
+      ui.vertical(|ui| {
+        self.render_entropy_dropdown(ui);
+        ui.add_space(GUI_MARGIN as f32);
+        self.render_derivation_dropdown(ui);
+      });
+    }
+  }
+
   fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
     let available_height = ui.available_height();
 
     TableBuilder::new(ui)
+      .striped(true)
       .resizable(true)
       .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::AlwaysHidden)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
@@ -284,17 +285,17 @@ impl eframe::App for CryptoWallet {
       ui.add_space(GUI_MARGIN as f32);
     });
 
-    egui::CentralPanel::default().show(ctx, |ui| {
-      egui::ScrollArea::both().show(ui, |ui| {
-        ui.set_height(ui.available_height() - (GUI_MARGIN as f32 * 4.0));
-        self.render_wallet_table(ui);
-      });
-    });
-
     egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
       ui.add_space(GUI_MARGIN as f32);
       self.render_wallet_footer(ui);
       ui.add_space(GUI_MARGIN as f32);
+    });
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+      egui::ScrollArea::both().show(ui, |ui| {
+        ui.set_height(ui.available_height());
+        self.render_wallet_table(ui);
+      });
     });
 
     // Reduce refresh by heavy writes
