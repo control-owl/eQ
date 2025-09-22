@@ -190,12 +190,11 @@ impl CryptoWallet {
   }
 
   fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
-    let available_height = ui.available_height() - (GUI_MARGIN as f32 * 2.0);
+    let available_height = ui.available_height();
 
     TableBuilder::new(ui)
-      .striped(true)
       .resizable(true)
-      .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::AlwaysVisible)
+      .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::AlwaysHidden)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
       .min_scrolled_height(0.0)
       .max_scroll_height(available_height)
@@ -287,7 +286,7 @@ impl eframe::App for CryptoWallet {
 
     egui::CentralPanel::default().show(ctx, |ui| {
       egui::ScrollArea::both().show(ui, |ui| {
-        ui.set_height(ui.available_height() - GUI_MARGIN as f32);
+        ui.set_height(ui.available_height() - (GUI_MARGIN as f32 * 4.0));
         self.render_wallet_table(ui);
       });
     });
