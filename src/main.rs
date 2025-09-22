@@ -287,6 +287,7 @@ impl eframe::App for CryptoWallet {
         self.render_wallet_footer(ui);
     });
 
+    // Reduce refresh by heavy writes
     // ctx.request_repaint_after(std::time::Duration::from_millis(100));
   }
 }
