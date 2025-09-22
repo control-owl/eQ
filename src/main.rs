@@ -3,8 +3,7 @@ use egui::{ComboBox, Frame};
 use egui_extras::{Column, TableBuilder};
 use std::collections::VecDeque;
 
-const GUI_MARGIN_BIG: usize = 20;
-const GUI_MARGIN_SMALL: usize = GUI_MARGIN_BIG / 2;
+const GUI_MARGIN: usize = 10;
 
 #[derive(Debug)]
 struct AddressTable {
@@ -53,24 +52,24 @@ impl CryptoWallet {
       ui.heading("Your crypto, your entropy, your control");
     });
 
-    ui.add_space(GUI_MARGIN_BIG as f32);
+    ui.add_space(GUI_MARGIN as f32);
 
     let entropy_width = self.dropdown_entropy_width(ui);
     let derivation_width = self.dropdown_derivation_width(ui);
 
-    let total_needed = entropy_width + GUI_MARGIN_BIG as f32 + derivation_width;
+    let total_needed = entropy_width + GUI_MARGIN as f32 + derivation_width;
     let available = ui.available_width();
 
     if available >= total_needed {
       ui.horizontal_top(|ui| {
         self.render_entropy_dropdown(ui);
-        ui.add_space(GUI_MARGIN_SMALL as f32);
+        ui.add_space(GUI_MARGIN as f32);
         self.render_derivation_dropdown(ui);
       });
     } else {
       ui.vertical(|ui| {
         self.render_entropy_dropdown(ui);
-        ui.add_space(GUI_MARGIN_SMALL as f32);
+        ui.add_space(GUI_MARGIN as f32);
         self.render_derivation_dropdown(ui);
       });
     }
@@ -111,7 +110,7 @@ impl CryptoWallet {
         if ui.available_width()
           > eQ_lib::calculate_max_text_width(ui, &descriptions, font_id.clone(), color)
         {
-          ui.add_space(GUI_MARGIN_SMALL as f32);
+          ui.add_space(GUI_MARGIN as f32);
 
           ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
@@ -170,7 +169,7 @@ impl CryptoWallet {
         if ui.available_width()
           > eQ_lib::calculate_max_text_width(ui, &descriptions, font_id.clone(), color)
         {
-          ui.add_space(GUI_MARGIN_SMALL as f32);
+          ui.add_space(GUI_MARGIN as f32);
 
           ui.vertical(|ui| {
             ui.horizontal_wrapped(|ui| {
@@ -191,7 +190,7 @@ impl CryptoWallet {
   }
 
   fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
-    let available_height = ui.available_height() - (GUI_MARGIN_BIG as f32 * 2.0);
+    let available_height = ui.available_height() - (GUI_MARGIN as f32 * 2.0);
 
     TableBuilder::new(ui)
       .striped(true)
@@ -207,7 +206,7 @@ impl CryptoWallet {
       .column(Column::remainder().at_least(120.0)) // Address
       .column(Column::remainder().at_least(120.0)) // Public Key
       .column(Column::remainder().at_least(120.0)) // Private Key
-      .header(GUI_MARGIN_BIG as f32, |mut header| {
+      .header(GUI_MARGIN as f32, |mut header| {
         for title in [
           "Index",
           "Coin Name",
@@ -222,7 +221,7 @@ impl CryptoWallet {
         }
       })
       .body(|body| {
-        body.rows(GUI_MARGIN_BIG as f32, self.address_data.len(), |mut row| {
+        body.rows(GUI_MARGIN as f32, self.address_data.len(), |mut row| {
           let address_row = &self.address_data[row.index()];
 
           row.col(|ui| {
@@ -266,10 +265,9 @@ impl CryptoWallet {
             private_key: "0x85f7ac69dc2bbf45d6145823ec161f7177ec83ce7fd112e3fa38015b89d".into(),
           });
         }
-        ui.add_space(GUI_MARGIN_BIG as f32);
       } else {
         ui.label("Memory limit reached—cannot generate more addresses.");
-        ui.add_space(GUI_MARGIN_BIG as f32);
+        ui.add_space(GUI_MARGIN as f32);
       }
 
       if ui.button("Delete wallet").clicked() {
@@ -282,22 +280,22 @@ impl CryptoWallet {
 impl eframe::App for CryptoWallet {
   fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     egui::TopBottomPanel::top("header").show(ctx, |ui| {
-      ui.add_space(GUI_MARGIN_SMALL as f32);
+      ui.add_space(GUI_MARGIN as f32);
       self.render_wallet_header(ui);
-      ui.add_space(GUI_MARGIN_SMALL as f32);
+      ui.add_space(GUI_MARGIN as f32);
     });
 
     egui::CentralPanel::default().show(ctx, |ui| {
       egui::ScrollArea::both().show(ui, |ui| {
-        ui.set_height(ui.available_height() - GUI_MARGIN_BIG as f32);
+        ui.set_height(ui.available_height() - GUI_MARGIN as f32);
         self.render_wallet_table(ui);
       });
     });
 
     egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
-      // ui.add_space(GUI_MARGIN_SMALL);
+      ui.add_space(GUI_MARGIN as f32);
       self.render_wallet_footer(ui);
-      // ui.add_space(GUI_MARGIN_SMALL);
+      ui.add_space(GUI_MARGIN as f32);
     });
 
     // Reduce refresh by heavy writes
