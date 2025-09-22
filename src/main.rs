@@ -54,72 +54,143 @@ impl CryptoWallet {
 
     ui.add_space(GUI_MARGINS as f32);
 
-    ui.horizontal_top(|ui| {
-      ui.horizontal(|ui| {
-        Frame::group(ui.style()).show(ui, |ui| {
-          ui.vertical(|ui| {
-            ComboBox::from_label("Entropy Source")
-              .selected_text(&self.entropy_source)
-              .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.entropy_source, "RNG".to_string(), "RNG");
-                ui.selectable_value(&mut self.entropy_source, "QRNG".to_string(), "QRNG");
-                ui.selectable_value(&mut self.entropy_source, "File".to_string(), "File");
-              });
+    let entropy_width = self.dropdown_entropy_width(ui);
+    let derivation_width = self.dropdown_derivation_width(ui);
 
-            ui.add_space(GUI_MARGINS as f32 / 2.0);
+    let total_needed = entropy_width + GUI_MARGINS as f32 + derivation_width;
+    let available = ui.available_width();
 
-            ui.vertical(|ui| {
-              ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                ui.code("RNG:");
-                ui.label(" Uses your device’s built-in random number generator. Fast and easy, but slightly less unpredictable");
-              });
-
-              ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                ui.code("QRNG:");
-                ui.label(" Uses quantum processes to create highly unpredictable numbers. Strongest randomness for security.");
-              });
-
-              ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                ui.code("File:");
-                ui.label(" Uses the contents of a file you provide as a source of randomness. Security depends on the file’s uniqueness.");
-              });
-            });
-          });
-        });
+    if available >= total_needed {
+      ui.horizontal_top(|ui| {
+        self.render_entropy_dropdown(ui);
+        ui.add_space(GUI_MARGINS as f32 / 2.0);
+        self.render_derivation_dropdown(ui);
       });
+    } else {
+      ui.vertical(|ui| {
+        self.render_entropy_dropdown(ui);
+        ui.add_space(GUI_MARGINS as f32 / 2.0);
+        self.render_derivation_dropdown(ui);
+      });
+    }
+  }
 
-      ui.add_space(GUI_MARGINS as f32);
+  fn dropdown_entropy_width(&self, ui: &egui::Ui) -> f32 {
+    let text = "Entropy Source";
+    let font_id = ui.style().text_styles.get(&egui::TextStyle::Button).unwrap().clone();
+    let galley = ui.fonts(|font| {
+      font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color())
+    });
+    galley.size().x + 250.0
+  }
 
-      ui.horizontal(|ui| {
-        Frame::group(ui.style()).show(ui, |ui| {
+  fn dropdown_derivation_width(&self, ui: &egui::Ui) -> f32 {
+    let text = "Derivation Path";
+    let font_id = ui.style().text_styles.get(&egui::TextStyle::Button).unwrap().clone();
+    let galley = ui.fonts(|font| {
+      font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color())
+    });
+    galley.size().x + 250.0
+  }
+
+  fn render_entropy_dropdown(&mut self, ui: &mut egui::Ui) {
+    Frame::group(ui.style()).show(ui, |ui| {
+      ui.vertical(|ui| {
+        ComboBox::from_label("Entropy Source")
+          .selected_text(&self.entropy_source)
+          .show_ui(ui, |ui| {
+            ui.selectable_value(&mut self.entropy_source, "RNG".to_string(), "RNG");
+            ui.selectable_value(&mut self.entropy_source, "QRNG".to_string(), "QRNG");
+            ui.selectable_value(&mut self.entropy_source, "File".to_string(), "File");
+          });
+
+
+        let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
+        let color = ui.style().visuals.text_color();
+
+        let descriptions = [
+          " Uses your device’s built-in random number generator.",
+          " Uses quantum processes to create highly unpredictable numbers.",
+          " Uses the content of a file you provide as a source of randomness.",
+        ];
+
+        let max_needed = ui.fonts(|f| {
+          descriptions
+            .iter()
+            .map(|&text| f.layout_no_wrap(text.into(), font_id.clone(), color).size().x)
+            .fold(0.0, f32::max)
+        });
+
+        if ui.available_width() > max_needed {
+          ui.add_space(GUI_MARGINS as f32 / 2.0);
+
           ui.vertical(|ui| {
-            ComboBox::from_label("Derivation Path")
-              .selected_text(self.derivation_path.to_string())
-              .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.derivation_path, 32, "32");
-                ui.selectable_value(&mut self.derivation_path, 44, "44");
-              });
+            ui.horizontal_wrapped(|ui| {
+              ui.spacing_mut().item_spacing.x = 0.0;
+              ui.code("RNG:");
+              ui.label(descriptions[0]);
+            });
 
-            ui.add_space(GUI_MARGINS as f32 / 2.0);
+            ui.horizontal_wrapped(|ui| {
+              ui.spacing_mut().item_spacing.x = 0.0;
+              ui.code("QRNG:");
+              ui.label(descriptions[1]);
+            });
 
-            ui.vertical(|ui| {
-              ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                ui.code("32:");
-                ui.label(" Classic hierarchical wallet derivation.");
-              });
-
-              ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                ui.code("44:");
-                ui.label(" Structured derivation path used for multi-coin wallets.");
-              });
+            ui.horizontal_wrapped(|ui| {
+              ui.spacing_mut().item_spacing.x = 0.0;
+              ui.code("File:");
+              ui.label(descriptions[2]);
             });
           });
+        }
+      });
+    });
+  }
+
+  fn render_derivation_dropdown(&mut self, ui: &mut egui::Ui) {
+    Frame::group(ui.style()).show(ui, |ui| {
+      ui.vertical(|ui| {
+        ComboBox::from_label("Derivation Path")
+          .selected_text(self.derivation_path.to_string())
+          .show_ui(ui, |ui| {
+            ui.selectable_value(&mut self.derivation_path, 32, "32");
+            ui.selectable_value(&mut self.derivation_path, 44, "44");
+          });
+
+
+        let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
+        let color = ui.style().visuals.text_color();
+
+        let descriptions = [
+          " Classic hierarchical wallet derivation.",
+          " Structured derivation path used for multi-coin wallets.",
+        ];
+
+        let max_needed = ui.fonts(|f| {
+          descriptions
+            .iter()
+            .map(|&text| f.layout_no_wrap(text.into(), font_id.clone(), color).size().x)
+            .fold(0.0, f32::max)
         });
+
+        if ui.available_width() > max_needed {
+          ui.add_space(GUI_MARGINS as f32 / 2.0);
+
+          ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+              ui.spacing_mut().item_spacing.x = 0.0;
+              ui.code("32:");
+              ui.label(" Classic hierarchical wallet derivation.");
+            });
+
+            ui.horizontal_wrapped(|ui| {
+              ui.spacing_mut().item_spacing.x = 0.0;
+              ui.code("44:");
+              ui.label(" Structured derivation path used for multi-coin wallets.");
+            });
+          });
+        }
       });
     });
   }
@@ -223,8 +294,8 @@ impl eframe::App for CryptoWallet {
 fn main() -> Result<(), eframe::Error> {
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
-      .with_inner_size([800.0, 600.0])
-      .with_min_inner_size([200.0, 300.0]),
+      .with_inner_size([800.0, 600.0]),
+      // .with_min_inner_size([200.0, 300.0]),
     ..Default::default()
   };
 
