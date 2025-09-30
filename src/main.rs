@@ -1,11 +1,11 @@
 use eframe::egui;
-use egui::{ComboBox, Frame};
+use egui::{ComboBox, Frame, Theme, Visuals};
 use egui_extras::{Column, TableBuilder};
 use std::collections::VecDeque;
 
 const GUI_MARGIN: usize = 10;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct AddressTable {
   index: u32,
   coin: String,
@@ -15,8 +15,26 @@ struct AddressTable {
   private_key: String,
 }
 
-#[derive(Default)]
+#[derive(Debug, Clone)]
+struct GuiSettings {
+  theme: String,
+  language: String,
+  zoom_factor: f32,
+}
+
+impl GuiSettings {
+  fn new() -> Self {
+    GuiSettings {
+      theme: "System".to_string(),
+      language: "English".to_string(),
+      zoom_factor: 1.0,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
 struct CryptoWallet {
+  gui_settings: GuiSettings,
   address_data: VecDeque<AddressTable>,
   entropy_source: String,
   derivation_path: u32,
@@ -40,6 +58,7 @@ impl CryptoWallet {
 
     // TODO: Get values from local config
     Self {
+      gui_settings: GuiSettings::new(),
       address_data,
       entropy_source: "RNG".to_string(),
       derivation_path: 44,
@@ -162,6 +181,63 @@ impl CryptoWallet {
   }
 
   fn render_wallet_header(&mut self, ui: &mut egui::Ui) {
+    egui::MenuBar::new().ui(ui, |ui| {
+      ui.menu_button("File", |ui| {
+        if ui.button("New").clicked() {
+          // TODO: Create new wallet window
+        }
+
+        if ui.button("Open").clicked() {
+          // TODO: Create open wallet window
+        }
+
+        if ui.button("Save").clicked() {
+          // TODO: Create save wallet window
+        }
+
+        ui.separator();
+
+        if ui.button("Quit").clicked() {
+          ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+      });
+
+      ui.menu_button("Zoom", |ui| {
+        if ui.button("Zoom In").clicked() {
+          self.gui_settings.zoom_factor = (self.gui_settings.zoom_factor + 0.1).clamp(0.5, 2.0);
+          ui.ctx().set_zoom_factor(self.gui_settings.zoom_factor);
+        }
+        if ui.button("Zoom Out").clicked() {
+          self.gui_settings.zoom_factor = (self.gui_settings.zoom_factor - 0.1).clamp(0.5, 2.0);
+          ui.ctx().set_zoom_factor(self.gui_settings.zoom_factor);
+        }
+
+        ui.separator();
+
+        if ui.button("Reset Zoom").clicked() {
+          self.gui_settings.zoom_factor = 1.0;
+          ui.ctx().set_zoom_factor(self.gui_settings.zoom_factor);
+        }
+      });
+
+      ui.menu_button("Theme", |ui| {
+        if ui.button("Light").clicked() {
+          self.gui_settings.theme = "Light".to_string();
+        }
+
+        if ui.button("Dark").clicked() {
+          self.gui_settings.theme = "Dark".to_string();
+        }
+
+        // FIX: Detecting system theme not working
+        // ui.separator();
+        //
+        // if ui.button("System").clicked() {
+        //   self.gui_settings.theme = "System".to_string();
+        // }
+      });
+    });
+
     ui.vertical_centered(|ui| {
       ui.heading("Your crypto, your entropy, your control");
     });
@@ -195,7 +271,7 @@ impl CryptoWallet {
     TableBuilder::new(ui)
       .striped(true)
       .resizable(true)
-      .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::AlwaysHidden)
+      .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
       .min_scrolled_height(0.0)
       .max_scroll_height(available_height)
@@ -255,15 +331,17 @@ impl CryptoWallet {
           // TODO: Generate new wallet
 
           // Sample data
-          self.address_data.push_back(AddressTable {
-            index: next_index,
-            coin: "ETHEREUM CLASSIC".into(),
-            path: "m/44'/61'/0'/0/0'".into(),
-            address: "0xdFe31394A33c9C1c7D9FC9b33E90fdc3a0D7FBd1".into(),
-            public_key: "0x0212a96b15c77f95473d4c6d2c0efe5eb287684be1a6a0243cff1c7d6571e8c3fb"
-              .into(),
-            private_key: "0x85f7ac69dc2bbf45d6145823ec161f7177ec83ce7fd112e3fa38015b89d".into(),
-          });
+          for x in 1..250_000 {
+            self.address_data.push_back(AddressTable {
+              index: next_index,
+              coin: "ETHEREUM CLASSIC".into(),
+              path: format!("m/44'/61'/0'/0/{}'", x),
+              address: "0xdFe31394A33c9C1c7D9FC9b33E90fdc3a0D7FBd1".into(),
+              public_key: "0x0212a96b15c77f95473d4c6d2c0efe5eb287684be1a6a0243cff1c7d6571e8c3fb"
+                .into(),
+              private_key: "0x85f7ac69dc2bbf45d6145823ec161f7177ec83ce7fd112e3fa38015b89d".into(),
+            });
+          }
         }
       } else {
         ui.label("Memory limit reached—cannot generate more addresses.");
@@ -279,6 +357,27 @@ impl CryptoWallet {
 
 impl eframe::App for CryptoWallet {
   fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    match self.gui_settings.theme.as_str() {
+      "Dark" => {
+        ctx.set_visuals(egui::Visuals::dark());
+      }
+      "Light" => {
+        ctx.set_visuals(egui::Visuals::light());
+      }
+      _ => {
+        // FIX: Not working, system_theme always returns 'None'
+        let system_theme = ctx.input(|i| i.raw.system_theme);
+        match system_theme {
+          Some(Theme::Dark) => ctx.set_visuals(Visuals::dark()),
+          Some(Theme::Light) => ctx.set_visuals(Visuals::light()),
+          None => {
+            // eprintln!("System theme detection failed, using Light fallback");
+            ctx.set_visuals(Visuals::light());
+          }
+        }
+      }
+    }
+
     egui::TopBottomPanel::top("header").show(ctx, |ui| {
       ui.add_space(GUI_MARGIN as f32);
       self.render_wallet_header(ui);
@@ -299,7 +398,7 @@ impl eframe::App for CryptoWallet {
     });
 
     // Reduce refresh by heavy writes
-    // ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    // ctx.request_repaint_after(std::time::Duration::from_millis(1000));
   }
 }
 

@@ -5,6 +5,8 @@ pub fn get_free_memory_size() -> usize {
   system.refresh_memory();
 
   let available_memory = system.available_memory(); // in bytes
+
+  // TODO: Check how many bytes is one address entry
   const BYTES_PER_ROW: u64 = 450; // estimated, ????
 
   if available_memory > 0 {
@@ -15,11 +17,20 @@ pub fn get_free_memory_size() -> usize {
   }
 }
 
-pub fn calculate_max_text_width(ui: &mut egui::Ui, texts: &[&str], font_id: egui::FontId, color: egui::Color32) -> f32 {
+pub fn calculate_max_text_width(
+  ui: &mut egui::Ui,
+  texts: &[&str],
+  font_id: egui::FontId,
+  color: egui::Color32,
+) -> f32 {
   ui.fonts(|f| {
     texts
       .iter()
-      .map(|&text| f.layout_no_wrap(text.into(), font_id.clone(), color).size().x)
+      .map(|&text| {
+        f.layout_no_wrap(text.into(), font_id.clone(), color)
+          .size()
+          .x
+      })
       .fold(0.0, f32::max)
   })
 }
