@@ -239,7 +239,7 @@ impl CryptoWallet {
     });
 
     ui.vertical_centered(|ui| {
-      ui.heading("Your crypto, your entropy, your control");
+      ui.heading("Your entropy, your crypto, your control");
     });
 
     ui.add_space(GUI_MARGIN as f32);
