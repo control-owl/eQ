@@ -18,7 +18,7 @@ struct AddressTable {
 #[derive(Debug, Clone)]
 struct GuiSettings {
   theme: String,
-  language: String,
+  _language: String,
   zoom_factor: f32,
 }
 
@@ -26,7 +26,7 @@ impl GuiSettings {
   fn new() -> Self {
     GuiSettings {
       theme: "System".to_string(),
-      language: "English".to_string(),
+      _language: "English".to_string(),
       zoom_factor: 1.0,
     }
   }
@@ -43,18 +43,18 @@ struct CryptoWallet {
 
 impl CryptoWallet {
   fn new() -> Self {
-    let get_max_rows = eQ_lib::get_free_memory_size();
-    let mut address_data = VecDeque::with_capacity(get_max_rows);
+    let get_max_rows = e_q::get_free_memory_size();
+    let address_data = VecDeque::with_capacity(get_max_rows);
 
     // Sample data, testing table look
-    address_data.push_back(AddressTable {
-      index: 0,
-      coin: "BITCOIN".into(),
-      path: "m/44'/0'/0'/0/0'".into(),
-      address: "1A1z...".into(),
-      public_key: "02f...".into(),
-      private_key: "5J1F...".into(),
-    });
+    // address_data.push_back(AddressTable {
+    //   index: 0,
+    //   coin: "BITCOIN".into(),
+    //   path: "m/44'/0'/0'/0/0'".into(),
+    //   address: "1A1z...".into(),
+    //   public_key: "02f...".into(),
+    //   private_key: "5J1F...".into(),
+    // });
 
     // TODO: Get values from local config
     Self {
@@ -93,13 +93,13 @@ impl CryptoWallet {
         let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
         let color = ui.style().visuals.text_color();
         let descriptions = [
-          " Uses your device’s built-in random number generator.",
+          " Uses your device's built-in random number generator.",
           " Uses quantum processes to create highly unpredictable numbers.",
           " Uses the content of a file you provide as a source of randomness.",
         ];
 
         if ui.available_width()
-          > eQ_lib::calculate_max_text_width(ui, &descriptions, font_id.clone(), color)
+          > e_q::calculate_max_text_width(ui, &descriptions, font_id.clone(), color)
         {
           ui.add_space(GUI_MARGIN as f32);
 
@@ -158,7 +158,7 @@ impl CryptoWallet {
         ];
 
         if ui.available_width()
-          > eQ_lib::calculate_max_text_width(ui, &descriptions, font_id.clone(), color)
+          > e_q::calculate_max_text_width(ui, &descriptions, font_id.clone(), color)
         {
           ui.add_space(GUI_MARGIN as f32);
 
@@ -266,7 +266,9 @@ impl CryptoWallet {
   }
 
   fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
-    let available_height = ui.available_height();
+    // let available_height = ui.available_height();
+    let font = egui::FontId::monospace(12.0);
+    let row_height = font.size + GUI_MARGIN as f32;
 
     TableBuilder::new(ui)
       .striped(true)
@@ -274,7 +276,7 @@ impl CryptoWallet {
       .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
       .min_scrolled_height(0.0)
-      .max_scroll_height(available_height)
+      // .max_scroll_height(available_height)
       .animate_scrolling(false)
       .column(Column::auto()) // Index
       .column(Column::remainder().at_least(100.0)) // Coin
@@ -282,7 +284,7 @@ impl CryptoWallet {
       .column(Column::remainder().at_least(120.0)) // Address
       .column(Column::remainder().at_least(120.0)) // Public Key
       .column(Column::remainder().at_least(120.0)) // Private Key
-      .header(GUI_MARGIN as f32, |mut header| {
+      .header(row_height, |mut header| {
         for title in [
           "Index",
           "Coin Name",
@@ -292,12 +294,12 @@ impl CryptoWallet {
           "Private Key",
         ] {
           header.col(|ui| {
-            ui.label(title);
+            ui.heading(title);
           });
         }
       })
       .body(|body| {
-        body.rows(GUI_MARGIN as f32, self.address_data.len(), |mut row| {
+        body.rows(row_height, self.address_data.len(), |mut row| {
           let address_row = &self.address_data[row.index()];
 
           row.col(|ui| {
@@ -331,7 +333,7 @@ impl CryptoWallet {
           // TODO: Generate new wallet
 
           // Sample data
-          for x in 1..250_000 {
+          for x in 1..270 {
             self.address_data.push_back(AddressTable {
               index: next_index,
               coin: "ETHEREUM CLASSIC".into(),
@@ -391,14 +393,15 @@ impl eframe::App for CryptoWallet {
     });
 
     egui::CentralPanel::default().show(ctx, |ui| {
-      egui::ScrollArea::both().show(ui, |ui| {
-        ui.set_height(ui.available_height());
-        self.render_wallet_table(ui);
+      egui::ScrollArea::horizontal()
+        .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+        .show(ui, |ui| {
+          self.render_wallet_table(ui);
       });
     });
 
     // Reduce refresh by heavy writes
-    // ctx.request_repaint_after(std::time::Duration::from_millis(1000));
+    ctx.request_repaint_after(std::time::Duration::from_millis(100));
   }
 }
 

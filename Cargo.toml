@@ -11,5 +11,5 @@ sysinfo = "0.37.0"
 
 
 [lib]
-name = "eQ_lib"
+name = "e_q"
 path = "src/lib.rs"
