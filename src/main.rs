@@ -246,7 +246,6 @@ impl CryptoWallet {
 
     let entropy_width = self.dropdown_entropy_width(ui);
     let derivation_width = self.dropdown_derivation_width(ui);
-
     let total_needed = entropy_width + GUI_MARGIN as f32 + derivation_width;
     let available = ui.available_width();
 
@@ -266,7 +265,7 @@ impl CryptoWallet {
   }
 
   fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
-    // let available_height = ui.available_height();
+    let available_height = ui.available_height();
     let font = egui::FontId::monospace(12.0);
     let row_height = font.size + GUI_MARGIN as f32;
 
@@ -276,8 +275,8 @@ impl CryptoWallet {
       .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
       .min_scrolled_height(0.0)
-      // .max_scroll_height(available_height)
-      .animate_scrolling(false)
+      .max_scroll_height(available_height)
+      .animate_scrolling(true)
       .column(Column::auto()) // Index
       .column(Column::remainder().at_least(100.0)) // Coin
       .column(Column::remainder().at_least(100.0)) // Path
@@ -401,7 +400,7 @@ impl eframe::App for CryptoWallet {
     });
 
     // Reduce refresh by heavy writes
-    ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    // ctx.request_repaint_after(std::time::Duration::from_millis(100));
   }
 }
 
