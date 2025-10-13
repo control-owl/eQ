@@ -324,9 +324,24 @@ impl CryptoWallet {
   }
 
   fn render_wallet_footer(&mut self, ui: &mut egui::Ui) {
+    let total_width = ui.available_width();
+
     ui.horizontal(|ui| {
+      let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
+      let color = ui.style().visuals.text_color();
+      let button_descriptions = [
+        "Generate Wallet",
+        "Delete Wallet",
+        // "Save Wallet",
+      ];
+
+      ui.add_space(GUI_MARGIN as f32);
+
+      let button_length = e_q::calculate_max_text_width(ui, &button_descriptions, font_id.clone(), color);
+      ui.add_space((total_width / 2.0) - button_length - (4.0 * GUI_MARGIN as f32 / 2.0));
+      
       if self.address_data.len() < self.max_rows {
-        if ui.button("Generate wallet").clicked() {
+        if ui.button(button_descriptions[0]).clicked() {
           let next_index = self.address_data.back().map_or(0, |r| r.index + 1);
 
           // TODO: Generate new wallet
@@ -346,12 +361,15 @@ impl CryptoWallet {
         }
       } else {
         ui.label("Memory limit reached—cannot generate more addresses.");
-        ui.add_space(GUI_MARGIN as f32);
       }
 
-      if ui.button("Delete wallet").clicked() {
+      ui.add_space(GUI_MARGIN as f32);
+
+      if ui.button(button_descriptions[1]).clicked() {
         self.address_data.clear();
       }
+
+      // ui.add_space(GUI_MARGIN as f32);
     });
   }
 }
@@ -392,15 +410,17 @@ impl eframe::App for CryptoWallet {
     });
 
     egui::CentralPanel::default().show(ctx, |ui| {
+      
       egui::ScrollArea::horizontal()
-        .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-        .show(ui, |ui| {
+      .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+      .show(ui, |ui| {
+          ui.set_height(ui.available_height());
           self.render_wallet_table(ui);
       });
     });
 
     // Reduce refresh by heavy writes
-    // ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    ctx.request_repaint_after(std::time::Duration::from_millis(100));
   }
 }
 
@@ -408,7 +428,7 @@ fn main() -> Result<(), eframe::Error> {
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
       .with_inner_size([800.0, 600.0])
-      .with_min_inner_size([250.0, 300.0]),
+      .with_min_inner_size([220.0, 320.0]),
     ..Default::default()
   };
 
