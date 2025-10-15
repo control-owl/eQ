@@ -229,7 +229,7 @@ impl CryptoWallet {
           self.gui_settings.theme = "Dark".to_string();
         }
 
-        // FIX: Detecting system theme not working
+        // TODO: Detecting system theme not working
         // ui.separator();
         //
         // if ui.button("System").clicked() {
@@ -332,7 +332,6 @@ impl CryptoWallet {
       let button_descriptions = [
         "Generate Wallet",
         "Delete Wallet",
-        // "Save Wallet",
       ];
 
       ui.add_space(GUI_MARGIN as f32);
@@ -368,8 +367,6 @@ impl CryptoWallet {
       if ui.button(button_descriptions[1]).clicked() {
         self.address_data.clear();
       }
-
-      // ui.add_space(GUI_MARGIN as f32);
     });
   }
 }
@@ -384,7 +381,7 @@ impl eframe::App for CryptoWallet {
         ctx.set_visuals(egui::Visuals::light());
       }
       _ => {
-        // FIX: Not working, system_theme always returns 'None'
+        // TODO: Not working, system_theme always returns 'None'
         let system_theme = ctx.input(|i| i.raw.system_theme);
         match system_theme {
           Some(Theme::Dark) => ctx.set_visuals(Visuals::dark()),
@@ -419,8 +416,8 @@ impl eframe::App for CryptoWallet {
       });
     });
 
-    // Reduce refresh by heavy writes
-    ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    // TODO: Reduce refresh by heavy writes, check if this is working
+    // ctx.request_repaint_after(std::time::Duration::from_millis(100));
   }
 }
 

@@ -12,8 +12,8 @@ pub fn get_free_memory_size() -> usize {
   if available_memory > 0 {
     ((available_memory as f64 * 0.8) / BYTES_PER_ROW as f64) as usize
   } else {
-    // TODO: get total active coins number
-    260 // Minimum fallback
+    // TODO: get total active coins number from ECDB
+    270 // Minimum fallback
   }
 }
 
