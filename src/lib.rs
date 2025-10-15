@@ -23,11 +23,11 @@ pub fn calculate_max_text_width(
   font_id: egui::FontId,
   color: egui::Color32,
 ) -> f32 {
-  ui.fonts(|f| {
+  ui.fonts_mut(|font| {
     texts
       .iter()
-      .map(|&text| {
-        f.layout_no_wrap(text.into(), font_id.clone(), color)
+      .map(|text| {
+        font.layout_no_wrap(text.to_string(), font_id.clone(), color)
           .size()
           .x
       })

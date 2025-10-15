@@ -75,7 +75,7 @@ impl CryptoWallet {
       .unwrap()
       .clone();
     let galley =
-      ui.fonts(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
+      ui.fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
     galley.size().x + 250.0
   }
 
@@ -136,7 +136,7 @@ impl CryptoWallet {
       .unwrap()
       .clone();
     let galley =
-      ui.fonts(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
+      ui.fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
     galley.size().x + 250.0
   }
 

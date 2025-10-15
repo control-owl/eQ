@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-egui = "0.32.2"
-eframe = "0.32.2"
-egui_extras = "0.32.3"
-sysinfo = "0.37.0"
+egui = "0.33.0"
+eframe = "0.33.0"
+egui_extras = "0.33.0"
+sysinfo = "0.37.2"
 
 
 [lib]
