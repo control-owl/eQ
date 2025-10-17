@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use eframe::egui;
 use egui::{ComboBox, Frame, Theme, Visuals};
 use egui_extras::{Column, TableBuilder};
@@ -407,7 +409,6 @@ impl eframe::App for CryptoWallet {
     });
 
     egui::CentralPanel::default().show(ctx, |ui| {
-      
       egui::ScrollArea::horizontal()
       .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .show(ui, |ui| {
