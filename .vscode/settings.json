@@ -3,6 +3,7 @@
         "Deque",
         "eframe",
         "egui",
+        "getrandom",
         "sysinfo"
     ]
 }

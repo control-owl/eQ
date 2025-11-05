@@ -1,11 +1,24 @@
+// authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
+// license = "CC-BY-NC-ND-4.0  [2023-2025]  Control Owl"
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 use eframe::egui;
 use egui::{ComboBox, Frame, Theme, Visuals};
 use egui_extras::{Column, TableBuilder};
 use std::collections::VecDeque;
 
+mod keys;
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+
 const GUI_MARGIN: usize = 10;
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 #[derive(Debug, Clone)]
 struct AddressTable {
@@ -347,6 +360,24 @@ impl CryptoWallet {
 
           // TODO: Generate new wallet
 
+          // 1. Detect source
+          let entropy_source = self.get_entropy_source();
+          println!("Entropy source: {entropy_source}");
+
+          // 2. Detect DP
+          let derivation_path = self.get_derivation_path();
+          println!("Derivation path: {derivation_path}");
+
+          // 3. Generate seed
+          let generated_seed = keys::generate_seed(&entropy_source, None, None, None);
+          println!("Entropy: {}", generated_seed.0);
+          println!("Mnemonic words: {}", generated_seed.1);
+          println!("Seed: {}", generated_seed.2);
+
+          // 4. Generate master keys
+
+          // 5. Generate addresses
+
           // Sample data
           for x in 1..270 {
             self.address_data.push_back(AddressTable {
@@ -371,6 +402,15 @@ impl CryptoWallet {
       }
     });
   }
+
+  fn get_entropy_source(&mut self) -> String {
+    self.entropy_source.clone()
+  }
+
+  fn get_derivation_path(&mut self) -> u32 {
+    self.derivation_path.clone()
+  }
+
 }
 
 impl eframe::App for CryptoWallet {
@@ -421,6 +461,8 @@ impl eframe::App for CryptoWallet {
     // ctx.request_repaint_after(std::time::Duration::from_millis(100));
   }
 }
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 fn main() -> Result<(), eframe::Error> {
   let options = eframe::NativeOptions {
