@@ -11,6 +11,7 @@ use eframe::egui;
 use egui::{ComboBox, Frame, Theme, Visuals};
 use egui_extras::{Column, TableBuilder};
 use std::collections::VecDeque;
+use std::io::BufRead;
 
 mod keys;
 
@@ -375,7 +376,7 @@ impl CryptoWallet {
       
       if self.address_data.len() < self.max_rows {
         if ui.button(button_descriptions[0]).clicked() {
-          let next_index = self.address_data.back().map_or(0, |r| r.index + 1);
+          // let next_index = self.address_data.back().map_or(0, |r| r.index + 1);
 
           // 1. Detect source
           let entropy_source = self.get_entropy_source();
@@ -388,36 +389,69 @@ impl CryptoWallet {
           println!("Seed: {}", seed);
           
           // 3. Generate master keys
-          let (master_private, master_public) = match keys::generate_master_keys_secp256k1(&seed, None, None) {
+          let (master_private_bytes, master_public_bytes, master_chain_code_bytes) = match keys::generate_master_keys_secp256k1(&seed, None, None) {
             Ok(value) => value,
             Err(err) => {
               return Err(AppError::Custom(format!("Problem with generating master keys: {}", err)));
             }
           };
-          println!("Master private keys: {}", master_private);
-          println!("Master public keys: {}", master_public);
+
+          println!("Master private keys bytes: {:?}", master_private_bytes);
+          let master_private_key_encoded = bs58::encode(&master_private_bytes).into_string();
+          println!("Master private keys: {:?}", master_private_key_encoded);
+
+          println!("Master public keys bytes: {:?}", master_public_bytes);
+          let master_public_key_encoded = bs58::encode(&master_public_bytes).into_string();
+          println!("Master public keys: {:?}", master_public_key_encoded);
 
           // 4. Detect DP
           let derivation_path = self.get_derivation_path();
           println!("Derivation path: {derivation_path}");
           
           // TODO: Get coin index
-          let full_derivation_path = format!("m/{}'/61'/0'/0/{}'", derivation_path, next_index);
-          println!("Full derivation path: {full_derivation_path}");
+          let resource_path = std::path::Path::new("coin").join("ECDB.csv");
+          let resource_path_str = resource_path.to_str().unwrap_or_default();
+          let my_public = e_q::get_file_from_resources(resource_path_str);
+          // let brain_batch = Arc::new(Mutex::new(BrainBatch::new(BatchConfig::from_speed(1.0))));
 
-          // 5. Generate addresses
+          if let Ok(file) = my_public {
+            let reader = std::io::BufReader::new(file.contents());
 
-          // Sample data
-          for x in 1..270 {
-            self.address_data.push_back(AddressTable {
-              index: next_index,
-              coin: "ETHEREUM CLASSIC".into(),
-              path: format!("m/44'/61'/0'/0/{}'", x),
-              address: "0xdFe31394A33c9C1c7D9FC9b33E90fdc3a0D7FBd1".into(),
-              public_key: "0x0212a96b15c77f95473d4c6d2c0efe5eb287684be1a6a0243cff1c7d6571e8c3fb"
-                .into(),
-              private_key: "0x85f7ac69dc2bbf45d6145823ec161f7177ec83ce7fd112e3fa38015b89d".into(),
-            });
+            for line in reader.lines() {
+              let line = line.unwrap_or("0".to_string());
+              let columns: Vec<&str> = line.split(',').collect();
+
+              if columns.len() > 1 && columns[0] == "1" {
+                let active_coin_index = columns[1].parse().unwrap_or(0);
+
+                let derivation_path = match derivation_path {
+                  32 => String::from("m/0'/0'/0'"),
+                  _ => format!("m/44'/{}'/0'/0/0'", active_coin_index),
+                };
+
+                let magic_ingredients = keys::AddressIngredients {
+                  coin_index: active_coin_index,
+                  derivation_path: derivation_path.clone(),
+                  master_private_key_bytes: master_private_bytes.clone(),
+                  master_chain_code_bytes: master_chain_code_bytes.to_vec(),
+                  public_key_hash: columns[8].parse().unwrap_or("".to_string()),
+                  key_derivation: columns[4].parse().unwrap_or("".to_string()),
+                  wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
+                  hash: columns[5].parse().unwrap_or("".to_string()),
+                };
+
+                if let Ok(Some(address)) = keys::generate_address(magic_ingredients) {
+                  self.address_data.push_back(AddressTable {
+                    index: columns[1].parse().unwrap_or(0),
+                    coin: columns[3].into(),
+                    path: derivation_path.into(),
+                    address: address.address.into(),
+                    public_key: address.public_key.into(),
+                    private_key: address.private_key.into(),
+                  });
+                }
+              }
+            }
           }
         }
       } else {
