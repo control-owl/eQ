@@ -16,6 +16,25 @@ mod keys;
 
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
+pub type FunctionOutput<T> = Result<T, AppError>;
+
+#[derive(Debug)]
+pub enum AppError {
+  Io(std::io::Error),
+  Custom(String),
+}
+
+impl std::fmt::Display for AppError {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    match self {
+      AppError::Io(err) => write!(f, "IO error: {err}"),
+      AppError::Custom(msg) => write!(f, "{msg}"),
+    }
+  }
+}
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+
 const GUI_MARGIN: usize = 10;
 
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
@@ -338,7 +357,7 @@ impl CryptoWallet {
       });
   }
 
-  fn render_wallet_footer(&mut self, ui: &mut egui::Ui) {
+  fn render_wallet_footer(&mut self, ui: &mut egui::Ui) -> FunctionOutput<()> {
     let total_width = ui.available_width();
 
     ui.horizontal(|ui| {
@@ -358,23 +377,33 @@ impl CryptoWallet {
         if ui.button(button_descriptions[0]).clicked() {
           let next_index = self.address_data.back().map_or(0, |r| r.index + 1);
 
-          // TODO: Generate new wallet
-
           // 1. Detect source
           let entropy_source = self.get_entropy_source();
           println!("Entropy source: {entropy_source}");
+          
+          // 2. Generate seed
+          let (entropy, mnemonic_words, seed) = keys::generate_seed(&entropy_source, None, None, None);
+          println!("Entropy: {}", entropy);
+          println!("Mnemonic words: {}", mnemonic_words);
+          println!("Seed: {}", seed);
+          
+          // 3. Generate master keys
+          let (master_private, master_public) = match keys::generate_master_keys_secp256k1(&seed, None, None) {
+            Ok(value) => value,
+            Err(err) => {
+              return Err(AppError::Custom(format!("Problem with generating master keys: {}", err)));
+            }
+          };
+          println!("Master private keys: {}", master_private);
+          println!("Master public keys: {}", master_public);
 
-          // 2. Detect DP
+          // 4. Detect DP
           let derivation_path = self.get_derivation_path();
           println!("Derivation path: {derivation_path}");
-
-          // 3. Generate seed
-          let generated_seed = keys::generate_seed(&entropy_source, None, None, None);
-          println!("Entropy: {}", generated_seed.0);
-          println!("Mnemonic words: {}", generated_seed.1);
-          println!("Seed: {}", generated_seed.2);
-
-          // 4. Generate master keys
+          
+          // TODO: Get coin index
+          let full_derivation_path = format!("m/{}'/61'/0'/0/{}'", derivation_path, next_index);
+          println!("Full derivation path: {full_derivation_path}");
 
           // 5. Generate addresses
 
@@ -399,8 +428,14 @@ impl CryptoWallet {
 
       if ui.button(button_descriptions[1]).clicked() {
         self.address_data.clear();
+        Ok(())
+      } else {
+        return Err(AppError::Custom("Can not clear address_data".to_string()))
       }
     });
+    
+    Ok(())
+
   }
 
   fn get_entropy_source(&mut self) -> String {
@@ -444,7 +479,7 @@ impl eframe::App for CryptoWallet {
 
     egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
       ui.add_space(GUI_MARGIN as f32);
-      self.render_wallet_footer(ui);
+      let _ = self.render_wallet_footer(ui);
       ui.add_space(GUI_MARGIN as f32);
     });
 

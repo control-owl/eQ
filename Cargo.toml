@@ -17,6 +17,8 @@ getrandom ="0.3.4"
 sha2 = "0.10.9"
 ring = "0.17.14"
 hex = "0.4.3"
+bs58 = "0.5.1"
+secp256k1 = "0.31.1"
 
 # System
 include_dir = "0.7.4"
