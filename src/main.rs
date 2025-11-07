@@ -18,6 +18,9 @@ mod keys;
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 pub type FunctionOutput<T> = Result<T, AppError>;
+const GUI_MARGIN: usize = 10;
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 #[derive(Debug)]
 pub enum AppError {
@@ -34,49 +37,40 @@ impl std::fmt::Display for AppError {
   }
 }
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+fn d3bug(message: &str, msg_type: &str) {
+  let (color_code, prefix) = match msg_type {
+    "info" => ("\x1b[34m", "[INFO] "),       // Blue
+    "debug" => ("\x1b[32m", "[DEBUG] "),     // Green
+    "error" => ("\x1b[31m", "[ERROR] "),     // Red
+    "warning" => ("\x1b[33m", "[WARNING] "), // Yellow
+    _ => ("\x1b[0m", "[UNKNOWN] "),          // Default/reset
+  };
 
-const GUI_MARGIN: usize = 10;
+  let reset = "\x1b[0m";
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+  #[cfg(debug_assertions)]
+  if msg_type == "debug" {
+    println!("{color_code}{prefix}{message}{reset}");
+  }
 
-#[derive(Debug, Clone)]
-struct AddressTable {
-  index: u32,
-  coin: String,
-  path: String,
-  address: String,
-  public_key: String,
-  private_key: String,
-}
-
-#[derive(Debug, Clone)]
-struct GuiSettings {
-  theme: String,
-  _language: String,
-  zoom_factor: f32,
-}
-
-impl GuiSettings {
-  fn new() -> Self {
-    GuiSettings {
-      theme: "System".to_string(),
-      _language: "English".to_string(),
-      zoom_factor: 1.0,
-    }
+  if msg_type != "debug" {
+    println!("{color_code}{prefix}{message}{reset}");
   }
 }
 
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+
 #[derive(Debug, Clone)]
-struct CryptoWallet {
+struct CryptoApp {
   gui_settings: GuiSettings,
   address_data: VecDeque<AddressTable>,
   entropy_source: String,
   derivation_path: u32,
   max_rows: usize,
+  wallet_settings: WalletSettings,
 }
 
-impl CryptoWallet {
+impl CryptoApp {
   fn new() -> Self {
     let get_max_rows = e_q::get_free_memory_size();
     let address_data = VecDeque::with_capacity(get_max_rows);
@@ -98,6 +92,7 @@ impl CryptoWallet {
       entropy_source: "RNG".to_string(),
       derivation_path: 44,
       max_rows: get_max_rows,
+      wallet_settings: WalletSettings::new(),
     }
   }
 
@@ -429,7 +424,7 @@ impl CryptoWallet {
                   _ => format!("m/44'/{}'/0'/0/0'", active_coin_index),
                 };
 
-                let magic_ingredients = keys::AddressIngredients {
+                let magic_ingredients = keys::AddressHocusPokus {
                   coin_index: active_coin_index,
                   derivation_path: derivation_path.clone(),
                   master_private_key_bytes: master_private_bytes.clone(),
@@ -482,7 +477,7 @@ impl CryptoWallet {
 
 }
 
-impl eframe::App for CryptoWallet {
+impl eframe::App for CryptoApp {
   fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     match self.gui_settings.theme.as_str() {
       "Dark" => {
@@ -531,6 +526,76 @@ impl eframe::App for CryptoWallet {
   }
 }
 
+#[derive(Debug, Clone)]
+struct GuiSettings {
+  theme: String,
+  _language: String,
+  zoom_factor: f32,
+}
+
+impl GuiSettings {
+  fn new() -> Self {
+    GuiSettings {
+      theme: "System".to_string(),
+      _language: "English".to_string(),
+      zoom_factor: 1.0,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+struct AddressTable {
+  index: u32,
+  coin: String,
+  path: String,
+  address: String,
+  public_key: String,
+  private_key: String,
+}
+
+#[derive(Clone, Debug)]
+struct WalletSettings {
+  entropy_string: Option<String>,
+  entropy_checksum: Option<String>,
+  mnemonic_words: Option<String>,
+  mnemonic_passphrase: Option<String>,
+  seed: Option<String>,
+  master_private_key: Option<String>,
+  master_public_key: Option<String>,
+  master_private_key_bytes: Option<Vec<u8>>,
+  master_chain_code_bytes: Option<Vec<u8>>,
+  master_public_key_bytes: Option<Vec<u8>>,
+  coin_index: Option<u32>,
+  coin_name: Option<String>,
+  wallet_import_format: Option<String>,
+  public_key_hash: Option<String>,
+  key_derivation: Option<String>,
+  hash: Option<String>,
+}
+
+impl WalletSettings {
+  fn new() -> Self {
+    Self {
+      entropy_string: None,
+      entropy_checksum: None,
+      mnemonic_words: None,
+      mnemonic_passphrase: None,
+      seed: None,
+      master_private_key: None,
+      master_public_key: None,
+      master_private_key_bytes: None,
+      master_chain_code_bytes: None,
+      master_public_key_bytes: None,
+      coin_index: None,
+      coin_name: None,
+      wallet_import_format: None,
+      public_key_hash: None,
+      key_derivation: None,
+      hash: None,
+    }
+  }
+}
+
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 fn main() -> Result<(), eframe::Error> {
@@ -544,6 +609,6 @@ fn main() -> Result<(), eframe::Error> {
   eframe::run_native(
     "eQ",
     options,
-    Box::new(|_cc| Ok(Box::new(CryptoWallet::new()))),
+    Box::new(|_cc| Ok(Box::new(CryptoApp::new()))),
   )
 }

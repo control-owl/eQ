@@ -174,3 +174,18 @@ pub fn calculate_hmac_sha512_hash(key: &[u8], data: &[u8]) -> Vec<u8> {
 
   final_hash
 }
+
+pub fn calculate_sha256_hash(data: &[u8]) -> Vec<u8> {
+  let mut hasher = Sha256::new();
+
+  hasher.update(data);
+  hasher.finalize().iter().cloned().collect()
+}
+
+pub fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
+  let hash = Sha256::digest(data);
+  let double_hash = Sha256::digest(hash);
+  let mut checksum = [0u8; 4];
+  checksum.copy_from_slice(&double_hash[..4]);
+  checksum
+}
