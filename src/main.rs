@@ -18,9 +18,6 @@ mod keys;
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 pub type FunctionOutput<T> = Result<T, AppError>;
-const GUI_MARGIN: usize = 10;
-
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 #[derive(Debug)]
 pub enum AppError {
@@ -37,7 +34,7 @@ impl std::fmt::Display for AppError {
   }
 }
 
-fn d3bug(message: &str, msg_type: &str) {
+pub fn d3bug(message: &str, msg_type: &str) {
   let (color_code, prefix) = match msg_type {
     "info" => ("\x1b[34m", "[INFO] "),       // Blue
     "debug" => ("\x1b[32m", "[DEBUG] "),     // Green
@@ -60,39 +57,89 @@ fn d3bug(message: &str, msg_type: &str) {
 
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
+const GUI_MARGIN: usize = 10;
+
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+
+#[derive(Debug, Clone, Default)]
+pub struct SeedData {
+  pub entropy: String,
+  pub entropy_checksum: String,
+  pub full_entropy: String,
+  pub mnemonic_words: String,
+  pub mnemonic_passphrase: String,
+  pub seed: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MasterKeyData {
+  pub master_private_key_encoded: String,
+  pub master_private_key_bytes: Vec<u8>,
+  pub master_public_key_encoded: String,
+  pub master_public_key_bytes: Vec<u8>,
+  pub master_chain_code_bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AddressData {
+  pub coin_index: u32,
+  pub derivation_path: String,
+  pub master_private_key_bytes: Vec<u8>,
+  pub master_chain_code_bytes: Vec<u8>,
+  pub public_key_hash: String,
+  pub key_derivation: String,
+  pub wallet_import_format: String,
+  pub hash: String,
+}
+
 #[derive(Debug, Clone)]
-struct CryptoApp {
+struct AddressTable {
+  index: u32,
+  coin: String,
+  path: String,
+  address: String,
+  public_key: String,
+  private_key: String,
+}
+
+#[derive(Debug, Clone)]
+struct GuiSettings {
+  theme: String,
+  _language: String,
+  zoom_factor: f32,
+}
+
+impl GuiSettings {
+  fn new() -> Self {
+    GuiSettings {
+      theme: "System".to_string(),
+      _language: "English".to_string(),
+      zoom_factor: 1.0,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+struct CryptoWallet {
   gui_settings: GuiSettings,
   address_data: VecDeque<AddressTable>,
   entropy_source: String,
-  derivation_path: u32,
+  bip: u32,
   max_rows: usize,
-  wallet_settings: WalletSettings,
 }
 
-impl CryptoApp {
+impl CryptoWallet {
   fn new() -> Self {
     let get_max_rows = e_q::get_free_memory_size();
     let address_data = VecDeque::with_capacity(get_max_rows);
-
-    // Sample data, testing table look
-    // address_data.push_back(AddressTable {
-    //   index: 0,
-    //   coin: "BITCOIN".into(),
-    //   path: "m/44'/0'/0'/0/0'".into(),
-    //   address: "1A1z...".into(),
-    //   public_key: "02f...".into(),
-    //   private_key: "5J1F...".into(),
-    // });
 
     // TODO: Get values from local config
     Self {
       gui_settings: GuiSettings::new(),
       address_data,
       entropy_source: "RNG".to_string(),
-      derivation_path: 44,
+      bip: 44,
       max_rows: get_max_rows,
-      wallet_settings: WalletSettings::new(),
     }
   }
 
@@ -104,6 +151,7 @@ impl CryptoApp {
       .get(&egui::TextStyle::Button)
       .unwrap()
       .clone();
+
     let galley =
       ui.fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
     galley.size().x + 250.0
@@ -165,6 +213,7 @@ impl CryptoApp {
       .get(&egui::TextStyle::Button)
       .unwrap()
       .clone();
+
     let galley =
       ui.fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
     galley.size().x + 250.0
@@ -174,10 +223,10 @@ impl CryptoApp {
     Frame::group(ui.style()).show(ui, |ui| {
       ui.vertical(|ui| {
         ComboBox::from_label("Derivation Path")
-          .selected_text(self.derivation_path.to_string())
+          .selected_text(self.bip.to_string())
           .show_ui(ui, |ui| {
-            ui.selectable_value(&mut self.derivation_path, 32, "32");
-            ui.selectable_value(&mut self.derivation_path, 44, "44");
+            ui.selectable_value(&mut self.bip, 32, "32");
+            ui.selectable_value(&mut self.bip, 44, "44");
           });
 
         let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
@@ -371,64 +420,64 @@ impl CryptoApp {
       
       if self.address_data.len() < self.max_rows {
         if ui.button(button_descriptions[0]).clicked() {
-          // let next_index = self.address_data.back().map_or(0, |r| r.index + 1);
 
-          // 1. Detect source
+          // 1. OK Detect source
           let entropy_source = self.get_entropy_source();
           println!("Entropy source: {entropy_source}");
           
-          // 2. Generate seed
-          let (entropy, mnemonic_words, seed) = keys::generate_seed(&entropy_source, None, None, None);
-          println!("Entropy: {}", entropy);
-          println!("Mnemonic words: {}", mnemonic_words);
-          println!("Seed: {}", seed);
+          // 2. OK Generate seed
+          let seed = match keys::generate_seed(&entropy_source, None, None, None) {
+            Ok(values) => values,
+            Err(err) => {
+              return Err(AppError::Custom(format!("Problem with generating seed: {}", err)));
+            }
+          };
           
           // 3. Generate master keys
-          let (master_private_bytes, master_public_bytes, master_chain_code_bytes) = match keys::generate_master_keys_secp256k1(&seed, None, None) {
-            Ok(value) => value,
+          let master_keys = match keys::generate_master_keys_secp256k1(&seed.seed, None, None) {
+            Ok(values) => values,
             Err(err) => {
               return Err(AppError::Custom(format!("Problem with generating master keys: {}", err)));
             }
           };
 
-          println!("Master private keys bytes: {:?}", master_private_bytes);
-          let master_private_key_encoded = bs58::encode(&master_private_bytes).into_string();
-          println!("Master private keys: {:?}", master_private_key_encoded);
+          println!("Master private keys: {:?}", master_keys.master_private_key_encoded);
+          println!("Master private keys bytes: {:?}", master_keys.master_private_key_bytes);
+          println!("Master public keys: {:?}", master_keys.master_public_key_encoded);
+          println!("Master public keys bytes: {:?}", master_keys.master_public_key_bytes);
 
-          println!("Master public keys bytes: {:?}", master_public_bytes);
-          let master_public_key_encoded = bs58::encode(&master_public_bytes).into_string();
-          println!("Master public keys: {:?}", master_public_key_encoded);
-
-          // 4. Detect DP
-          let derivation_path = self.get_derivation_path();
-          println!("Derivation path: {derivation_path}");
+          // 4. Detect BIP
+          let bip = self.get_bip();
+          println!("BIP: {bip:?}");
           
           // TODO: Get coin index
           let resource_path = std::path::Path::new("coin").join("ECDB.csv");
           let resource_path_str = resource_path.to_str().unwrap_or_default();
-          let my_public = e_q::get_file_from_resources(resource_path_str);
-          // let brain_batch = Arc::new(Mutex::new(BrainBatch::new(BatchConfig::from_speed(1.0))));
+          let ecdb_file = e_q::get_file_from_resources(resource_path_str);
 
-          if let Ok(file) = my_public {
+          if let Ok(file) = ecdb_file {
             let reader = std::io::BufReader::new(file.contents());
+
+            let mut next_index = 0;
 
             for line in reader.lines() {
               let line = line.unwrap_or("0".to_string());
               let columns: Vec<&str> = line.split(',').collect();
-
+              
               if columns.len() > 1 && columns[0] == "1" {
+                next_index += 1;
                 let active_coin_index = columns[1].parse().unwrap_or(0);
 
-                let derivation_path = match derivation_path {
+                let derivation_path = match bip {
                   32 => String::from("m/0'/0'/0'"),
                   _ => format!("m/44'/{}'/0'/0/0'", active_coin_index),
                 };
 
-                let magic_ingredients = keys::AddressHocusPokus {
+                let magic_ingredients = AddressData {
                   coin_index: active_coin_index,
                   derivation_path: derivation_path.clone(),
-                  master_private_key_bytes: master_private_bytes.clone(),
-                  master_chain_code_bytes: master_chain_code_bytes.to_vec(),
+                  master_private_key_bytes: master_keys.master_private_key_bytes.clone(),
+                  master_chain_code_bytes: master_keys.master_chain_code_bytes.clone(),
                   public_key_hash: columns[8].parse().unwrap_or("".to_string()),
                   key_derivation: columns[4].parse().unwrap_or("".to_string()),
                   wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
@@ -437,7 +486,7 @@ impl CryptoApp {
 
                 if let Ok(Some(address)) = keys::generate_address(magic_ingredients) {
                   self.address_data.push_back(AddressTable {
-                    index: columns[1].parse().unwrap_or(0),
+                    index: next_index,
                     coin: columns[3].into(),
                     path: derivation_path.into(),
                     address: address.address.into(),
@@ -471,13 +520,13 @@ impl CryptoApp {
     self.entropy_source.clone()
   }
 
-  fn get_derivation_path(&mut self) -> u32 {
-    self.derivation_path.clone()
+  fn get_bip(&mut self) -> u32 {
+    self.bip.clone()
   }
 
 }
 
-impl eframe::App for CryptoApp {
+impl eframe::App for CryptoWallet {
   fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     match self.gui_settings.theme.as_str() {
       "Dark" => {
@@ -526,76 +575,6 @@ impl eframe::App for CryptoApp {
   }
 }
 
-#[derive(Debug, Clone)]
-struct GuiSettings {
-  theme: String,
-  _language: String,
-  zoom_factor: f32,
-}
-
-impl GuiSettings {
-  fn new() -> Self {
-    GuiSettings {
-      theme: "System".to_string(),
-      _language: "English".to_string(),
-      zoom_factor: 1.0,
-    }
-  }
-}
-
-#[derive(Debug, Clone)]
-struct AddressTable {
-  index: u32,
-  coin: String,
-  path: String,
-  address: String,
-  public_key: String,
-  private_key: String,
-}
-
-#[derive(Clone, Debug)]
-struct WalletSettings {
-  entropy_string: Option<String>,
-  entropy_checksum: Option<String>,
-  mnemonic_words: Option<String>,
-  mnemonic_passphrase: Option<String>,
-  seed: Option<String>,
-  master_private_key: Option<String>,
-  master_public_key: Option<String>,
-  master_private_key_bytes: Option<Vec<u8>>,
-  master_chain_code_bytes: Option<Vec<u8>>,
-  master_public_key_bytes: Option<Vec<u8>>,
-  coin_index: Option<u32>,
-  coin_name: Option<String>,
-  wallet_import_format: Option<String>,
-  public_key_hash: Option<String>,
-  key_derivation: Option<String>,
-  hash: Option<String>,
-}
-
-impl WalletSettings {
-  fn new() -> Self {
-    Self {
-      entropy_string: None,
-      entropy_checksum: None,
-      mnemonic_words: None,
-      mnemonic_passphrase: None,
-      seed: None,
-      master_private_key: None,
-      master_public_key: None,
-      master_private_key_bytes: None,
-      master_chain_code_bytes: None,
-      master_public_key_bytes: None,
-      coin_index: None,
-      coin_name: None,
-      wallet_import_format: None,
-      public_key_hash: None,
-      key_derivation: None,
-      hash: None,
-    }
-  }
-}
-
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
 
 fn main() -> Result<(), eframe::Error> {
@@ -609,6 +588,6 @@ fn main() -> Result<(), eframe::Error> {
   eframe::run_native(
     "eQ",
     options,
-    Box::new(|_cc| Ok(Box::new(CryptoApp::new()))),
+    Box::new(|_cc| Ok(Box::new(CryptoWallet::new()))),
   )
 }
