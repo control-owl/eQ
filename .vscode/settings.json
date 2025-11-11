@@ -13,5 +13,6 @@
         "spanish",
         "sysinfo",
         "wordlists"
-    ]
+    ],
+    "editor.formatOnSave": true
 }

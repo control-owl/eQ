@@ -5,17 +5,18 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
 use eframe::egui;
-use egui::{ComboBox, Frame, Theme, Visuals};
+use egui::{ComboBox, Frame, Visuals};
 use egui_extras::{Column, TableBuilder};
 use std::collections::VecDeque;
 use std::io::BufRead;
 
 mod keys;
+mod test_vectors;
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
 pub type FunctionOutput<T> = Result<T, AppError>;
 
@@ -55,11 +56,11 @@ pub fn d3bug(message: &str, msg_type: &str) {
   }
 }
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
 const GUI_MARGIN: usize = 10;
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
 #[derive(Debug, Clone, Default)]
 pub struct SeedData {
@@ -107,6 +108,8 @@ struct GuiSettings {
   theme: String,
   _language: String,
   zoom_factor: f32,
+  reversed: bool,
+  active_sort_column: Option<u32>,
 }
 
 impl GuiSettings {
@@ -115,6 +118,8 @@ impl GuiSettings {
       theme: "System".to_string(),
       _language: "English".to_string(),
       zoom_factor: 1.0,
+      reversed: false,
+      active_sort_column: None,
     }
   }
 }
@@ -152,8 +157,8 @@ impl CryptoWallet {
       .unwrap()
       .clone();
 
-    let galley =
-      ui.fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
+    let galley = ui
+      .fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
     galley.size().x + 250.0
   }
 
@@ -214,8 +219,8 @@ impl CryptoWallet {
       .unwrap()
       .clone();
 
-    let galley =
-      ui.fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
+    let galley = ui
+      .fonts_mut(|font| font.layout_no_wrap(text.into(), font_id, ui.style().visuals.text_color()));
     galley.size().x + 250.0
   }
 
@@ -348,6 +353,40 @@ impl CryptoWallet {
     let font = egui::FontId::monospace(12.0);
     let row_height = font.size + GUI_MARGIN as f32;
 
+    let mut sorted_data: Vec<_> = self.address_data.iter().cloned().collect();
+    let mut index_sorting = false;
+    let mut coin_sorting = false;
+
+    if self.gui_settings.reversed {
+      if let Some(column) = self.gui_settings.active_sort_column {
+        match column {
+          0 => index_sorting = true,
+          1 => coin_sorting = true,
+          _ => {}
+        }
+      }
+
+      if index_sorting {
+        sorted_data.sort_by_key(|address| std::cmp::Reverse(address.index));
+      } else if coin_sorting {
+        sorted_data.sort_by_key(|address| std::cmp::Reverse(address.coin.clone()));
+      }
+    } else {
+      if let Some(column) = self.gui_settings.active_sort_column {
+        match column {
+          0 => index_sorting = true,
+          1 => coin_sorting = true,
+          _ => {}
+        }
+      }
+
+      if index_sorting {
+        sorted_data.sort_by_key(|address| address.index);
+      } else if coin_sorting {
+        sorted_data.sort_by_key(|address| address.coin.clone());
+      }
+    }
+
     TableBuilder::new(ui)
       .striped(true)
       .resizable(true)
@@ -356,45 +395,97 @@ impl CryptoWallet {
       .min_scrolled_height(0.0)
       .max_scroll_height(available_height)
       .animate_scrolling(true)
-      .column(Column::auto()) // Index
-      .column(Column::remainder().at_least(100.0)) // Coin
-      .column(Column::remainder().at_least(100.0)) // Path
-      .column(Column::remainder().at_least(120.0)) // Address
-      .column(Column::remainder().at_least(120.0)) // Public Key
-      .column(Column::remainder().at_least(120.0)) // Private Key
+      .column(Column::auto())
+      .column(Column::remainder().at_least(100.0))
+      .column(Column::remainder().at_least(100.0))
+      .column(Column::remainder().at_least(120.0))
+      .column(Column::remainder().at_least(120.0))
+      .column(Column::remainder().at_least(120.0))
       .header(row_height, |mut header| {
-        for title in [
-          "Index",
-          "Coin Name",
-          "Path",
-          "Address",
-          "Public Key",
-          "Private Key",
-        ] {
-          header.col(|ui| {
-            ui.heading(title);
-          });
-        }
+        header.col(|ui| {
+          egui::Sides::new().show(
+            ui,
+            |ui| {
+              ui.strong("Index");
+            },
+            |ui| {
+              if ui
+                .button(if self.gui_settings.reversed {
+                  "⬆"
+                } else {
+                  "⬇"
+                })
+                .clicked()
+              {
+                self.gui_settings.reversed ^= true;
+                self.gui_settings.active_sort_column = Some(0);
+              }
+            },
+          );
+        });
+
+        header.col(|ui| {
+          egui::Sides::new().show(
+            ui,
+            |ui| {
+              ui.strong("Coin");
+            },
+            |ui| {
+              if ui
+                .button(if self.gui_settings.reversed {
+                  "⬆"
+                } else {
+                  "⬇"
+                })
+                .clicked()
+              {
+                self.gui_settings.reversed ^= true;
+                self.gui_settings.active_sort_column = Some(1);
+              }
+            },
+          );
+        });
+
+        header.col(|ui| {
+          ui.strong("Path");
+        });
+
+        header.col(|ui| {
+          ui.strong("Address");
+        });
+
+        header.col(|ui| {
+          ui.strong("Public Key");
+        });
+
+        header.col(|ui| {
+          ui.strong("Private Key");
+        });
       })
       .body(|body| {
-        body.rows(row_height, self.address_data.len(), |mut row| {
-          let address_row = &self.address_data[row.index()];
+        body.rows(row_height, sorted_data.len(), |mut row| {
+          let address_row = &sorted_data[row.index()];
 
           row.col(|ui| {
             ui.label(address_row.index.to_string());
           });
+
           row.col(|ui| {
             ui.label(&address_row.coin);
           });
+
           row.col(|ui| {
             ui.label(&address_row.path);
           });
+
           row.col(|ui| {
             ui.label(&address_row.address);
           });
+
           row.col(|ui| {
             ui.label(&address_row.public_key);
           });
+
           row.col(|ui| {
             ui.label(&address_row.private_key);
           });
@@ -408,64 +499,51 @@ impl CryptoWallet {
     ui.horizontal(|ui| {
       let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
       let color = ui.style().visuals.text_color();
-      let button_descriptions = [
-        "Generate Wallet",
-        "Delete Wallet",
-      ];
+      let button_descriptions = ["Generate Wallet", "Delete Wallet"];
 
       ui.add_space(GUI_MARGIN as f32);
 
-      let button_length = e_q::calculate_max_text_width(ui, &button_descriptions, font_id.clone(), color);
+      let button_length =
+        e_q::calculate_max_text_width(ui, &button_descriptions, font_id.clone(), color);
       ui.add_space((total_width / 2.0) - button_length - (4.0 * GUI_MARGIN as f32 / 2.0));
-      
+
       if self.address_data.len() < self.max_rows {
         if ui.button(button_descriptions[0]).clicked() {
-
-          // 1. OK Detect source
           let entropy_source = self.get_entropy_source();
-          println!("Entropy source: {entropy_source}");
-          
-          // 2. OK Generate seed
           let seed = match keys::generate_seed(&entropy_source, None, None, None) {
             Ok(values) => values,
             Err(err) => {
-              return Err(AppError::Custom(format!("Problem with generating seed: {}", err)));
+              return Err(AppError::Custom(format!(
+                "Problem with generating seed: {}",
+                err
+              )));
             }
           };
-          
-          // 3. Generate master keys
+
           let master_keys = match keys::generate_master_keys_secp256k1(&seed.seed, None, None) {
             Ok(values) => values,
             Err(err) => {
-              return Err(AppError::Custom(format!("Problem with generating master keys: {}", err)));
+              return Err(AppError::Custom(format!(
+                "Problem with generating master keys: {}",
+                err
+              )));
             }
           };
 
-          println!("Master private keys: {:?}", master_keys.master_private_key_encoded);
-          println!("Master private keys bytes: {:?}", master_keys.master_private_key_bytes);
-          println!("Master public keys: {:?}", master_keys.master_public_key_encoded);
-          println!("Master public keys bytes: {:?}", master_keys.master_public_key_bytes);
-
-          // 4. Detect BIP
           let bip = self.get_bip();
-          println!("BIP: {bip:?}");
-          
-          // TODO: Get coin index
           let resource_path = std::path::Path::new("coin").join("ECDB.csv");
           let resource_path_str = resource_path.to_str().unwrap_or_default();
           let ecdb_file = e_q::get_file_from_resources(resource_path_str);
 
           if let Ok(file) = ecdb_file {
             let reader = std::io::BufReader::new(file.contents());
-
             let mut next_index = 0;
 
             for line in reader.lines() {
               let line = line.unwrap_or("0".to_string());
               let columns: Vec<&str> = line.split(',').collect();
-              
+
               if columns.len() > 1 && columns[0] == "1" {
-                next_index += 1;
                 let active_coin_index = columns[1].parse().unwrap_or(0);
 
                 let derivation_path = match bip {
@@ -488,12 +566,14 @@ impl CryptoWallet {
                   self.address_data.push_back(AddressTable {
                     index: next_index,
                     coin: columns[3].into(),
-                    path: derivation_path.into(),
-                    address: address.address.into(),
-                    public_key: address.public_key.into(),
-                    private_key: address.private_key.into(),
+                    path: derivation_path,
+                    address: address.address,
+                    public_key: address.public_key,
+                    private_key: address.private_key,
                   });
                 }
+
+                next_index += 1;
               }
             }
           }
@@ -508,12 +588,11 @@ impl CryptoWallet {
         self.address_data.clear();
         Ok(())
       } else {
-        return Err(AppError::Custom("Can not clear address_data".to_string()))
+        Err(AppError::Custom("Can not clear address_data".to_string()))
       }
     });
-    
-    Ok(())
 
+    Ok(())
   }
 
   fn get_entropy_source(&mut self) -> String {
@@ -521,9 +600,8 @@ impl CryptoWallet {
   }
 
   fn get_bip(&mut self) -> u32 {
-    self.bip.clone()
+    self.bip
   }
-
 }
 
 impl eframe::App for CryptoWallet {
@@ -537,15 +615,15 @@ impl eframe::App for CryptoWallet {
       }
       _ => {
         // TODO: Not working, system_theme always returns 'None'
-        let system_theme = ctx.input(|i| i.raw.system_theme);
-        match system_theme {
-          Some(Theme::Dark) => ctx.set_visuals(Visuals::dark()),
-          Some(Theme::Light) => ctx.set_visuals(Visuals::light()),
-          None => {
-            // eprintln!("System theme detection failed, using Light fallback");
-            ctx.set_visuals(Visuals::light());
-          }
-        }
+        // let system_theme = ctx.input(|i| i.raw.system_theme);
+        // match system_theme {
+        //   Some(Theme::Dark) => ctx.set_visuals(Visuals::dark()),
+        //   Some(Theme::Light) => ctx.set_visuals(Visuals::light()),
+        //   None => {
+        // eprintln!("System theme detection failed, using Light fallback");
+        ctx.set_visuals(Visuals::light());
+        //   }
+        // }
       }
     }
 
@@ -563,11 +641,13 @@ impl eframe::App for CryptoWallet {
 
     egui::CentralPanel::default().show(ctx, |ui| {
       egui::ScrollArea::horizontal()
-      .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-      .show(ui, |ui| {
+        .scroll_bar_visibility(
+          egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+        )
+        .show(ui, |ui| {
           ui.set_height(ui.available_height());
           self.render_wallet_table(ui);
-      });
+        });
     });
 
     // TODO: Reduce refresh by heavy writes, check if this is working
@@ -575,7 +655,7 @@ impl eframe::App for CryptoWallet {
   }
 }
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−·· 
+// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
 fn main() -> Result<(), eframe::Error> {
   let options = eframe::NativeOptions {

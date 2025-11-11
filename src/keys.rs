@@ -3,13 +3,12 @@
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-use getrandom;
+use num_bigint::BigUint;
 use ring::pbkdf2;
 use sha2::{Digest, Sha256, Sha512};
 use sha3::Keccak256;
-use num_bigint::BigUint;
 
-use crate::{AppError, FunctionOutput, d3bug, SeedData, MasterKeyData, AddressData};
+use crate::{AddressData, AppError, FunctionOutput, MasterKeyData, SeedData, d3bug};
 
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 
@@ -47,22 +46,31 @@ pub fn generate_seed(
   let pre_entropy = generate_pre_entropy(source, entropy_length);
   let checksum = e_q::calculate_checksum_for_entropy(&pre_entropy);
   let full_entropy = format!("{}{}", &pre_entropy, &checksum);
-  let mnemonic_words = generate_mnemonic_words(&full_entropy, dictionary);
+  let mnemonic_words = match generate_mnemonic_words(&full_entropy, dictionary) {
+    Ok(words) => words,
+    Err(err) => {
+      return Err(AppError::Custom(format!(
+        "Problem with generating mnemonic words: {}",
+        err
+      )));
+    }
+  };
+
   let password = passphrase_text.unwrap_or("");
   let salt = format!("mnemonic{password}");
   let mut seed = [0u8; 64];
-  
+
   // TODO: Create support for QRNG, File
   pbkdf2::derive(
     pbkdf2::PBKDF2_HMAC_SHA512,
     std::num::NonZeroU32::new(2048).unwrap(),
     salt.as_bytes(),
-    &mnemonic_words.as_bytes(),
+    mnemonic_words.as_bytes(),
     &mut seed,
   );
 
   let seed_hex = hex::encode(&seed[..]);
-  
+
   d3bug(&format!("pre_entropy {pre_entropy:?}"), "debug");
   d3bug(&format!("checksum {checksum:?}"), "debug");
   d3bug(&format!("full_entropy {full_entropy:?}"), "debug");
@@ -83,21 +91,20 @@ pub fn generate_seed(
 pub fn generate_pre_entropy(_source: &str, entropy_length: Option<usize>) -> String {
   let entropy_length = entropy_length.unwrap_or(256);
 
-  let bytes_needed = (entropy_length + 7) / 8;
+  let bytes_needed = entropy_length.div_ceil(8);
   let mut buffer = vec![0u8; bytes_needed];
 
   let _ = getrandom::fill(&mut buffer);
 
   let mut result = String::with_capacity(entropy_length);
-    for byte in buffer {
-      for bit in 0..8 {
-        if result.len() == entropy_length {
+  for byte in buffer {
+    for bit in 0..8 {
+      if result.len() == entropy_length {
         break;
       }
 
       let bit_val = (byte >> bit) & 1;
       result.push(if bit_val == 1 { '1' } else { '0' });
-
     }
   }
 
@@ -107,7 +114,7 @@ pub fn generate_pre_entropy(_source: &str, entropy_length: Option<usize>) -> Str
 pub fn generate_mnemonic_words(
   final_entropy_binary: &str,
   dictionary: Option<&str>,
-) -> String {
+) -> FunctionOutput<String> {
   let chunks: Vec<String> = final_entropy_binary
     .chars()
     .collect::<Vec<char>>()
@@ -147,9 +154,7 @@ pub fn generate_mnemonic_words(
     })
     .collect();
 
-  let mnemonic_words_as_string = mnemonic_words_vector.join(" ");
-
-  mnemonic_words_as_string
+  Ok(mnemonic_words_vector.join(" "))
 }
 
 pub fn generate_master_keys_secp256k1(
@@ -159,38 +164,39 @@ pub fn generate_master_keys_secp256k1(
 ) -> FunctionOutput<MasterKeyData> {
   d3bug("<<< generate_master_keys_secp256k1", "debug");
   d3bug(&format!("seed {seed:?}"), "debug");
-  
-  let private_header = match private_header {
-    Some(value) => value,
-    None => "0x0488ADE4",
-  };
 
-  let public_header = match public_header {
-    Some(value) => value,
-    None => "0x0488B21E",
-  };
-
+  let private_header = private_header.unwrap_or("0x0488ADE4");
+  let public_header = public_header.unwrap_or("0x0488B21E");
   d3bug(&format!("private_header {private_header:?}"), "debug");
   d3bug(&format!("public_header {public_header:?}"), "debug");
 
   let private_header = match u32::from_str_radix(private_header.trim_start_matches("0x"), 16) {
     Ok(value) => value,
     Err(err) => {
-      return Err(AppError::Custom(format!("Problem with parsing private_header: {}", err)));
+      return Err(AppError::Custom(format!(
+        "Problem with parsing private_header: {}",
+        err
+      )));
     }
   };
 
   let public_header = match u32::from_str_radix(public_header.trim_start_matches("0x"), 16) {
     Ok(value) => value,
     Err(err) => {
-      return Err(AppError::Custom(format!("Problem with parsing public_header: {}", err)));
+      return Err(AppError::Custom(format!(
+        "Problem with parsing public_header: {}",
+        err
+      )));
     }
   };
 
   let seed_bytes = match hex::decode(seed) {
     Ok(value) => value,
     Err(err) => {
-      return Err(AppError::Custom(format!("Problem with decoding seed_bytes: {}", err)));
+      return Err(AppError::Custom(format!(
+        "Problem with decoding seed_bytes: {}",
+        err
+      )));
     }
   };
 
@@ -241,22 +247,35 @@ pub fn generate_master_keys_secp256k1(
   let master_public_key_encoded = bs58::encode(&master_public_key).into_string();
   let master_chain_code_bytes: [u8; 32] = master_chain_code_bytes.try_into().unwrap();
   let master_private_key_bytes: [u8; 32] = master_private_key_bytes.try_into().unwrap();
-  
-  d3bug(&format!("master_private_key_encoded {master_private_key_encoded:?}"), "debug");
-  d3bug(&format!("master_private_key_bytes {master_private_key_bytes:?}"), "debug");
-  d3bug(&format!("master_public_key_encoded {master_public_key_encoded:?}"), "debug");
-  d3bug(&format!("master_public_key_bytes {master_public_key_bytes:?}"), "debug");
-  d3bug(&format!("master_chain_code_bytes {master_chain_code_bytes:?}"), "debug");
+
+  d3bug(
+    &format!("master_private_key_encoded {master_private_key_encoded:?}"),
+    "debug",
+  );
+  d3bug(
+    &format!("master_private_key_bytes {master_private_key_bytes:?}"),
+    "debug",
+  );
+  d3bug(
+    &format!("master_public_key_encoded {master_public_key_encoded:?}"),
+    "debug",
+  );
+  d3bug(
+    &format!("master_public_key_bytes {master_public_key_bytes:?}"),
+    "debug",
+  );
+  d3bug(
+    &format!("master_chain_code_bytes {master_chain_code_bytes:?}"),
+    "debug",
+  );
 
   Ok(MasterKeyData {
-    master_private_key_encoded: master_private_key_encoded,
+    master_private_key_encoded,
     master_private_key_bytes: master_private_key_bytes.to_vec(),
-    master_public_key_encoded: master_public_key_encoded,
+    master_public_key_encoded,
     master_public_key_bytes: master_public_key_bytes.to_vec(),
     master_chain_code_bytes: master_chain_code_bytes.to_vec(),
   })
-
-
 }
 
 fn calculate_hmac_sha512_hash(key: &[u8], data: &[u8]) -> Vec<u8> {
@@ -369,13 +388,13 @@ fn generate_public_key(
 
       Ok(CryptoPublicKey::Secp256k1(secp_pub_key))
     }
-//     #[cfg(feature = "dev")]
-//     "ed25519" => {
-//       let sign_key = ed25519_dalek::SigningKey::from_bytes(&derived_child_keys.0);
-//       let pub_key = sign_key.verifying_key();
-// 
-//       Ok(CryptoPublicKey::Ed25519(pub_key))
-//     }
+    //     #[cfg(feature = "dev")]
+    //     "ed25519" => {
+    //       let sign_key = ed25519_dalek::SigningKey::from_bytes(&derived_child_keys.0);
+    //       let pub_key = sign_key.verifying_key();
+    //
+    //       Ok(CryptoPublicKey::Ed25519(pub_key))
+    //     }
     _ => Err(AppError::Custom(format!(
       "Unsupported key derivation method: {}",
       ingredients.key_derivation
@@ -401,9 +420,8 @@ fn encode_public_key(
         } else {
           Ok(format!("0x{}", hex::encode(serialized)))
         }
-      }
-      // #[cfg(feature = "dev")]
-      // _ => Ok(String::new()),
+      } // #[cfg(feature = "dev")]
+        // _ => Ok(String::new()),
     },
     // #[cfg(feature = "dev")]
     // "ed25519" => match public_key {
@@ -837,4 +855,28 @@ fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Vec<u8>> {
   };
 
   Ok(public_key_bytes)
+}
+
+pub fn _generate_seed_from_mnemonic(mnemonic: &str, passphrase: &str) -> FunctionOutput<[u8; 64]> {
+  let salt = format!("mnemonic{passphrase}");
+  let mut seed = [0u8; 64];
+  ring::pbkdf2::derive(
+    ring::pbkdf2::PBKDF2_HMAC_SHA512,
+    std::num::NonZeroU32::new(2048).unwrap(),
+    salt.as_bytes(),
+    mnemonic.as_bytes(),
+    &mut seed,
+  );
+
+  Ok(seed)
+}
+
+pub fn _convert_seed_to_mnemonic(seed: &[u8]) -> FunctionOutput<String> {
+  let mut hex = String::with_capacity(128);
+
+  for byte in seed.iter() {
+    hex.push_str(&format!("{byte:02x}"));
+  }
+
+  Ok(hex)
 }
