@@ -18,6 +18,11 @@ mod test_vectors;
 
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
+const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
+const APP_DESCRIPTION: Option<&str> = option_env!("CARGO_PKG_DESCRIPTION");
+const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+const _APP_AUTHOR: Option<&str> = option_env!("CARGO_PKG_AUTHORS");
+
 pub type FunctionOutput<T> = Result<T, AppError>;
 
 #[derive(Debug)]
@@ -108,7 +113,7 @@ struct GuiSettings {
   theme: String,
   _language: String,
   zoom_factor: f32,
-  reversed: bool,
+  reversed_sorting: bool,
   active_sort_column: Option<u32>,
 }
 
@@ -118,7 +123,7 @@ impl GuiSettings {
       theme: "System".to_string(),
       _language: "English".to_string(),
       zoom_factor: 1.0,
-      reversed: false,
+      reversed_sorting: false,
       active_sort_column: None,
     }
   }
@@ -169,7 +174,11 @@ impl CryptoWallet {
           .selected_text(&self.entropy_source)
           .show_ui(ui, |ui| {
             ui.selectable_value(&mut self.entropy_source, "RNG".to_string(), "RNG");
+
+            #[cfg(feature = "dev")]
             ui.selectable_value(&mut self.entropy_source, "QRNG".to_string(), "QRNG");
+
+            #[cfg(feature = "dev")]
             ui.selectable_value(&mut self.entropy_source, "File".to_string(), "File");
           });
 
@@ -177,7 +186,9 @@ impl CryptoWallet {
         let color = ui.style().visuals.text_color();
         let descriptions = [
           " Uses your device's built-in random number generator.",
+          #[cfg(feature = "dev")]
           " Uses quantum processes to create highly unpredictable numbers.",
+          #[cfg(feature = "dev")]
           " Uses the content of a file you provide as a source of randomness.",
         ];
 
@@ -193,12 +204,14 @@ impl CryptoWallet {
               ui.label(descriptions[0]);
             });
 
+            #[cfg(feature = "dev")]
             ui.horizontal_wrapped(|ui| {
               ui.spacing_mut().item_spacing.x = 0.0;
               ui.code("QRNG:");
               ui.label(descriptions[1]);
             });
 
+            #[cfg(feature = "dev")]
             ui.horizontal_wrapped(|ui| {
               ui.spacing_mut().item_spacing.x = 0.0;
               ui.code("File:");
@@ -320,6 +333,23 @@ impl CryptoWallet {
         //   self.gui_settings.theme = "System".to_string();
         // }
       });
+
+      ui.menu_button("Help", |ui| {
+        if ui.button("About").clicked() {
+          // TODO: Create about window
+        }
+
+        if ui.button("Version").clicked() {
+          // TODO: Create version window
+        }
+
+        // TODO: Detecting system theme not working
+        // ui.separator();
+        //
+        // if ui.button("System").clicked() {
+        //   self.gui_settings.theme = "System".to_string();
+        // }
+      });
     });
 
     ui.vertical_centered(|ui| {
@@ -357,7 +387,7 @@ impl CryptoWallet {
     let mut index_sorting = false;
     let mut coin_sorting = false;
 
-    if self.gui_settings.reversed {
+    if self.gui_settings.reversed_sorting {
       if let Some(column) = self.gui_settings.active_sort_column {
         match column {
           0 => index_sorting = true,
@@ -410,14 +440,14 @@ impl CryptoWallet {
             },
             |ui| {
               if ui
-                .button(if self.gui_settings.reversed {
+                .button(if self.gui_settings.reversed_sorting {
                   "⬆"
                 } else {
                   "⬇"
                 })
                 .clicked()
               {
-                self.gui_settings.reversed ^= true;
+                self.gui_settings.reversed_sorting ^= true;
                 self.gui_settings.active_sort_column = Some(0);
               }
             },
@@ -432,14 +462,14 @@ impl CryptoWallet {
             },
             |ui| {
               if ui
-                .button(if self.gui_settings.reversed {
+                .button(if self.gui_settings.reversed_sorting {
                   "⬆"
                 } else {
                   "⬇"
                 })
                 .clicked()
               {
-                self.gui_settings.reversed ^= true;
+                self.gui_settings.reversed_sorting ^= true;
                 self.gui_settings.active_sort_column = Some(1);
               }
             },
@@ -657,17 +687,80 @@ impl eframe::App for CryptoWallet {
 
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
-fn main() -> Result<(), eframe::Error> {
+fn set_app_icon() -> FunctionOutput<egui::IconData> {
+  let resource_path = std::path::Path::new("logo").join("logo.png");
+  let resource_path_str = resource_path.to_str().unwrap_or_default();
+
+  let icon_file = match e_q::get_file_from_resources(resource_path_str) {
+    Ok(file) => file,
+    Err(err) => {
+      return Err(AppError::Custom(format!(
+        "Problem with finding app logo file: {}",
+        err
+      )));
+    }
+  };
+
+  let app_icon = match eframe::icon_data::from_png_bytes(&icon_file.contents()) {
+    Ok(icon) => icon,
+    Err(err) => {
+      return Err(AppError::Custom(format!(
+        "Problem with reading app logo icon: {}",
+        err
+      )));
+    }
+  };
+
+  Ok(app_icon)
+}
+
+fn set_app_title() -> FunctionOutput<String> {
+  let feature = e_q::get_active_app_feature();
+
+  let title = format!(
+    "{} - {} {} ({})",
+    APP_NAME.unwrap_or("eQ"),
+    APP_DESCRIPTION.unwrap_or_default(),
+    APP_VERSION.unwrap_or_default(),
+    feature
+  );
+
+  Ok(title)
+}
+
+fn main() -> FunctionOutput<Result<(), eframe::Error>> {
+  let app_icon = match set_app_icon() {
+    Ok(icon) => icon,
+    Err(err) => {
+      return Err(AppError::Custom(format!(
+        "Problem with setting app logo icon: {}",
+        err
+      )));
+    }
+  };
+
+  let app_title = match set_app_title() {
+    Ok(title) => title,
+    Err(err) => {
+      return Err(AppError::Custom(format!(
+        "Problem with setting app title: {}",
+        err
+      )));
+    }
+  };
+
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
       .with_inner_size([800.0, 600.0])
+      .with_icon(app_icon)
+      .with_app_id("eQ")
       .with_min_inner_size([220.0, 320.0]),
     ..Default::default()
   };
 
-  eframe::run_native(
-    "eQ",
+  Ok(eframe::run_native(
+    &app_title,
     options,
     Box::new(|_cc| Ok(Box::new(CryptoWallet::new()))),
-  )
+  ))
 }

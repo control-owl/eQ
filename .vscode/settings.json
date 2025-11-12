@@ -3,6 +3,7 @@
         "chinese",
         "czech",
         "Deque",
+        "ecdb",
         "eframe",
         "egui",
         "getrandom",
@@ -12,6 +13,7 @@
         "portuguese",
         "spanish",
         "sysinfo",
+        "winres",
         "wordlists"
     ],
     "editor.formatOnSave": true

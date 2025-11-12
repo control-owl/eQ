@@ -3,9 +3,9 @@
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-use sysinfo::{RefreshKind, System};
-use sha2::{Digest, Sha256, Sha512};
 use include_dir::{Dir, include_dir};
+use sha2::{Digest, Sha256, Sha512};
+use sysinfo::{RefreshKind, System};
 
 pub static RES_DIR: Dir<'_> = include_dir!("res");
 
@@ -38,7 +38,8 @@ pub fn calculate_max_text_width(
     texts
       .iter()
       .map(|text| {
-        font.layout_no_wrap(text.to_string(), font_id.clone(), color)
+        font
+          .layout_no_wrap(text.to_string(), font_id.clone(), color)
           .size()
           .x
       })
@@ -91,9 +92,7 @@ pub fn convert_binary_to_string(input_value: &[u8]) -> String {
 pub fn get_text_from_resources(file_name: &str) -> String {
   match RES_DIR.get_file(file_name) {
     Some(file) => match std::str::from_utf8(file.contents()) {
-      Ok(text) => {
-        text.to_string()
-      }
+      Ok(text) => text.to_string(),
       Err(err) => {
         eprintln!("Failed to read {file_name} as UTF-8: {err}");
         String::new()
@@ -188,4 +187,12 @@ pub fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
   let mut checksum = [0u8; 4];
   checksum.copy_from_slice(&double_hash[..4]);
   checksum
+}
+
+pub fn get_active_app_feature() -> &'static str {
+  if cfg!(feature = "dev") {
+    "dev"
+  } else {
+    "default"
+  }
 }

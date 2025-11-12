@@ -19,8 +19,8 @@ pub type AddressResult = Option<Address>;
 
 pub enum CryptoPublicKey {
   Secp256k1(secp256k1::PublicKey),
-  // #[cfg(feature = "dev")]
-  // Ed25519(ed25519_dalek::VerifyingKey),
+  #[cfg(feature = "dev")]
+  Ed25519(ed25519_dalek::VerifyingKey),
 }
 
 #[derive(Debug)]
@@ -89,6 +89,9 @@ pub fn generate_seed(
 }
 
 pub fn generate_pre_entropy(_source: &str, entropy_length: Option<usize>) -> String {
+  d3bug("<<< generate_pre_entropy", "debug");
+  d3bug(&format!("entropy_length {entropy_length:?}"), "debug");
+
   let entropy_length = entropy_length.unwrap_or(256);
 
   let bytes_needed = entropy_length.div_ceil(8);

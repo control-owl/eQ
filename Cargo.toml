@@ -1,6 +1,6 @@
 [package]
 name = "eQ"
-description = "eQ"
+description = "Crypto key generator"
 version = "1.0.0"
 authors = ["Control Owl <qr2m[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
@@ -32,6 +32,9 @@ num-bigint = "0.4.6"
 # System
 include_dir = "0.7.4"
 
+# Dev
+ed25519-dalek = { version = "2.2.0", optional = true }
+
 [lib]
 name = "e_q"
 path = "src/lib.rs"
@@ -53,4 +56,4 @@ path = "src/main.rs"
 
 [features]
 default = []
-dev = []
+dev = ["ed25519-dalek"]
