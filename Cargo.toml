@@ -11,9 +11,9 @@ build = "build.rs"
 
 [dependencies]
 # GUI
-egui = "0.33.0"
-eframe = "0.33.0"
-egui_extras = "0.33.0"
+egui = "0.33.2"
+eframe = "0.33.2"
+egui_extras = "0.33.2"
 
 # Memory
 sysinfo = "0.37.2"
@@ -45,7 +45,7 @@ winres = "0.1.12"
 [package.metadata.winres]
 OriginalFilename = "eQ.EXE"
 LegalCopyright = "CC-BY-NC-ND-4.0 (2023-2025) Control Owl"
-FileDescription = "eQ"
+FileDescription = "Crypto key generator"
 
 [package.metadata.excluded]
 exclude = ["build.rs"]
