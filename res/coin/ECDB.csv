@@ -117,7 +117,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 1,115,ECN,Ecoin,secp256k1,sha256,,,0x5c,0x14,0xdc,,,
 1,116,DNR,Denarius,secp256k1,sha256,,,0x1e,0x5a,0x9e,,,
 1,117,PINK,Pinkcoin,secp256k1,sha256,,,0x03,0x1c,0x83,,,
-1,118,ATOM,Cosmos,ed25519,,,,,,,,,100
+2,118,ATOM,Cosmos,ed25519,,,,,,,,,100
 1,119,PIVX,Pivx,secp256k1,sha256,0x0221312B,0x022D2533,0x1e,0x0d,0xd4,,,
 1,120,FLASH,Flashcoin,secp256k1,sha256,,,0x44,0x82,0xc4,,,
 1,121,ZEN,Horizen (Zencash),secp256k1,sha256,,,0x2089,0x2096,,,,
@@ -500,7 +500,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,498,CS,Credits,,,,,,,,,,
 1,499,RUPX,Rupaya,secp256k1,keccak256,,,,,,TRUE,,
 1,500,THETA,Theta,secp256k1,keccak256,,,,,,TRUE,,100
-0,501,SOL,Solana,ed25519,ed25519,,,,,,,,10
+2,501,SOL,Solana,ed25519,,,,,,,,,10
 1,502,THT,ThoughtAI,secp256k1,sha256,0x5AEBD8C6,0xFBC6A00D,0x07,0x09,0x7B,,,
 1,503,CFX,Conflux,secp256k1,keccak256,,,,,,TRUE,,100
 0,504,KUMA,Kumacoin,,,,,,,,,,

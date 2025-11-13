@@ -599,34 +599,76 @@ impl CryptoWallet {
               let line = line.unwrap_or("0".to_string());
               let columns: Vec<&str> = line.split(',').collect();
 
-              if columns.len() > 1 && columns[0] == "1" {
-                let active_coin_index = columns[1].parse().unwrap_or(0);
+              let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
 
+              if columns.len() > 1 && columns[0] == active_coins.to_string() {
+                let key_derivation = columns[4].parse().unwrap_or("".to_string());
+                let active_coin_index = columns[1].parse().unwrap_or(0);
                 let derivation_path = match bip {
                   32 => String::from("m/0'/0'/0'"),
                   _ => format!("m/44'/{}'/0'/0/0'", active_coin_index),
                 };
 
-                let magic_ingredients = AddressData {
-                  coin_index: active_coin_index,
-                  derivation_path: derivation_path.clone(),
-                  master_private_key_bytes: master_keys_secp256k1.master_private_key_bytes.clone(),
-                  master_chain_code_bytes: master_keys_secp256k1.master_chain_code_bytes.clone(),
-                  public_key_hash: columns[8].parse().unwrap_or("".to_string()),
-                  key_derivation: columns[4].parse().unwrap_or("".to_string()),
-                  wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
-                  hash: columns[5].parse().unwrap_or("".to_string()),
-                };
+                match key_derivation.as_str() {
+                  "secp256k1" => {
+                    let magic_ingredients = AddressData {
+                      coin_index: active_coin_index,
+                      derivation_path: derivation_path.clone(),
+                      master_private_key_bytes: master_keys_secp256k1
+                        .master_private_key_bytes
+                        .clone(),
+                      master_chain_code_bytes: master_keys_secp256k1
+                        .master_chain_code_bytes
+                        .clone(),
+                      public_key_hash: columns[8].parse().unwrap_or("".to_string()),
+                      key_derivation: columns[4].parse().unwrap_or("".to_string()),
+                      wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
+                      hash: columns[5].parse().unwrap_or("".to_string()),
+                    };
 
-                if let Ok(Some(address)) = keys::generate_address(magic_ingredients) {
-                  self.address_data.push_back(AddressTable {
-                    index: next_index,
-                    coin: columns[3].into(),
-                    path: derivation_path,
-                    address: address.address,
-                    public_key: address.public_key,
-                    private_key: address.private_key,
-                  });
+                    if let Ok(Some(address)) = keys::generate_secp256k1_address(magic_ingredients) {
+                      self.address_data.push_back(AddressTable {
+                        index: next_index,
+                        coin: columns[3].into(),
+                        path: derivation_path,
+                        address: address.address,
+                        public_key: address.public_key,
+                        private_key: address.private_key,
+                      });
+                    }
+                  }
+                  #[cfg(feature = "dev")]
+                  "ed25519" => {
+                    let magic_ingredients = AddressData {
+                      coin_index: active_coin_index,
+                      derivation_path: derivation_path.clone(),
+                      master_private_key_bytes: master_keys_ed25519
+                        .master_private_key_bytes
+                        .clone(),
+                      master_chain_code_bytes: master_keys_ed25519.master_chain_code_bytes.clone(),
+                      public_key_hash: columns[8].parse().unwrap_or("".to_string()),
+                      key_derivation: columns[4].parse().unwrap_or("".to_string()),
+                      wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
+                      hash: columns[5].parse().unwrap_or("".to_string()),
+                    };
+
+                    if let Ok(Some(address)) = dev::generate_ed25519_address(magic_ingredients) {
+                      self.address_data.push_back(AddressTable {
+                        index: next_index,
+                        coin: columns[3].into(),
+                        path: derivation_path,
+                        address: address.address,
+                        public_key: address.public_key,
+                        private_key: address.private_key,
+                      });
+                    }
+                  }
+                  _ => {
+                    return Err(AppError::Custom(format!(
+                      "Unsupported key derivation method: {}",
+                      key_derivation
+                    )));
+                  }
                 }
 
                 next_index += 1;

@@ -294,17 +294,17 @@ mod tests {
         vector.index,
         vector.hardened,
       ) {
-        Ok(Some((child_private_key_bytes, child_chain_code_bytes, child_public_key_bytes))) => {
+        Ok(child_keys) => {
           assert_eq!(
-            hex::encode(child_private_key_bytes),
+            hex::encode(child_keys.child_secret_key_bytes),
             vector.expected_child_private_key_bytes
           );
           assert_eq!(
-            hex::encode(child_chain_code_bytes),
+            hex::encode(child_keys.child_chain_code_bytes),
             vector.expected_child_chain_code_bytes
           );
           assert_eq!(
-            hex::encode(child_public_key_bytes),
+            hex::encode(child_keys.child_public_key_bytes),
             vector.expected_child_public_key_bytes
           );
         }

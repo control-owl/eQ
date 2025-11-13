@@ -12,7 +12,6 @@ use crate::{AddressData, AppError, FunctionOutput, MasterKeyData, SeedData, d3bu
 
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 
-pub type DerivationResult = Option<([u8; 32], [u8; 32], Vec<u8>)>;
 pub type AddressResult = Option<Address>;
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -29,6 +28,13 @@ pub struct Address {
   pub address: String,
   pub public_key: String,
   pub private_key: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ChildKeys {
+  pub child_secret_key_bytes: Vec<u8>,
+  pub child_chain_code_bytes: Vec<u8>,
+  pub child_public_key_bytes: Vec<u8>,
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -344,7 +350,7 @@ fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
   checksum
 }
 
-pub fn generate_address(ingredients: AddressData) -> FunctionOutput<AddressResult> {
+pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<AddressResult> {
   d3bug("<<< generate_address", "debug");
   d3bug(&format!("ingredients {ingredients:?}"), "debug");
 
@@ -356,18 +362,29 @@ pub fn generate_address(ingredients: AddressData) -> FunctionOutput<AddressResul
     Vec::new()
   };
 
-  let derived_child_keys = derive_child_keys(&ingredients)?;
-  let derived_child_keys = derived_child_keys.ok_or_else(|| {
-    AppError::Custom(format!(
-      "Key derivation returned no result for path: {}",
-      ingredients.derivation_path
-    ))
-  })?;
+  let derived_child_keys = match derive_child_keys(&ingredients) {
+    Ok(keys) => keys,
+    Err(err) => {
+      return Err(AppError::Custom(format!(
+        "Can not derive child keys: {}",
+        err
+      )));
+    }
+  };
 
-  let public_key = generate_public_key(&ingredients, &derived_child_keys)?;
+  let public_key = generate_public_key(&ingredients, derived_child_keys.clone())?;
   let public_key_encoded = encode_public_key(&ingredients, &public_key)?;
   let address = generate_address_internal(&ingredients, &public_key, &public_key_hash_vec)?;
-  let priv_key_wif = encode_private_key(&ingredients, &derived_child_keys.0)?;
+
+  let secret_key: [u8; 32] = match derived_child_keys.child_secret_key_bytes.try_into() {
+    Ok(key) => key,
+    Err(err) => {
+      return Err(AppError::Custom(
+        format!("Can not convert child private key: {:?}", err).to_string(),
+      ));
+    }
+  };
+  let priv_key_wif = encode_private_key(&ingredients, &secret_key)?;
 
   Ok(Some(Address {
     address,
@@ -376,7 +393,7 @@ pub fn generate_address(ingredients: AddressData) -> FunctionOutput<AddressResul
   }))
 }
 
-fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<DerivationResult> {
+fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<ChildKeys> {
   d3bug("<<< derive_child_keys", "debug");
   d3bug(&format!("ingredients {ingredients:?}"), "debug");
 
@@ -401,7 +418,7 @@ fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<DerivationResu
 
 fn generate_public_key(
   ingredients: &AddressData,
-  derived_child_keys: &([u8; 32], [u8; 32], Vec<u8>),
+  derived_child_keys: ChildKeys,
 ) -> FunctionOutput<CryptoPublicKey> {
   d3bug("<<< generate_public_key", "debug");
   d3bug(&format!("ingredients {ingredients:?}"), "debug");
@@ -413,7 +430,17 @@ fn generate_public_key(
   match ingredients.key_derivation.as_str() {
     "secp256k1" => {
       let secp = secp256k1::Secp256k1::new();
-      let secret_key = secp256k1::SecretKey::from_byte_array(derived_child_keys.0)
+
+      let child_secret_key: [u8; 32] = match derived_child_keys.child_secret_key_bytes.try_into() {
+        Ok(key) => key,
+        Err(err) => {
+          return Err(AppError::Custom(
+            format!("Can not convert child private key: {:?}", err).to_string(),
+          ));
+        }
+      };
+
+      let secret_key = secp256k1::SecretKey::from_byte_array(child_secret_key)
         .map_err(|err| AppError::Custom(format!("Invalid SecretKey: {err}")))?;
       let secp_pub_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
 
@@ -421,7 +448,15 @@ fn generate_public_key(
     }
     #[cfg(feature = "dev")]
     "ed25519" => {
-      let sign_key = ed25519_dalek::SigningKey::from_bytes(&derived_child_keys.0);
+      let child_secret_key: [u8; 32] = match derived_child_keys.child_secret_key_bytes.try_into() {
+        Ok(key) => key,
+        Err(err) => {
+          return Err(AppError::Custom(
+            format!("Can not convert child private key: {:?}", err).to_string(),
+          ));
+        }
+      };
+      let sign_key = ed25519_dalek::SigningKey::from_bytes(&child_secret_key);
       let pub_key = sign_key.verifying_key();
 
       Ok(CryptoPublicKey::Ed25519(pub_key))
@@ -606,7 +641,7 @@ pub fn derive_from_path_secp256k1(
   master_key: &[u8],
   master_chain_code: &[u8],
   path: &str,
-) -> FunctionOutput<DerivationResult> {
+) -> FunctionOutput<ChildKeys> {
   d3bug("<<< derive_from_path_secp256k1", "debug");
   d3bug(&format!("master_key {master_key:?}"), "debug");
   d3bug(&format!("master_chain_code {master_chain_code:?}"), "debug");
@@ -635,23 +670,19 @@ pub fn derive_from_path_secp256k1(
       }
     };
 
-    let derived = match derive_child_key_secp256k1(&private_key, &chain_code, index, hardened) {
-      Ok(Some(value)) => value,
-      Ok(None) => {
-        return Err(AppError::Custom(
-          "Problem with derivation result: value is None".to_string(),
-        ));
-      }
-      Err(err) => {
-        return Err(AppError::Custom(format!(
-          "Problem with deriving child keys: {err:?}"
-        )));
-      }
-    };
+    let derived_child_keys =
+      match derive_child_key_secp256k1(&private_key, &chain_code, index, hardened) {
+        Ok(keys) => keys,
+        Err(err) => {
+          return Err(AppError::Custom(format!(
+            "Problem with deriving child keys: {err:?}"
+          )));
+        }
+      };
 
-    private_key = derived.0.to_vec();
-    chain_code = derived.1.to_vec();
-    public_key = derived.2;
+    private_key = derived_child_keys.child_secret_key_bytes;
+    chain_code = derived_child_keys.child_chain_code_bytes;
+    public_key = derived_child_keys.child_public_key_bytes;
   }
 
   let array: [u8; 32] = private_key
@@ -674,11 +705,11 @@ pub fn derive_from_path_secp256k1(
   let mut public_key_array = [0u8; 33];
   public_key_array.copy_from_slice(&public_key);
 
-  Ok(Some((
-    secret_key.secret_bytes(),
-    chain_code_array,
-    public_key_array.to_vec(),
-  )))
+  Ok(ChildKeys {
+    child_secret_key_bytes: secret_key.secret_bytes().to_vec(),
+    child_chain_code_bytes: chain_code_array.to_vec(),
+    child_public_key_bytes: public_key_array.to_vec(),
+  })
 }
 
 pub fn generate_address_sha256(
@@ -835,7 +866,7 @@ pub fn derive_child_key_secp256k1(
   parent_chain_code: &[u8],
   index: u32,
   hardened: bool,
-) -> FunctionOutput<DerivationResult> {
+) -> FunctionOutput<ChildKeys> {
   d3bug("<<< derive_child_key_secp256k1", "debug");
   d3bug(&format!("parent_key {parent_key:?}"), "debug");
   d3bug(&format!("parent_chain_code {parent_chain_code:?}"), "debug");
@@ -907,24 +938,11 @@ pub fn derive_child_key_secp256k1(
   let child_pubkey = secp256k1::PublicKey::from_secret_key(&secp, &child_secret_key);
   let child_public_key_bytes = child_pubkey.serialize().to_vec();
 
-  // d3bug(
-  //   &format!("child_private_key_bytes {child_private_key_bytes:?}"),
-  //   "debug",
-  // );
-  // d3bug(
-  //   &format!("child_chain_code_bytes {child_chain_code_bytes:?}"),
-  //   "debug",
-  // );
-  // d3bug(
-  //   &format!("child_public_key_bytes {child_public_key_bytes:?}"),
-  //   "debug",
-  // );
-
-  Ok(Some((
-    child_secret_key_bytes,
-    child_chain_code_bytes,
-    child_public_key_bytes,
-  )))
+  Ok(ChildKeys {
+    child_secret_key_bytes: child_secret_key_bytes.to_vec(),
+    child_chain_code_bytes: child_chain_code_bytes.to_vec(),
+    child_public_key_bytes: child_public_key_bytes,
+  })
 }
 
 fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Vec<u8>> {
