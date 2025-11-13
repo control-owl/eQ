@@ -16,5 +16,6 @@
         "winres",
         "wordlists"
     ],
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "rust-analyzer.cargo.features": "all"
 }

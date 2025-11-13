@@ -17,6 +17,7 @@ pub type AddressResult = Option<Address>;
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
+#[derive(Debug)]
 pub enum CryptoPublicKey {
   Secp256k1(secp256k1::PublicKey),
   #[cfg(feature = "dev")]
@@ -118,6 +119,13 @@ pub fn generate_mnemonic_words(
   final_entropy_binary: &str,
   dictionary: Option<&str>,
 ) -> FunctionOutput<String> {
+  d3bug("<<< generate_mnemonic_words", "debug");
+  d3bug(
+    &format!("final_entropy_binary {final_entropy_binary:?}"),
+    "debug",
+  );
+  d3bug(&format!("dictionary {dictionary:?}"), "debug");
+
   let chunks: Vec<String> = final_entropy_binary
     .chars()
     .collect::<Vec<char>>()
@@ -282,6 +290,10 @@ pub fn generate_master_keys_secp256k1(
 }
 
 fn calculate_hmac_sha512_hash(key: &[u8], data: &[u8]) -> Vec<u8> {
+  d3bug("<<< calculate_hmac_sha512_hash", "debug");
+  d3bug(&format!("key {key:?}"), "debug");
+  d3bug(&format!("data {data:?}"), "debug");
+
   const BLOCK_SIZE: usize = 128;
   const HASH_SIZE: usize = 64;
 
@@ -322,6 +334,9 @@ fn calculate_hmac_sha512_hash(key: &[u8], data: &[u8]) -> Vec<u8> {
 }
 
 fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
+  d3bug("<<< calculate_checksum_for_master_keys", "debug");
+  d3bug(&format!("data {data:?}"), "debug");
+
   let hash = Sha256::digest(data);
   let double_hash = Sha256::digest(hash);
   let mut checksum = [0u8; 4];
@@ -330,6 +345,9 @@ fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
 }
 
 pub fn generate_address(ingredients: AddressData) -> FunctionOutput<AddressResult> {
+  d3bug("<<< generate_address", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+
   let public_key_hash_vec = if ingredients.key_derivation != "ed25519" {
     let trimmed = ingredients.public_key_hash.trim_start_matches("0x");
     hex::decode(trimmed)
@@ -359,18 +377,21 @@ pub fn generate_address(ingredients: AddressData) -> FunctionOutput<AddressResul
 }
 
 fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<DerivationResult> {
+  d3bug("<<< derive_child_keys", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+
   match ingredients.key_derivation.as_str() {
     "secp256k1" => derive_from_path_secp256k1(
       &ingredients.master_private_key_bytes,
       &ingredients.master_chain_code_bytes,
       &ingredients.derivation_path,
     ),
-    // #[cfg(feature = "dev")]
-    // "ed25519" => crate::dev::derive_from_path_ed25519(
-    //   &ingredients.master_private_key_bytes,
-    //   &ingredients.master_chain_code_bytes,
-    //   &ingredients.derivation_path,
-    // ),
+    #[cfg(feature = "dev")]
+    "ed25519" => crate::dev::derive_from_path_ed25519(
+      &ingredients.master_private_key_bytes,
+      &ingredients.master_chain_code_bytes,
+      &ingredients.derivation_path,
+    ),
     _ => Err(AppError::Custom(format!(
       "Unsupported key derivation method: {}",
       ingredients.key_derivation
@@ -382,6 +403,13 @@ fn generate_public_key(
   ingredients: &AddressData,
   derived_child_keys: &([u8; 32], [u8; 32], Vec<u8>),
 ) -> FunctionOutput<CryptoPublicKey> {
+  d3bug("<<< generate_public_key", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+  d3bug(
+    &format!("derived_child_keys {derived_child_keys:?}"),
+    "debug",
+  );
+
   match ingredients.key_derivation.as_str() {
     "secp256k1" => {
       let secp = secp256k1::Secp256k1::new();
@@ -391,13 +419,13 @@ fn generate_public_key(
 
       Ok(CryptoPublicKey::Secp256k1(secp_pub_key))
     }
-    //     #[cfg(feature = "dev")]
-    //     "ed25519" => {
-    //       let sign_key = ed25519_dalek::SigningKey::from_bytes(&derived_child_keys.0);
-    //       let pub_key = sign_key.verifying_key();
-    //
-    //       Ok(CryptoPublicKey::Ed25519(pub_key))
-    //     }
+    #[cfg(feature = "dev")]
+    "ed25519" => {
+      let sign_key = ed25519_dalek::SigningKey::from_bytes(&derived_child_keys.0);
+      let pub_key = sign_key.verifying_key();
+
+      Ok(CryptoPublicKey::Ed25519(pub_key))
+    }
     _ => Err(AppError::Custom(format!(
       "Unsupported key derivation method: {}",
       ingredients.key_derivation
@@ -409,11 +437,15 @@ fn encode_public_key(
   ingredients: &AddressData,
   public_key: &CryptoPublicKey,
 ) -> FunctionOutput<String> {
+  d3bug("<<< encode_public_key", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+
   match ingredients.hash.as_str() {
     "sha256" | "sha256+ripemd160" => match public_key {
       CryptoPublicKey::Secp256k1(pk) => Ok(hex::encode(pk.serialize())),
-      // #[cfg(feature = "dev")]
-      // _ => Ok(String::new()),
+      #[cfg(feature = "dev")]
+      _ => Ok(String::new()),
     },
     "keccak256" => match public_key {
       CryptoPublicKey::Secp256k1(pk) => {
@@ -423,14 +455,15 @@ fn encode_public_key(
         } else {
           Ok(format!("0x{}", hex::encode(serialized)))
         }
-      } // #[cfg(feature = "dev")]
-        // _ => Ok(String::new()),
+      }
+      #[cfg(feature = "dev")]
+      _ => Ok(String::new()),
     },
-    // #[cfg(feature = "dev")]
-    // "ed25519" => match public_key {
-    //   CryptoPublicKey::Ed25519(pk) => Ok(bs58::encode(pk.to_bytes()).into_string()),
-    //   _ => Ok(String::new()),
-    // },
+    #[cfg(feature = "dev")]
+    "ed25519" => match public_key {
+      CryptoPublicKey::Ed25519(pk) => Ok(bs58::encode(pk.to_bytes()).into_string()),
+      _ => Ok(String::new()),
+    },
     _ => Err(AppError::Custom(format!(
       "Unsupported hash method: {}",
       ingredients.hash
@@ -443,6 +476,14 @@ fn generate_address_internal(
   public_key: &CryptoPublicKey,
   public_key_hash_vec: &[u8],
 ) -> FunctionOutput<String> {
+  d3bug("<<< generate_address_internal", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+  d3bug(
+    &format!("public_key_hash_vec {public_key_hash_vec:?}"),
+    "debug",
+  );
+
   match ingredients.hash.as_str() {
     "sha256" => generate_address_sha256(public_key, public_key_hash_vec),
     "keccak256" => {
@@ -464,6 +505,10 @@ fn encode_private_key(
   ingredients: &AddressData,
   private_key_bytes: &[u8; 32],
 ) -> FunctionOutput<String> {
+  d3bug("<<< encode_private_key", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+  d3bug(&format!("private_key_bytes {private_key_bytes:?}"), "debug");
+
   if ingredients.key_derivation == "ed25519" {
     Ok(bs58::encode(private_key_bytes).into_string())
   } else {
@@ -488,6 +533,13 @@ pub fn create_private_key_for_address(
   hash: &str,
   coin_index: u32,
 ) -> FunctionOutput<String> {
+  d3bug("<<< create_private_key_for_address", "debug");
+  d3bug(&format!("private_key {private_key:?}"), "debug");
+  d3bug(&format!("compressed {compressed:?}"), "debug");
+  d3bug(&format!("wif {wif:?}"), "debug");
+  d3bug(&format!("hash {hash:?}"), "debug");
+  d3bug(&format!("coin_index {coin_index:?}"), "debug");
+
   let wallet_import_format = match wif {
     Some(w) => {
       if w.is_empty() {
@@ -555,6 +607,11 @@ pub fn derive_from_path_secp256k1(
   master_chain_code: &[u8],
   path: &str,
 ) -> FunctionOutput<DerivationResult> {
+  d3bug("<<< derive_from_path_secp256k1", "debug");
+  d3bug(&format!("master_key {master_key:?}"), "debug");
+  d3bug(&format!("master_chain_code {master_chain_code:?}"), "debug");
+  d3bug(&format!("path {path:?}"), "debug");
+
   let mut private_key = master_key.to_vec();
   let mut chain_code = master_chain_code.to_vec();
   let mut public_key = Vec::new();
@@ -628,6 +685,10 @@ pub fn generate_address_sha256(
   public_key: &CryptoPublicKey,
   public_key_hash: &[u8],
 ) -> FunctionOutput<String> {
+  d3bug("<<< generate_address_sha256", "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+  d3bug(&format!("public_key_hash {public_key_hash:?}"), "debug");
+
   let public_key_bytes = match get_public_key(public_key) {
     Ok(key) => key,
     Err(err) => return Err(AppError::Custom(format!("Can not get public key: {err:?}"))),
@@ -665,10 +726,15 @@ pub fn generate_address_keccak256(
   public_key_hash: &[u8],
   coin_index: u32,
 ) -> FunctionOutput<String> {
+  d3bug("<<< generate_address_keccak256", "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+  d3bug(&format!("public_key_hash {public_key_hash:?}"), "debug");
+  d3bug(&format!("coin_index {coin_index:?}"), "debug");
+
   let public_key_bytes = match public_key {
     CryptoPublicKey::Secp256k1(key) => key.serialize_uncompressed().to_vec(),
-    // #[cfg(feature = "dev")]
-    // CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
+    #[cfg(feature = "dev")]
+    CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
   };
 
   // #[cfg(debug_assertions)]
@@ -676,8 +742,8 @@ pub fn generate_address_keccak256(
 
   let public_key_slice = match public_key {
     CryptoPublicKey::Secp256k1(_) => &public_key_bytes[1..],
-    // #[cfg(feature = "dev")]
-    // CryptoPublicKey::Ed25519(_) => &public_key_bytes[..],
+    #[cfg(feature = "dev")]
+    CryptoPublicKey::Ed25519(_) => &public_key_bytes[..],
   };
 
   let mut keccak = Keccak256::new();
@@ -724,6 +790,11 @@ pub fn generate_sha256_ripemd160_address(
   public_key: &CryptoPublicKey,
   public_key_hash: &[u8],
 ) -> FunctionOutput<String> {
+  d3bug("<<< generate_sha256_ripemd160_address", "debug");
+  d3bug(&format!("coin_index {coin_index:?}"), "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+  d3bug(&format!("public_key_hash {public_key_hash:?}"), "debug");
+
   let public_key_bytes = match get_public_key(public_key) {
     Ok(key) => key,
     Err(err) => return Err(AppError::Custom(format!("Can not get public key: {err:?}"))),
@@ -765,6 +836,12 @@ pub fn derive_child_key_secp256k1(
   index: u32,
   hardened: bool,
 ) -> FunctionOutput<DerivationResult> {
+  d3bug("<<< derive_child_key_secp256k1", "debug");
+  d3bug(&format!("parent_key {parent_key:?}"), "debug");
+  d3bug(&format!("parent_chain_code {parent_chain_code:?}"), "debug");
+  d3bug(&format!("index {index:?}"), "debug");
+  d3bug(&format!("hardened {hardened:?}"), "debug");
+
   if index & 0x80000000 != 0 && !hardened {
     return Err(AppError::Custom(format!("Problem with index {index:?}")));
   }
@@ -851,16 +928,23 @@ pub fn derive_child_key_secp256k1(
 }
 
 fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Vec<u8>> {
+  d3bug("<<< get_public_key", "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+
   let public_key_bytes = match public_key {
     CryptoPublicKey::Secp256k1(key) => key.serialize().to_vec(),
-    // #[cfg(feature = "dev")]
-    // CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
+    #[cfg(feature = "dev")]
+    CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
   };
 
   Ok(public_key_bytes)
 }
 
 pub fn _generate_seed_from_mnemonic(mnemonic: &str, passphrase: &str) -> FunctionOutput<[u8; 64]> {
+  d3bug("<<< _generate_seed_from_mnemonic", "debug");
+  d3bug(&format!("mnemonic {mnemonic:?}"), "debug");
+  d3bug(&format!("passphrase {passphrase:?}"), "debug");
+
   let salt = format!("mnemonic{passphrase}");
   let mut seed = [0u8; 64];
   ring::pbkdf2::derive(
@@ -875,6 +959,9 @@ pub fn _generate_seed_from_mnemonic(mnemonic: &str, passphrase: &str) -> Functio
 }
 
 pub fn _convert_seed_to_mnemonic(seed: &[u8]) -> FunctionOutput<String> {
+  d3bug("<<< _convert_seed_to_mnemonic", "debug");
+  d3bug(&format!("seed {seed:?}"), "debug");
+
   let mut hex = String::with_capacity(128);
 
   for byte in seed.iter() {

@@ -16,6 +16,9 @@ use std::io::BufRead;
 mod keys;
 mod test_vectors;
 
+#[cfg(feature = "dev")]
+mod dev;
+
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
 const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
@@ -250,7 +253,7 @@ impl CryptoWallet {
         let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
         let color = ui.style().visuals.text_color();
         let descriptions = [
-          " Classic hierarchical wallet derivation.",
+          " Classic hierarchical wallet derivation. Only secp256k1 coins",
           " Structured derivation path used for multi-coin wallets.",
         ];
 
@@ -550,15 +553,38 @@ impl CryptoWallet {
             }
           };
 
-          let master_keys = match keys::generate_master_keys_secp256k1(&seed.seed, None, None) {
+          let master_keys_secp256k1 =
+            match keys::generate_master_keys_secp256k1(&seed.seed, None, None) {
+              Ok(values) => values,
+              Err(err) => {
+                return Err(AppError::Custom(format!(
+                  "Problem with generating secp256k1 master keys: {}",
+                  err
+                )));
+              }
+            };
+
+          d3bug(
+            &format!("master_keys_secp256k1 {master_keys_secp256k1:?}"),
+            "debug",
+          );
+
+          #[cfg(feature = "dev")]
+          let master_keys_ed25519 = match dev::generate_master_keys_ed25519(&seed.seed) {
             Ok(values) => values,
             Err(err) => {
               return Err(AppError::Custom(format!(
-                "Problem with generating master keys: {}",
+                "Problem with generating ed25519 master keys: {}",
                 err
               )));
             }
           };
+
+          #[cfg(feature = "dev")]
+          d3bug(
+            &format!("master_keys_ed25519 {master_keys_ed25519:?}"),
+            "debug",
+          );
 
           let bip = self.get_bip();
           let resource_path = std::path::Path::new("coin").join("ECDB.csv");
@@ -567,7 +593,7 @@ impl CryptoWallet {
 
           if let Ok(file) = ecdb_file {
             let reader = std::io::BufReader::new(file.contents());
-            let mut next_index = 0;
+            let mut next_index = 1;
 
             for line in reader.lines() {
               let line = line.unwrap_or("0".to_string());
@@ -584,8 +610,8 @@ impl CryptoWallet {
                 let magic_ingredients = AddressData {
                   coin_index: active_coin_index,
                   derivation_path: derivation_path.clone(),
-                  master_private_key_bytes: master_keys.master_private_key_bytes.clone(),
-                  master_chain_code_bytes: master_keys.master_chain_code_bytes.clone(),
+                  master_private_key_bytes: master_keys_secp256k1.master_private_key_bytes.clone(),
+                  master_chain_code_bytes: master_keys_secp256k1.master_chain_code_bytes.clone(),
                   public_key_hash: columns[8].parse().unwrap_or("".to_string()),
                   key_derivation: columns[4].parse().unwrap_or("".to_string()),
                   wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
