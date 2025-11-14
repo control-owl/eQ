@@ -626,7 +626,7 @@ impl CryptoWallet {
                       hash: columns[5].parse().unwrap_or("".to_string()),
                     };
 
-                    if let Ok(Some(address)) = keys::generate_secp256k1_address(magic_ingredients) {
+                    if let Ok(address) = keys::generate_secp256k1_address(magic_ingredients) {
                       self.address_data.push_back(AddressTable {
                         index: next_index,
                         coin: columns[3].into(),
@@ -639,6 +639,9 @@ impl CryptoWallet {
                   }
                   #[cfg(feature = "dev")]
                   "ed25519" => {
+                    let derivation_path =
+                      String::from(format!("m/44'/{}'/0'/0'", active_coin_index));
+
                     let magic_ingredients = AddressData {
                       coin_index: active_coin_index,
                       derivation_path: derivation_path.clone(),
@@ -652,7 +655,7 @@ impl CryptoWallet {
                       hash: columns[5].parse().unwrap_or("".to_string()),
                     };
 
-                    if let Ok(Some(address)) = dev::generate_ed25519_address(magic_ingredients) {
+                    if let Ok(address) = dev::generate_ed25519_address(magic_ingredients) {
                       self.address_data.push_back(AddressTable {
                         index: next_index,
                         coin: columns[3].into(),

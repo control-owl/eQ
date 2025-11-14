@@ -92,6 +92,11 @@ pub fn derive_child_key_ed25519(
   parent_chain_code: &[u8],
   index: u32,
 ) -> FunctionOutput<crate::keys::ChildKeys> {
+  d3bug(">>> derive_child_key_ed25519", "debug");
+  d3bug(&format!("parent_key {parent_key:?}"), "debug");
+  d3bug(&format!("parent_chain_code {parent_chain_code:?}"), "debug");
+  d3bug(&format!("index {index:?}"), "debug");
+
   if parent_key.len() != 32 || parent_chain_code.len() != 32 {
     return Err(AppError::Custom(
       "Invalid parent_key or parent_chain_code length".to_string(),
@@ -138,34 +143,69 @@ pub fn derive_child_key_ed25519(
 
 pub fn generate_ed25519_address(
   ingredients: crate::AddressData,
-) -> FunctionOutput<crate::keys::AddressResult> {
-  let alphabet = match ingredients.coin_index {
-    144 => bs58::Alphabet::RIPPLE,
-    _ => bs58::Alphabet::DEFAULT,
-  };
+) -> FunctionOutput<crate::keys::Addresses> {
+  d3bug(">>> generate_ed25519_address", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
 
-  let address = bs58::encode(ingredients.public_key_hash)
-    .with_alphabet(alphabet)
-    .into_string();
+  // let path = ingredients.derivation_path;
+  let path: [u32; 4] = [
+    44 + 0x80000000,
+    118 + 0x80000000,
+    0 + 0x80000000,
+    0 + 0x80000000,
+  ];
 
-  // HOW?????
-  let public_key = "".to_string();
-  let private_key = "".to_string();
+  let mut private_key: [u8; 32] = ingredients
+    .master_private_key_bytes
+    .clone()
+    .try_into()
+    .expect("Expected 32 bytes for Ed25519 key");
 
-  Ok(Some(crate::keys::Address {
+  let mut chain_code: [u8; 32] = ingredients
+    .master_chain_code_bytes
+    .clone()
+    .try_into()
+    .expect("Expected 32 bytes for chain code");
+
+  for index in path {
+    let mut data = vec![0x00];
+    data.extend_from_slice(&private_key);
+    data.extend_from_slice(&index.to_be_bytes());
+
+    let i = e_q::calculate_hmac_sha512_hash(&chain_code, &data);
+    private_key.copy_from_slice(&i[..32]);
+    chain_code.copy_from_slice(&i[32..]);
+  }
+
+  clamp_ed25519_private_key(&mut private_key);
+
+  let signing_key = SigningKey::from_bytes(&private_key);
+  let verifying_key = signing_key.verifying_key();
+
+  let address = bs58::encode(verifying_key.to_bytes()).into_string();
+  let public_key = hex::encode(verifying_key.to_bytes());
+  let private_key = hex::encode(signing_key.to_bytes());
+
+  Ok(crate::keys::Addresses {
     address,
     public_key,
     private_key,
-  }))
+  })
 }
 
 fn clamp_ed25519_private_key(key: &mut [u8; 32]) {
+  d3bug(">>> clamp_ed25519_private_key", "debug");
+  d3bug(&format!("key {key:?}"), "debug");
+
   key[0] &= 0b1111_1000; // Clear lowest 3 bits
   key[31] &= 0b0111_1111; // Clear highest bit
   key[31] |= 0b0100_0000; // Set second-highest bit
 }
 
 pub fn generate_master_keys_ed25519(seed: &str) -> FunctionOutput<MasterKeyData> {
+  d3bug(">>> generate_master_keys_ed25519", "debug");
+  d3bug(&format!("seed {seed:?}"), "debug");
+
   let message = b"ed25519 seed";
   let seed_bytes = match hex::decode(seed) {
     Ok(values) => values,

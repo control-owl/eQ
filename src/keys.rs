@@ -12,7 +12,7 @@ use crate::{AddressData, AppError, FunctionOutput, MasterKeyData, SeedData, d3bu
 
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 
-pub type AddressResult = Option<Address>;
+// pub type AddressResult = Option<Address>;
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -24,7 +24,7 @@ pub enum CryptoPublicKey {
 }
 
 #[derive(Debug)]
-pub struct Address {
+pub struct Addresses {
   pub address: String,
   pub public_key: String,
   pub private_key: String,
@@ -350,16 +350,14 @@ fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
   checksum
 }
 
-pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<AddressResult> {
-  d3bug("<<< generate_address", "debug");
+pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Addresses> {
+  d3bug("<<< generate_secp256k1_address", "debug");
   d3bug(&format!("ingredients {ingredients:?}"), "debug");
 
-  let public_key_hash_vec = if ingredients.key_derivation != "ed25519" {
+  let public_key_hash_vec = {
     let trimmed = ingredients.public_key_hash.trim_start_matches("0x");
     hex::decode(trimmed)
       .map_err(|err| AppError::Custom(format!("Invalid public_key_hash: {err}")))?
-  } else {
-    Vec::new()
   };
 
   let derived_child_keys = match derive_child_keys(&ingredients) {
@@ -386,11 +384,11 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
   };
   let priv_key_wif = encode_private_key(&ingredients, &secret_key)?;
 
-  Ok(Some(Address {
+  Ok(Addresses {
     address,
     public_key: public_key_encoded,
     private_key: priv_key_wif,
-  }))
+  })
 }
 
 fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<ChildKeys> {
