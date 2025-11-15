@@ -3,6 +3,9 @@
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use bech32::{Bech32, Hrp, encode};
 use num_bigint::BigUint;
 use ring::pbkdf2;
 use sha2::{Digest, Sha256, Sha512};
@@ -354,12 +357,6 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
   d3bug("<<< generate_secp256k1_address", "debug");
   d3bug(&format!("ingredients {ingredients:?}"), "debug");
 
-  let public_key_hash_vec = {
-    let trimmed = ingredients.public_key_hash.trim_start_matches("0x");
-    hex::decode(trimmed)
-      .map_err(|err| AppError::Custom(format!("Invalid public_key_hash: {err}")))?
-  };
-
   let derived_child_keys = match derive_child_keys(&ingredients) {
     Ok(keys) => keys,
     Err(err) => {
@@ -371,10 +368,8 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
   };
 
   let public_key = generate_public_key(&ingredients, derived_child_keys.clone())?;
-  let public_key_encoded = encode_public_key(&ingredients, &public_key)?;
-  let address = generate_address_internal(&ingredients, &public_key, &public_key_hash_vec)?;
 
-  let secret_key: [u8; 32] = match derived_child_keys.child_secret_key_bytes.try_into() {
+  let private_key: [u8; 32] = match derived_child_keys.child_secret_key_bytes.try_into() {
     Ok(key) => key,
     Err(err) => {
       return Err(AppError::Custom(
@@ -382,13 +377,43 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
       ));
     }
   };
-  let priv_key_wif = encode_private_key(&ingredients, &secret_key)?;
 
-  Ok(Addresses {
-    address,
-    public_key: public_key_encoded,
-    private_key: priv_key_wif,
-  })
+  if ingredients.coin_index == 118 {
+    let secp_pubkey = match &public_key {
+      CryptoPublicKey::Secp256k1(pk) => pk,
+      _ => {
+        return Err(AppError::Custom(
+          "Only Secp256k1 for generating Secp256k1 addresses".to_string(),
+        ));
+      }
+    };
+    let pub_compressed: [u8; 33] = secp_pubkey.serialize();
+    let address = generate_atom_address(&pub_compressed)?;
+    let public_key_encoded = encode_pubkey_bech32(&pub_compressed)?;
+    let private_key_encoded = BASE64.encode(private_key);
+
+    return Ok(Addresses {
+      address,
+      public_key: public_key_encoded,
+      private_key: private_key_encoded,
+    });
+  } else {
+    let public_key_hash_vec = {
+      let trimmed = ingredients.public_key_hash.trim_start_matches("0x");
+      hex::decode(trimmed)
+        .map_err(|err| AppError::Custom(format!("Invalid public_key_hash: {err}")))?
+    };
+
+    let public_key_encoded = encode_public_key(&ingredients, &public_key)?;
+    let address = generate_address_internal(&ingredients, &public_key, &public_key_hash_vec)?;
+    let priv_key_wif = encode_private_key(&ingredients, &private_key)?;
+
+    Ok(Addresses {
+      address,
+      public_key: public_key_encoded,
+      private_key: priv_key_wif,
+    })
+  }
 }
 
 fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<ChildKeys> {
@@ -985,4 +1010,27 @@ pub fn _convert_seed_to_mnemonic(seed: &[u8]) -> FunctionOutput<String> {
   }
 
   Ok(hex)
+}
+
+fn generate_atom_address(pub_compressed: &[u8]) -> Result<String, AppError> {
+  let hash20 = e_q::calculate_sha256_and_ripemd160_hash(pub_compressed);
+  bech32_encode::<Bech32>("cosmos", &hash20)
+}
+
+fn encode_pubkey_bech32(pub_compressed: &[u8]) -> Result<String, AppError> {
+  let prefix = [0xEB, 0x5A, 0xE9, 0x87, 0x21];
+  let mut data = Vec::with_capacity(38);
+
+  data.extend_from_slice(&prefix);
+  data.extend_from_slice(pub_compressed);
+
+  bech32_encode::<Bech32>("cosmospub", &data)
+}
+
+fn bech32_encode<Checksum: bech32::Checksum>(hrp: &str, data: &[u8]) -> Result<String, AppError> {
+  let hrp_parsed =
+    Hrp::parse(hrp).map_err(|e| AppError::Custom(format!("Invalid HRP '{}': {}", hrp, e)))?;
+
+  encode::<Checksum>(hrp_parsed, data)
+    .map_err(|e| AppError::Custom(format!("Bech32 encode error: {}", e)))
 }
