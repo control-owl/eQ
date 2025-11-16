@@ -381,6 +381,7 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
   if ingredients.coin_index == 118 {
     let secp_pubkey = match &public_key {
       CryptoPublicKey::Secp256k1(pk) => pk,
+      #[cfg(feature = "dev")]
       _ => {
         return Err(AppError::Custom(
           "Only Secp256k1 for generating Secp256k1 addresses".to_string(),
@@ -416,7 +417,7 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
   }
 }
 
-fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<ChildKeys> {
+pub fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<ChildKeys> {
   d3bug("<<< derive_child_keys", "debug");
   d3bug(&format!("ingredients {ingredients:?}"), "debug");
 

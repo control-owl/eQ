@@ -99,6 +99,7 @@ pub struct AddressData {
   pub key_derivation: String,
   pub wallet_import_format: String,
   pub hash: String,
+  pub bip: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -624,6 +625,7 @@ impl CryptoWallet {
                       key_derivation: columns[4].parse().unwrap_or("".to_string()),
                       wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
                       hash: columns[5].parse().unwrap_or("".to_string()),
+                      bip,
                     };
 
                     if let Ok(address) = keys::generate_secp256k1_address(magic_ingredients) {
@@ -653,6 +655,7 @@ impl CryptoWallet {
                       key_derivation: columns[4].parse().unwrap_or("".to_string()),
                       wallet_import_format: columns[10].parse().unwrap_or("".to_string()),
                       hash: columns[5].parse().unwrap_or("".to_string()),
+                      bip,
                     };
 
                     if let Ok(address) = dev::generate_ed25519_address(magic_ingredients) {
