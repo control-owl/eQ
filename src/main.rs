@@ -5,7 +5,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use eframe::egui;
 use egui::{ComboBox, Frame, Visuals};
@@ -19,14 +19,18 @@ mod test_vectors;
 // #[cfg(feature = "dev")]
 // mod dev;
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
 const APP_DESCRIPTION: Option<&str> = option_env!("CARGO_PKG_DESCRIPTION");
 const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const _APP_AUTHOR: Option<&str> = option_env!("CARGO_PKG_AUTHORS");
 
+const GUI_MARGIN: usize = 10;
+
 pub type FunctionOutput<T> = Result<T, AppError>;
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug)]
 pub enum AppError {
@@ -64,11 +68,7 @@ pub fn d3bug(message: &str, msg_type: &str) {
   }
 }
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
-
-const GUI_MARGIN: usize = 10;
-
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug, Clone, Default)]
 pub struct SeedData {
@@ -88,6 +88,8 @@ pub struct MasterKeyData {
   pub master_public_key_bytes: Vec<u8>,
   pub master_chain_code_bytes: Vec<u8>,
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug, Clone, Default)]
 pub struct AddressData {
@@ -112,6 +114,8 @@ struct AddressTable {
   private_key: String,
 }
 
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 #[derive(Debug, Clone)]
 struct GuiSettings {
   theme: String,
@@ -132,6 +136,8 @@ impl GuiSettings {
     }
   }
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug, Clone)]
 struct CryptoWallet {
@@ -755,7 +761,7 @@ impl eframe::App for CryptoWallet {
   }
 }
 
-// −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn set_app_icon() -> FunctionOutput<egui::IconData> {
   let resource_path = std::path::Path::new("logo").join("logo.png");

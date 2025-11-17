@@ -23,11 +23,11 @@ CC-BY-NC-ND-4.0
 Control Owl [2025]
 ```
 
-**eQ** is a **cryptographic key generator** built with **Rust** and **egui**. It supports generating secure addresses for +250 crypto coins.
+**eQ** is a **cryptographic key generator** built with **Rust** and **egui**. It supports generating secure addresses for **+260** crypto coins.
 
-This is second generation of key generator, with [QR2M](https://github.com/control-owl/QR2M) as a first one.
+This is **second generation** of key generator, with [QR2M](https://github.com/control-owl/QR2M) as a first one.
 
-Now, focus is on speed and no system dependencies.
+Now, focus is on speed and less system dependencies.
 
 
 ## Table of Contents
@@ -50,7 +50,7 @@ Check the [deed](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.en).
 
 | **Security Status**  |
 | -------------------- |
-| Verify GPG Signature |
+| [![Verify GPG Signature](https://github.com/control-owl/eQ/actions/workflows/verify-gpg-signature.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/verify-gpg-signature.yml) |
 | CodeQL               |
 
 | **Build Status**     |

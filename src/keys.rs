@@ -15,8 +15,6 @@ use sha3::Keccak256;
 
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 
-// pub type AddressResult = Option<Address>;
-
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug)]
@@ -1239,3 +1237,5 @@ pub fn generate_master_keys_ed25519(seed: &str) -> FunctionOutput<MasterKeyData>
     master_chain_code_bytes: master_chain_code.to_vec(),
   })
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..

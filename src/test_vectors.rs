@@ -1,7 +1,7 @@
-// authors = ["Control Owl <qr2m[at]r-o0-t[dot]wtf>"]
+// authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 // license = "CC-BY-NC-ND-4.0  [2023-2025]  Control Owl"
 
-// -.-. --- .--. -.-- .-. .. --. .... - / --.- .-. ..--- -- .- - .-. --- ----- - -.. --- - .-- - ..-.
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 struct _EntropyMnemonicVector {
   entropy: &'static str,
@@ -38,6 +38,8 @@ struct _SolanaTestVector {
   derivation_path: &'static str,
   expected_solana_address: &'static str,
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[cfg(test)]
 mod tests {
@@ -389,4 +391,5 @@ mod tests {
     }
   }
 }
-// -.-. --- .--. -.-- .-. .. --. .... - / --.- .-. ..--- -- .- - .-. --- ----- - -.. --- - .-- - ..-.
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..

@@ -2,23 +2,20 @@
 name = "eQ"
 description = "Crypto key generator"
 version = "1.0.0"
-authors = ["Control Owl <qr2m[at]r-o0-t[dot]wtf>"]
+authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
 repository = "https://github.com/control-owl/eQ"
 readme = "README.md"
 edition = "2024"
 build = "build.rs"
 
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 [dependencies]
-# GUI
 egui = "0.33.2"
 eframe = "0.33.2"
 egui_extras = "0.33.2"
-
-# Memory
 sysinfo = "0.37.2"
-
-# Keys
 getrandom = "0.3.4"
 sha2 = "0.10.9"
 sha3 = "0.10.8"
@@ -31,13 +28,25 @@ num-bigint = "0.4.6"
 bech32 = "0.11.0"
 base64 = "0.22.1"
 ed25519-dalek = "2.2.0"
-
-# System
 include_dir = "0.7.4"
+
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+[features]
+default = []
+dev = []
+
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+[[bin]]
+name = "eQ"
+path = "src/main.rs"
 
 [lib]
 name = "e_q"
 path = "src/lib.rs"
+
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 [build-dependencies]
 winres = "0.1.12"
@@ -50,10 +59,4 @@ FileDescription = "Crypto key generator"
 [package.metadata.excluded]
 exclude = ["build.rs"]
 
-[[bin]]
-name = "eQ"
-path = "src/main.rs"
-
-[features]
-default = []
-dev = []
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
