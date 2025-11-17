@@ -828,7 +828,7 @@ fn main() -> FunctionOutput<Result<(), eframe::Error>> {
       .with_inner_size([800.0, 600.0])
       .with_icon(app_icon)
       .with_app_id("eQ")
-      .with_min_inner_size([220.0, 320.0]),
+      .with_min_inner_size([240.0, 320.0]),
     ..Default::default()
   };
 
