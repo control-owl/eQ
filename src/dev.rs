@@ -247,7 +247,7 @@ mod tests {
   fn test_solana() {
     let seed_hex = "e97ab93c4961c77c62521f305aac17851bea814d05a78d3b5c254a3e5007456c856506c09f956d67808fb0e429ec6393825359bbd94d1a0e291aa468815f394b";
     let master = generate_master_keys_ed25519(seed_hex).unwrap();
-    let path = "m/44'/501'/0'/0'";
+    let path = "m/44'/501'/1'/0'";
 
     let final_key = derive_from_path_ed25519(
       &master.master_private_key_bytes,
@@ -257,7 +257,7 @@ mod tests {
     .unwrap();
 
     let address = bs58::encode(&final_key.child_public_key_bytes).into_string();
-    assert_eq!(address, "5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N");
+    assert_eq!(address, "GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv");
     println!("Correct address: {address}");
   }
 }
