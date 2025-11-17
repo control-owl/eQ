@@ -16,8 +16,8 @@ use std::io::BufRead;
 mod keys;
 mod test_vectors;
 
-#[cfg(feature = "dev")]
-mod dev;
+// #[cfg(feature = "dev")]
+// mod dev;
 
 // −·−· −−− ·−−· −·−− ·−· ·· −−· ···· −  −·−· −−− −· − ·−· −−− ·−··  −−− ·−− ·−··
 
@@ -570,8 +570,7 @@ impl CryptoWallet {
             "debug",
           );
 
-          #[cfg(feature = "dev")]
-          let master_keys_ed25519 = match dev::generate_master_keys_ed25519(&seed.seed) {
+          let master_keys_ed25519 = match keys::generate_master_keys_ed25519(&seed.seed) {
             Ok(values) => values,
             Err(err) => {
               return Err(AppError::Custom(format!(
@@ -581,7 +580,6 @@ impl CryptoWallet {
             }
           };
 
-          #[cfg(feature = "dev")]
           d3bug(
             &format!("master_keys_ed25519 {master_keys_ed25519:?}"),
             "debug",
@@ -639,10 +637,8 @@ impl CryptoWallet {
                       });
                     }
                   }
-                  #[cfg(feature = "dev")]
                   "ed25519" => {
-                    let derivation_path =
-                      String::from(format!("m/44'/{}'/0'/0'", active_coin_index));
+                    let derivation_path = format!("m/44'/{}'/0'/0'/0'", active_coin_index);
 
                     let magic_ingredients = AddressData {
                       coin_index: active_coin_index,
@@ -658,7 +654,7 @@ impl CryptoWallet {
                       bip,
                     };
 
-                    if let Ok(address) = dev::generate_ed25519_address(magic_ingredients) {
+                    if let Ok(address) = keys::generate_ed25519_address(magic_ingredients) {
                       self.address_data.push_back(AddressTable {
                         index: next_index,
                         coin: columns[3].into(),
@@ -775,7 +771,7 @@ fn set_app_icon() -> FunctionOutput<egui::IconData> {
     }
   };
 
-  let app_icon = match eframe::icon_data::from_png_bytes(&icon_file.contents()) {
+  let app_icon = match eframe::icon_data::from_png_bytes(icon_file.contents()) {
     Ok(icon) => icon,
     Err(err) => {
       return Err(AppError::Custom(format!(

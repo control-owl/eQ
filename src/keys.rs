@@ -3,15 +3,15 @@
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
+use crate::{AddressData, AppError, FunctionOutput, MasterKeyData, SeedData, d3bug};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use bech32::{Bech32, Hrp, encode};
+use ed25519_dalek::SigningKey;
 use num_bigint::BigUint;
 use ring::pbkdf2;
 use sha2::{Digest, Sha256, Sha512};
 use sha3::Keccak256;
-
-use crate::{AddressData, AppError, FunctionOutput, MasterKeyData, SeedData, d3bug};
 
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 
@@ -22,7 +22,6 @@ const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 #[derive(Debug)]
 pub enum CryptoPublicKey {
   Secp256k1(secp256k1::PublicKey),
-  #[cfg(feature = "dev")]
   Ed25519(ed25519_dalek::VerifyingKey),
 }
 
@@ -381,7 +380,6 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
   if ingredients.coin_index == 118 {
     let secp_pubkey = match &public_key {
       CryptoPublicKey::Secp256k1(pk) => pk,
-      #[cfg(feature = "dev")]
       _ => {
         return Err(AppError::Custom(
           "Only Secp256k1 for generating Secp256k1 addresses".to_string(),
@@ -393,11 +391,11 @@ pub fn generate_secp256k1_address(ingredients: AddressData) -> FunctionOutput<Ad
     let public_key_encoded = encode_pubkey_bech32(&pub_compressed)?;
     let private_key_encoded = BASE64.encode(private_key);
 
-    return Ok(Addresses {
+    Ok(Addresses {
       address,
       public_key: public_key_encoded,
       private_key: private_key_encoded,
-    });
+    })
   } else {
     let public_key_hash_vec = {
       let trimmed = ingredients.public_key_hash.trim_start_matches("0x");
@@ -427,8 +425,7 @@ pub fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<ChildKeys>
       &ingredients.master_chain_code_bytes,
       &ingredients.derivation_path,
     ),
-    #[cfg(feature = "dev")]
-    "ed25519" => crate::dev::derive_from_path_ed25519(
+    "ed25519" => derive_from_path_ed25519(
       &ingredients.master_private_key_bytes,
       &ingredients.master_chain_code_bytes,
       &ingredients.derivation_path,
@@ -470,7 +467,6 @@ fn generate_public_key(
 
       Ok(CryptoPublicKey::Secp256k1(secp_pub_key))
     }
-    #[cfg(feature = "dev")]
     "ed25519" => {
       let child_secret_key: [u8; 32] = match derived_child_keys.child_secret_key_bytes.try_into() {
         Ok(key) => key,
@@ -503,7 +499,6 @@ fn encode_public_key(
   match ingredients.hash.as_str() {
     "sha256" | "sha256+ripemd160" => match public_key {
       CryptoPublicKey::Secp256k1(pk) => Ok(hex::encode(pk.serialize())),
-      #[cfg(feature = "dev")]
       _ => Ok(String::new()),
     },
     "keccak256" => match public_key {
@@ -515,10 +510,8 @@ fn encode_public_key(
           Ok(format!("0x{}", hex::encode(serialized)))
         }
       }
-      #[cfg(feature = "dev")]
       _ => Ok(String::new()),
     },
-    #[cfg(feature = "dev")]
     "ed25519" => match public_key {
       CryptoPublicKey::Ed25519(pk) => Ok(bs58::encode(pk.to_bytes()).into_string()),
       _ => Ok(String::new()),
@@ -551,8 +544,6 @@ fn generate_address_internal(
     "sha256+ripemd160" => {
       generate_sha256_ripemd160_address(ingredients.coin_index, public_key, public_key_hash_vec)
     }
-    // #[cfg(feature = "dev")]
-    // "ed25519" => crate::dev::generate_ed25519_address(public_key),
     _ => Err(AppError::Custom(format!(
       "Unsupported hash method: {}",
       ingredients.hash
@@ -788,16 +779,11 @@ pub fn generate_address_keccak256(
 
   let public_key_bytes = match public_key {
     CryptoPublicKey::Secp256k1(key) => key.serialize_uncompressed().to_vec(),
-    #[cfg(feature = "dev")]
     CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
   };
 
-  // #[cfg(debug_assertions)]
-  // println!("Public key bytes: {public_key_bytes:?}");
-
   let public_key_slice = match public_key {
     CryptoPublicKey::Secp256k1(_) => &public_key_bytes[1..],
-    #[cfg(feature = "dev")]
     CryptoPublicKey::Ed25519(_) => &public_key_bytes[..],
   };
 
@@ -805,13 +791,7 @@ pub fn generate_address_keccak256(
   keccak.update(public_key_slice);
   let keccak_result = keccak.finalize();
 
-  // #[cfg(debug_assertions)]
-  // println!("Keccak256 hash result: {keccak_result:?}");
-
   let address_bytes = &keccak_result[12..];
-
-  // #[cfg(debug_assertions)]
-  // println!("Address bytes: {address_bytes:?}");
 
   let address = match coin_index {
     195 => {
@@ -833,9 +813,6 @@ pub fn generate_address_keccak256(
       format!("0x{}", hex::encode(address_bytes))
     }
   };
-
-  // #[cfg(debug_assertions)]
-  // println!("Generated address: {address}");
 
   Ok(address)
 }
@@ -965,7 +942,7 @@ pub fn derive_child_key_secp256k1(
   Ok(ChildKeys {
     child_secret_key_bytes: child_secret_key_bytes.to_vec(),
     child_chain_code_bytes: child_chain_code_bytes.to_vec(),
-    child_public_key_bytes: child_public_key_bytes,
+    child_public_key_bytes,
   })
 }
 
@@ -975,19 +952,22 @@ fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Vec<u8>> {
 
   let public_key_bytes = match public_key {
     CryptoPublicKey::Secp256k1(key) => key.serialize().to_vec(),
-    #[cfg(feature = "dev")]
     CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
   };
 
   Ok(public_key_bytes)
 }
 
-pub fn _generate_seed_from_mnemonic(mnemonic: &str, passphrase: &str) -> FunctionOutput<[u8; 64]> {
+pub fn _generate_seed_from_mnemonic(
+  mnemonic: &str,
+  passphrase: Option<&str>,
+) -> FunctionOutput<[u8; 64]> {
   d3bug("<<< _generate_seed_from_mnemonic", "debug");
   d3bug(&format!("mnemonic {mnemonic:?}"), "debug");
   d3bug(&format!("passphrase {passphrase:?}"), "debug");
 
-  let salt = format!("mnemonic{passphrase}");
+  let mnemonic_passphrase = passphrase.unwrap_or("");
+  let salt = format!("mnemonic{mnemonic_passphrase}");
   let mut seed = [0u8; 64];
   ring::pbkdf2::derive(
     ring::pbkdf2::PBKDF2_HMAC_SHA512,
@@ -1034,4 +1014,228 @@ fn bech32_encode<Checksum: bech32::Checksum>(hrp: &str, data: &[u8]) -> Result<S
 
   encode::<Checksum>(hrp_parsed, data)
     .map_err(|e| AppError::Custom(format!("Bech32 encode error: {}", e)))
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn derive_from_path_ed25519(
+  master_key: &[u8],
+  master_chain_code: &[u8],
+  path: &str,
+) -> FunctionOutput<crate::keys::ChildKeys> {
+  d3bug(">>> derive_from_path_ed25519", "debug");
+  d3bug(&format!("master_key {master_key:?}"), "debug");
+  d3bug(&format!("master_chain_code {master_chain_code:?}"), "debug");
+  d3bug(&format!("path {path:?}"), "debug");
+
+  if master_key.len() != 32 {
+    return Err(AppError::Custom(format!(
+      "Master key must be 32 bytes, got {}",
+      master_key.len()
+    )));
+  } else {
+    d3bug(
+      &format!("master_key length {:?}", master_key.len()),
+      "debug",
+    );
+  }
+
+  if master_chain_code.len() != 32 {
+    return Err(AppError::Custom(format!(
+      "Master chain key must be 32 bytes, got {}",
+      master_chain_code.len()
+    )));
+  } else {
+    d3bug(
+      &format!("master_chain_code length {:?}", master_chain_code.len()),
+      "debug",
+    );
+  }
+
+  if !path.starts_with("m/") {
+    return Err(AppError::Custom("Path must start with: m/".to_string()));
+  }
+
+  let mut private_key = <[u8; 32]>::try_from(master_key)
+    .map_err(|_| AppError::Custom("Master key must be 32 bytes".into()))?;
+
+  let mut chain_code = <[u8; 32]>::try_from(master_chain_code)
+    .map_err(|_| AppError::Custom("Chain code must be 32 bytes".into()))?;
+
+  for part in path.split('/').skip(1) {
+    let hardened = part.ends_with("'");
+    let index_str = part.trim_end_matches("'");
+    let index: u32 = index_str
+      .parse()
+      .map_err(|_| AppError::Custom(format!("Invalid index: {index_str}")))?;
+
+    let child_index = if hardened { index | 0x80000000 } else { index };
+    let derived = derive_child_key_ed25519(&private_key, &chain_code, child_index)?;
+
+    private_key = derived
+      .child_secret_key_bytes
+      .try_into()
+      .map_err(|_| AppError::Custom("Child key not 32 bytes".into()))?;
+
+    d3bug(&format!("private_key {private_key:?}"), "debug");
+
+    chain_code = derived
+      .child_chain_code_bytes
+      .try_into()
+      .map_err(|_| AppError::Custom("Chain code not 32 bytes".into()))?;
+
+    d3bug(&format!("chain_code {chain_code:?}"), "debug");
+  }
+
+  let signing_key = SigningKey::from_bytes(&private_key);
+  let verifying_key = signing_key.verifying_key();
+
+  Ok(crate::keys::ChildKeys {
+    child_secret_key_bytes: private_key.to_vec(),
+    child_chain_code_bytes: chain_code.to_vec(),
+    child_public_key_bytes: verifying_key.to_bytes().to_vec(),
+  })
+}
+
+pub fn derive_child_key_ed25519(
+  parent_key: &[u8],
+  parent_chain_code: &[u8],
+  index: u32,
+) -> FunctionOutput<crate::keys::ChildKeys> {
+  d3bug(">>> derive_child_key_ed25519", "debug");
+  d3bug(&format!("parent_key {parent_key:?}"), "debug");
+  d3bug(&format!("parent_chain_code {parent_chain_code:?}"), "debug");
+  d3bug(&format!("index {index:?}"), "debug");
+
+  if parent_key.len() != 32 || parent_chain_code.len() != 32 {
+    return Err(AppError::Custom(
+      "Invalid parent_key or parent_chain_code length".to_string(),
+    ));
+  }
+
+  if index < 0x80000000 {
+    return Err(AppError::Custom(
+      "Ed25519 only supports hardened derivation".into(),
+    ));
+  }
+
+  let mut data = vec![0x00];
+  data.extend_from_slice(parent_key);
+  data.extend_from_slice(&index.to_be_bytes());
+  d3bug(&format!("data {data:?}"), "debug");
+
+  let hmac = e_q::calculate_hmac_sha512_hash(parent_chain_code, &data);
+  d3bug(&format!("hmac {hmac:?}"), "debug");
+  if hmac.len() != 64 {
+    return Err(AppError::Custom(
+      "calculate_hmac_sha512_hash len is not 64".to_string(),
+    ));
+  }
+
+  let mut child_secret = [0u8; 32];
+  let mut child_chain = [0u8; 32];
+  child_secret.copy_from_slice(&hmac[..32]);
+  child_chain.copy_from_slice(&hmac[32..]);
+
+  d3bug(&format!("child_secret {child_secret:?}"), "debug");
+  d3bug(&format!("child_chain {child_chain:?}"), "debug");
+
+  Ok(crate::keys::ChildKeys {
+    child_secret_key_bytes: child_secret.to_vec(),
+    child_chain_code_bytes: child_chain.to_vec(),
+    child_public_key_bytes: vec![],
+    // child_public_key_bytes: SigningKey::from_bytes(&child_secret)
+    //   .verifying_key()
+    //   .to_bytes()
+    //   .to_vec(),
+  })
+}
+
+pub fn generate_ed25519_address(
+  ingredients: crate::AddressData,
+) -> FunctionOutput<crate::keys::Addresses> {
+  d3bug(">>> generate_ed25519_address", "debug");
+  d3bug(&format!("ingredients {ingredients:?}"), "debug");
+
+  let path = if ingredients.bip == 32 {
+    "m/0'/0'/0'"
+  } else {
+    &format!(
+      "m/{}'/{}'/0'/0'/0'",
+      ingredients.bip, ingredients.coin_index,
+    )
+  };
+
+  d3bug(&format!("path {path:?}"), "debug");
+
+  let master_key = &ingredients.master_private_key_bytes;
+  let chain_code = &ingredients.master_chain_code_bytes;
+  d3bug(&format!("master_key {master_key:?}"), "debug");
+  d3bug(&format!("chain_code {chain_code:?}"), "debug");
+
+  let final_keys = derive_from_path_ed25519(master_key, chain_code, path)?;
+  d3bug(&format!("final_keys {final_keys:?}"), "debug");
+
+  let address = bs58::encode(&final_keys.child_public_key_bytes).into_string();
+  let public_key = hex::encode(&final_keys.child_public_key_bytes);
+  let private_key = hex::encode(&final_keys.child_secret_key_bytes);
+
+  d3bug(&format!("address {address:?}"), "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+  d3bug(&format!("private_key {private_key:?}"), "debug");
+
+  Ok(crate::keys::Addresses {
+    address,
+    public_key,
+    private_key,
+  })
+}
+
+pub fn generate_master_keys_ed25519(seed: &str) -> FunctionOutput<MasterKeyData> {
+  d3bug(">>> generate_master_keys_ed25519", "debug");
+  d3bug(&format!("seed {seed:?}"), "debug");
+
+  let message = b"ed25519 seed";
+  let seed_bytes = match hex::decode(seed) {
+    Ok(values) => values,
+    Err(err) => {
+      return Err(AppError::Custom(format!("Can not decode seed: {}", err)));
+    }
+  };
+
+  let result = e_q::calculate_hmac_sha512_hash(message, &seed_bytes);
+  d3bug(&format!("result {result:?}"), "debug");
+
+  if result.len() != 64 {
+    return Err(AppError::Custom(
+      "Wrong hash length output in calculate_hmac_sha512_hash".to_string(),
+    ));
+  }
+
+  let mut master_private_key = [0u8; 32];
+  master_private_key.copy_from_slice(&result[..32]);
+  d3bug(
+    &format!("master_private_key {master_private_key:?}"),
+    "debug",
+  );
+
+  let mut master_chain_code = [0u8; 32];
+  master_chain_code.copy_from_slice(&result[32..]);
+  d3bug(&format!("master_chain_code {master_chain_code:?}"), "debug");
+
+  let signing_key = SigningKey::from_bytes(&master_private_key);
+  let public_key = signing_key.verifying_key();
+  d3bug(&format!("signing_key {signing_key:?}"), "debug");
+  d3bug(&format!("public_key {public_key:?}"), "debug");
+
+  let master_xprv = bs58::encode(&master_private_key).into_string();
+  let master_xpub = bs58::encode(&public_key.as_bytes()).into_string();
+
+  Ok(MasterKeyData {
+    master_private_key_encoded: master_xprv,
+    master_private_key_bytes: master_private_key.to_vec(),
+    master_public_key_encoded: master_xpub,
+    master_public_key_bytes: public_key.to_bytes().to_vec(),
+    master_chain_code_bytes: master_chain_code.to_vec(),
+  })
 }

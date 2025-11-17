@@ -33,6 +33,12 @@ struct _MasterChildVector {
   expected_child_public_key_bytes: &'static str,
 }
 
+struct _SolanaTestVector {
+  mnemonic_words: &'static str,
+  derivation_path: &'static str,
+  expected_solana_address: &'static str,
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -107,12 +113,13 @@ mod tests {
     ];
 
     for vector in mnemonic_seed_vectors {
-      let seed_raw = match keys::_generate_seed_from_mnemonic(vector.mnemonic, vector.passphrase) {
-        Ok(seed) => seed,
-        Err(_) => {
-          panic!("Can not generate seed from mnemonic");
-        }
-      };
+      let seed_raw =
+        match keys::_generate_seed_from_mnemonic(vector.mnemonic, Some(vector.passphrase)) {
+          Ok(seed) => seed,
+          Err(_) => {
+            panic!("Can not generate seed from mnemonic");
+          }
+        };
       let seed = match keys::_convert_seed_to_mnemonic(&seed_raw) {
         Ok(seed) => seed,
         Err(_) => {
@@ -125,7 +132,7 @@ mod tests {
   }
 
   #[test]
-  fn test_seed_to_master_keys() -> FunctionOutput<()> {
+  fn test_seed_to_master_keys_secp256k1() -> FunctionOutput<()> {
     let test_vectors = vec![
       _SeedMasterVector {
         seed: "39419d7fcbdbaac882d6328ae818ebde151b8e62909443a7ae93ac9c55efb3455448c8b5740421dbd0540871b0060e3b430464d6c15074b80abf38a7cc8b00da",
@@ -206,7 +213,7 @@ mod tests {
   }
 
   #[test]
-  fn test_master_to_child_keys() {
+  fn test_master_to_child_keys_secp256k1() {
     let test_vectors = vec![
       _MasterChildVector {
         master_private_key: "3e385c087ab3533637afa4cd893da06b624092bbee9d3221917138413d189686",
@@ -312,6 +319,74 @@ mod tests {
       }
     }
   }
-}
 
+  #[test]
+  fn test_mnemonic_to_ed25519_address() {
+    let test_vectors = vec![
+      _SolanaTestVector {
+        mnemonic_words: "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
+        derivation_path: "m/44'/501'/0'/0'",
+        expected_solana_address: "5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N",
+      },
+      _SolanaTestVector {
+        mnemonic_words: "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
+        derivation_path: "m/44'/501'/1'/0'",
+        expected_solana_address: "GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv",
+      },
+      _SolanaTestVector {
+        mnemonic_words: "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
+        derivation_path: "m/44'/501'/2'/0'",
+        expected_solana_address: "7QPgyQwNLqnoSwHEuK8wKy2Y3Ani6EHoZRihTuWkwxbc",
+      },
+      _SolanaTestVector {
+        mnemonic_words: "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
+        derivation_path: "m/44'/501'/3'/0'",
+        expected_solana_address: "5aE8UprEEWtpVskhxo3f8ETco2kVKiZT9SS3D5Lcg8s2",
+      },
+      _SolanaTestVector {
+        mnemonic_words: "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
+        derivation_path: "m/44'/501'/4'/0'",
+        expected_solana_address: "5n6afo6LZmzH1J4R38ZCaNSwaztLjd48nWwToLQkCHxp",
+      },
+    ];
+
+    for vector in test_vectors {
+      let seed_raw = match keys::_generate_seed_from_mnemonic(vector.mnemonic_words, None) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not generate seed from mnemonic");
+        }
+      };
+      let seed_hex = match keys::_convert_seed_to_mnemonic(&seed_raw) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not convert seed to mnemonic");
+        }
+      };
+
+      let master = match keys::generate_master_keys_ed25519(&seed_hex) {
+        Ok(keys) => keys,
+        Err(_) => {
+          panic!("Can not generate master keys for ed25519");
+        }
+      };
+
+      let path = vector.derivation_path;
+
+      let final_key = match keys::derive_from_path_ed25519(
+        &master.master_private_key_bytes,
+        &master.master_chain_code_bytes,
+        path,
+      ) {
+        Ok(keys) => keys,
+        Err(_) => {
+          panic!("Can not generate child keys for ed25519");
+        }
+      };
+
+      let address = bs58::encode(&final_key.child_public_key_bytes).into_string();
+      assert_eq!(address, vector.expected_solana_address);
+    }
+  }
+}
 // -.-. --- .--. -.-- .-. .. --. .... - / --.- .-. ..--- -- .- - .-. --- ----- - -.. --- - .-- - ..-.
