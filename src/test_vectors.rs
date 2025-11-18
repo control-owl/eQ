@@ -331,6 +331,11 @@ mod tests {
         expected_solana_address: "5vftMkHL72JaJG6ExQfGAsT2uGVHpRR7oTNUPMs68Y2N",
       },
       _SolanaTestVector {
+        mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
+        derivation_path: "m/44'/501'/0'/0'",
+        expected_solana_address: "A6Yvk3G9b3UeitdUQtmHuD3WD7svQEaRQRmWpFG8tDwt",
+      },
+      _SolanaTestVector {
         mnemonic_words: "neither lonely flavor argue grass remind eye tag avocado spot unusual intact",
         derivation_path: "m/44'/501'/1'/0'",
         expected_solana_address: "GcXbfQ5yY3uxCyBNDPBbR5FjumHf89E7YHXuULfGDBBv",
