@@ -2,8 +2,6 @@
 
 ## Disclaimer
 
-> This is **beta** ! Still in **development** ! **DO NOT USE FOR PRODUCTION !!!** 
-
 > Read the [DISCLAIMER](./DISCLAIMER.md) file.
 
 
@@ -64,8 +62,9 @@ See the [LICENSE]((./LICENSE.txt)) file or the official [deed](https://creativec
 
 | **Build Status**     |
 | -------------------- |
-| Linux x86_64 GNU     |
-| macOS aarch64 Darwin |
+| Linux x86_64 GNU (soon)     |
+| macOS aarch64 Darwin (soon) |
+| Windows (soon) |
 
 
 ## Features
@@ -124,15 +123,19 @@ cargo run --release
 
 This project uses the following crates:
 
+- [base32](https://docs.rs/base32)
 - [base64](https://docs.rs/base64)
 - [bech32](https://docs.rs/bech32)
 - [bs58](https://docs.rs/bs58)
-- [ed25519-dalek](https://docs.rs/ed25519-dalek)
+- [curve25519-dalek](https://docs.rs/curve25519_dalek)
+- [ed25519-dalek](https://docs.rs/ed25519_dalek)
 - [egui](https://docs.rs/egui)
+- [eframe](https://docs.rs/eframe)
+- [egui_extras](https://docs.rs/egui_extras)
 - [getrandom](https://docs.rs/getrandom)
 - [hex](https://docs.rs/hex)
 - [include_dir](https://docs.rs/include_dir)
-- [num-bigint](https://docs.rs/num-bigint)
+- [num-bigint](https://docs.rs/num_bigint)
 - [rfd](https://docs.rs/rfd)
 - [ring](https://docs.rs/ring)
 - [ripemd](https://docs.rs/ripemd)
@@ -142,5 +145,6 @@ This project uses the following crates:
 - [shamir_share](https://docs.rs/shamir_share)
 - [svg](https://docs.rs/svg)
 - [sysinfo](https://docs.rs/sysinfo)
+- [tiny-keccak ](https://docs.rs/tiny_keccak)
 - [winres](https://docs.rs/winres)
 - [zeroize](https://docs.rs/zeroize)
