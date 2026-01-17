@@ -2,7 +2,7 @@
 // license = "CC-BY-NC-ND-4.0  [2023-2025]  Control Owl"
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, Zeroize, ZeroizeOnDrop, d3bug};
+use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, Zeroize, ZeroizeOnDrop};
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -215,10 +215,6 @@ impl SaveWalletDialog {
       let total_images = save_dialog.total_images;
       let threshold = save_dialog.threshold;
       let redundancy = save_dialog.pixel_redundancy;
-
-      d3bug(&format!("total_images: {:?}", total_images), "debug");
-      d3bug(&format!("threshold: {:?}", threshold), "debug");
-      d3bug(&format!("redundancy: {:?}", redundancy), "debug");
 
       if threshold == 0 || total_images == 0 || threshold > total_images {
         return Err(AppError::log("Shamir parameters are set wrong".to_string()));
@@ -699,8 +695,6 @@ fn shamir_combine(
   threshold: Zeroizing<u8>,
   config: Config,
 ) -> FunctionOutput<Zeroizing<Vec<u8>>> {
-  d3bug("<<< shamir_combine", "debug");
-
   if share_bytes.len() < *threshold as usize {
     return Err(AppError::log(format!("Not enough shares provided: got {:?}, need {:?}", share_bytes.len(), threshold)));
   }
@@ -740,8 +734,6 @@ pub fn encrypt_wallet(
   pbkdf2_rounds: u32,
   kdf_choice: KdfChoice,
 ) -> FunctionOutput<Zeroizing<Vec<u8>>> {
-  d3bug("<<< encrypt_wallet", "debug");
-
   let rng = SystemRandom::new();
 
   let mut salt: [u8; 32] = [0u8; SALT_LEN];
@@ -953,8 +945,6 @@ pub fn load_svg(path: &str) -> FunctionOutput<Vec<u8>> {
     }
   }
 
-  d3bug(&format!("load secret_bytes: {:?}", secret_bytes), "debug");
-
   let best_start = secret_bytes.windows(2).position(|magic| magic == *WALLET_HEADER).unwrap_or(0);
   let recovered = &secret_bytes[best_start..];
 
@@ -1019,7 +1009,6 @@ fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
     Err(err) => return Err(AppError::log(format!("reading payload version failed: {:?}", err))),
   };
   let payload_version: u8 = version_bytes[0];
-  d3bug(&format!("payload_version: {:?}", payload_version), "debug");
 
   // 2 Full entropy
   let entropy_len_bytes = match take(&plain, &mut off, 4) {

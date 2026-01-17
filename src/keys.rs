@@ -5,7 +5,6 @@
 
 use crate::{
   AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput, Zeroizing,
-  d3bug,
 };
 use base32::Alphabet;
 use base64::Engine;
@@ -31,8 +30,6 @@ pub fn generate_seed(
   wallet: &mut CryptoWallet,
   entropy_source: Zeroizing<String>,
 ) -> FunctionOutput<()> {
-  d3bug("<<< generate_seed", "debug");
-
   let full_entropy: Zeroizing<String>;
   let mnemonic_dictionary: Zeroizing<String>;
 
@@ -53,14 +50,12 @@ pub fn generate_seed(
       wallet.seed_secret.entropy_checksum = entropy_checksum.clone();
 
       full_entropy = Zeroizing::new(format!("{}{}", *raw_entropy, *entropy_checksum));
-      d3bug(&format!("full_entropy: {:?}", full_entropy), "debug");
       wallet.seed_secret.full_entropy = full_entropy.clone();
 
       match wallet.seed_secret.mnemonic_passphrase_source.as_str() {
         "RNG" => {
           match generate_raw_mnemonic_passphrase(MNEMONIC_PASSPHRASE_LENGTH as usize) {
             Ok(pass) => {
-              d3bug(&format!("pass: {:?}", pass), "debug");
               wallet.seed_secret.mnemonic_passphrase = pass;
             }
             Err(err) => return Err(AppError::log(format!("Error: {:?}", err))),
@@ -104,8 +99,6 @@ pub fn generate_raw_entropy(
   _source: Zeroizing<String>,
   entropy_length: Option<Zeroizing<usize>>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< generate_raw_entropy", "debug");
-
   let entropy_length: Zeroizing<usize> = entropy_length.unwrap_or(Zeroizing::new(256));
   let bytes_needed: Zeroizing<usize> = Zeroizing::new(entropy_length.div_ceil(8));
   let mut buffer: Zeroizing<Vec<u8>> = Zeroizing::new(vec![0u8; *bytes_needed]);
@@ -170,8 +163,6 @@ pub fn generate_mnemonic_words(
   final_entropy_binary: Zeroizing<String>,
   dictionary: Option<Zeroizing<String>>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< generate_mnemonic_words", "debug");
-
   let chunks: Zeroizing<Vec<String>> =
     Zeroizing::new(final_entropy_binary.chars().collect::<Vec<char>>().chunks(11).map(|chunk| chunk.iter().collect()).collect());
 
@@ -217,8 +208,6 @@ pub fn generate_mnemonic_words(
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_secp256k1_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  d3bug("<<< generate_master_keys_secp256k1", "debug");
-
   let private_header: Zeroizing<String> = Zeroizing::new(String::from("0x0488ADE4"));
   let public_header: Zeroizing<String> = Zeroizing::new(String::from("0x0488B21E"));
   let seed: Zeroizing<String> = wallet.seed_secret.seed.clone();
@@ -329,8 +318,6 @@ pub fn generate_secp256k1_master_keys(wallet: &mut CryptoWallet) -> FunctionOutp
 }
 
 pub fn generate_secp256k1_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  d3bug("<<< derive_secp256k1_child_keys", "debug");
-
   let mut private_key: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_secp256k1_keys.master_private_key_bytes.to_vec());
   let mut chain_code: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_secp256k1_keys.master_chain_code_bytes.to_vec());
   let mut public_key: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::new());
@@ -390,8 +377,6 @@ pub fn derive_secp256k1_child(
   index: Zeroizing<u32>,
   hardened: Zeroizing<bool>,
 ) -> FunctionOutput<ChildSecp256k1KeySecretData> {
-  d3bug("<<< derive_secp256k1_child", "debug");
-
   if *index & 0x80000000 != 0 && !*hardened {
     return Err(AppError::log(format!("Problem with index {:?}", index)));
   }
@@ -451,8 +436,6 @@ pub fn derive_secp256k1_child(
 }
 
 pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  d3bug("<<< generate_secp256k1_address", "debug");
-
   let public_key = generate_public_key(wallet)?;
 
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
@@ -591,8 +574,6 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
 // Zeroizing
 
 fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPublicKey> {
-  d3bug("<<< generate_public_key", "debug");
-
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
 
   match key_derivation.as_str() {
@@ -649,7 +630,6 @@ fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPublic
           let pk_bytes = point.compress().to_bytes();
 
           let verifying_key = VerifyingKey::from_bytes(&pk_bytes).map_err(|e| AppError::log(format!("Invalid NEM Ed25519 public key: {:?}", e)))?;
-          d3bug(&format!("-----------Public key: {:?}", verifying_key), "debug");
           Ok(CryptoPublicKey::Ed25519(verifying_key))
         }
         _ => {
@@ -669,8 +649,6 @@ fn encode_public_key(
   coin_index: Zeroizing<u32>,
   public_key: &CryptoPublicKey,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< encode_public_key", "debug");
-
   match hash.as_str() {
     "sha256" | "sha256+ripemd160" => match public_key {
       CryptoPublicKey::Secp256k1(pk) => Ok(Zeroizing::new(hex::encode(pk.serialize()))),
@@ -693,8 +671,6 @@ fn encode_public_key(
 }
 
 fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Zeroizing<Vec<u8>>> {
-  d3bug("<<< get_public_key", "debug");
-
   let public_key_bytes: Zeroizing<Vec<u8>> = match public_key {
     CryptoPublicKey::Secp256k1(key) => Zeroizing::new(key.serialize().to_vec()),
     CryptoPublicKey::Ed25519(key) => Zeroizing::new(key.to_bytes().to_vec()),
@@ -712,8 +688,6 @@ pub fn create_private_key_for_address(
   hash: Zeroizing<String>,
   coin_index: Zeroizing<u32>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< create_private_key_for_address", "debug");
-
   let wallet_import_format: Zeroizing<String> = match wif.as_ref() {
     Some(w) if !w.is_empty() => Zeroizing::new(w.trim_start_matches("0x").to_string()),
     _ => Zeroizing::new(String::from("80")),
@@ -781,8 +755,6 @@ fn encode_private_key(
   coin_index: Zeroizing<u32>,
   private_key_bytes: Zeroizing<[u8; 32]>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< encode_private_key", "debug");
-
   if *key_derivation == "ed25519" {
     Ok(Zeroizing::new(bs58::encode(private_key_bytes).into_string()))
   } else {
@@ -808,8 +780,6 @@ fn generate_address_internal(
   public_key: &CryptoPublicKey,
   public_key_hash_vec: Zeroizing<Vec<u8>>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< generate_address_internal", "debug");
-
   match hash.as_str() {
     "sha256" => generate_sha256_address(public_key, public_key_hash_vec),
     "keccak256" => generate_keccak256_address(public_key, public_key_hash_vec, coin_index),
@@ -822,8 +792,6 @@ pub fn generate_sha256_address(
   public_key: &CryptoPublicKey,
   public_key_hash: Zeroizing<Vec<u8>>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< generate_address_sha256", "debug");
-
   let public_key_bytes: Zeroizing<Vec<u8>> = match get_public_key(public_key) {
     Ok(key) => key,
     Err(err) => {
@@ -855,8 +823,6 @@ pub fn generate_keccak256_address(
   public_key_hash: Zeroizing<Vec<u8>>,
   coin_index: Zeroizing<u32>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< generate_address_keccak256", "debug");
-
   let public_key_bytes: Zeroizing<Vec<u8>> = match public_key {
     CryptoPublicKey::Secp256k1(key) => Zeroizing::new(key.serialize_uncompressed().to_vec()),
     CryptoPublicKey::Ed25519(key) => Zeroizing::new(key.to_bytes().to_vec()),
@@ -902,8 +868,6 @@ pub fn generate_sha256_ripemd160_address(
   public_key: &CryptoPublicKey,
   public_key_hash: Zeroizing<Vec<u8>>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug("<<< generate_sha256_ripemd160_address", "debug");
-
   let public_key_bytes: Zeroizing<Vec<u8>> = match get_public_key(public_key) {
     Ok(key) => key,
     Err(err) => {
@@ -983,8 +947,6 @@ fn bech32_encode<Checksum: bech32::Checksum>(
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_ed25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  d3bug(">>> generate_master_keys_ed25519", "debug");
-
   let seed: Zeroizing<String> = wallet.seed_secret.seed.clone();
   let message: Zeroizing<Vec<u8>> = Zeroizing::new(String::from("ed25519 seed").as_bytes().to_vec());
 
@@ -1022,8 +984,6 @@ pub fn generate_ed25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput
 }
 
 pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  d3bug(">>> derive_ed25519_child_keys", "debug");
-
   let master_key: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_private_key_bytes.to_vec());
   let master_chain_code: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes.to_vec());
 
@@ -1087,8 +1047,6 @@ pub fn derive_ed25519_child(
   parent_chain_code: Zeroizing<Vec<u8>>,
   index: Zeroizing<u32>,
 ) -> FunctionOutput<ChildEd25519KeySecretData> {
-  d3bug(">>> derive_child_key_ed25519", "debug");
-  // let prefix_byte: u8 = if *coin_index == 43 { 0x01 } else { 0x00 };
   let prefix_byte: u8 = 0x00;
 
   if parent_key.len() != 32 || parent_chain_code.len() != 32 {
@@ -1115,8 +1073,6 @@ pub fn derive_ed25519_child(
 }
 
 pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  d3bug(">>> generate_ed25519_address", "debug");
-
   let child_public_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.clone();
   let child_private_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_ed25519_keys.child_private_key_bytes.clone();
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
@@ -1209,8 +1165,6 @@ pub fn generate_nem_address(
   pubkey_bytes: Zeroizing<[u8; 32]>,
   pub_key_hash: Zeroizing<String>,
 ) -> FunctionOutput<Zeroizing<String>> {
-  d3bug(">>> generate_nem_address", "debug");
-
   let k256 = keccak256_nis1(Zeroizing::new(pubkey_bytes.to_vec()));
   let ripemd_hash = Ripemd160::digest(&k256);
 
@@ -1239,8 +1193,6 @@ pub fn generate_nem_address(
 }
 
 fn nem_pubkey_from_child_priv(child_private_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<[u8; 32]>> {
-  d3bug(">>> nem_pubkey_from_child_priv", "debug");
-
   let mut hash = [0u8; 64];
   let mut keccak512 = Keccak::v512();
   keccak512.update(child_private_key.as_slice());
@@ -1260,8 +1212,6 @@ fn nem_pubkey_from_child_priv(child_private_key: Zeroizing<[u8; 32]>) -> Functio
 }
 
 fn keccak256_nis1(data: Zeroizing<Vec<u8>>) -> Zeroizing<[u8; 32]> {
-  d3bug(">>> keccak256_nis1", "debug");
-
   let mut out = Zeroizing::new([0u8; 32]);
   let mut k256 = Keccak::v256();
 
