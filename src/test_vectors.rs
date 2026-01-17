@@ -1,7 +1,9 @@
-// authors = ["Control Owl <qr2m[at]r-o0-t[dot]wtf>"]
+// authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 // license = "CC-BY-NC-ND-4.0  [2023-2025]  Control Owl"
 
-// -.-. --- .--. -.-- .-. .. --. .... - / --.- .-. ..--- -- .- - .-. --- ----- - -.. --- - .-- - ..-.
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+use crate::DerivationPathData;
 
 struct _EntropyMnemonicVector {
   entropy: &'static str,
@@ -33,10 +35,55 @@ struct _MasterChildVector {
   expected_child_public_key_bytes: &'static str,
 }
 
+struct _Ed25519TestVector {
+  mnemonic_words: &'static str,
+  derivation_path: DerivationPathData,
+  expected_ed25519_address: &'static str,
+  public_key_hash: &'static str,
+}
+
+struct _AddressTestVector {
+  seed: &'static str,
+  coin_name: &'static str,
+  derivation_path: DerivationPathData,
+  expected_address: &'static str,
+  expected_public_key: &'static str,
+  expected_private_key: &'static str,
+  public_key_hash: &'static str,
+  wallet_import_format: &'static str,
+  hash: &'static str,
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{FunctionOutput, keys};
+  use crate::{CryptoWallet, DerivationPathData, FunctionOutput, Zeroizing, keys};
+  use std::vec;
+
+  fn convert_seed_to_hex(seed: &[u8]) -> FunctionOutput<String> {
+    let mut hex = String::with_capacity(128);
+
+    for byte in seed.iter() {
+      hex.push_str(&format!("{byte:02x}"));
+    }
+
+    Ok(hex)
+  }
+
+  pub fn generate_seed_from_mnemonic(
+    mnemonic: &str,
+    passphrase: Option<&str>,
+  ) -> FunctionOutput<[u8; 64]> {
+    let mnemonic_passphrase = passphrase.unwrap_or_default();
+    let salt = format!("mnemonic{mnemonic_passphrase}");
+    let mut seed = [0u8; 64];
+
+    ring::pbkdf2::derive(ring::pbkdf2::PBKDF2_HMAC_SHA512, std::num::NonZeroU32::new(2048).unwrap(), salt.as_bytes(), mnemonic.as_bytes(), &mut seed);
+
+    Ok(seed)
+  }
 
   #[test]
   fn test_entropy_to_mnemonic() {
@@ -76,13 +123,13 @@ mod tests {
     ];
 
     for vector in entropy_mnemonic_vectors {
-      let mnemonic = match keys::generate_mnemonic_words(vector.entropy, None) {
+      let mnemonic = match keys::generate_mnemonic_words(Zeroizing::new(String::from(vector.entropy)), None) {
         Ok(mnemonic) => mnemonic,
         Err(_) => {
           panic!("Error deriving mnemonic words")
         }
       };
-      assert_eq!(mnemonic, vector.mnemonic);
+      assert_eq!(mnemonic.as_str(), vector.mnemonic);
     }
   }
 
@@ -107,13 +154,13 @@ mod tests {
     ];
 
     for vector in mnemonic_seed_vectors {
-      let seed_raw = match keys::_generate_seed_from_mnemonic(vector.mnemonic, vector.passphrase) {
+      let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic, Some(vector.passphrase)) {
         Ok(seed) => seed,
         Err(_) => {
           panic!("Can not generate seed from mnemonic");
         }
       };
-      let seed = match keys::_convert_seed_to_mnemonic(&seed_raw) {
+      let seed = match convert_seed_to_hex(&seed_raw) {
         Ok(seed) => seed,
         Err(_) => {
           panic!("Can not convert seed to mnemonic");
@@ -125,7 +172,7 @@ mod tests {
   }
 
   #[test]
-  fn test_seed_to_master_keys() -> FunctionOutput<()> {
+  fn test_seed_to_master_keys_secp256k1() -> FunctionOutput<()> {
     let test_vectors = vec![
       _SeedMasterVector {
         seed: "39419d7fcbdbaac882d6328ae818ebde151b8e62909443a7ae93ac9c55efb3455448c8b5740421dbd0540871b0060e3b430464d6c15074b80abf38a7cc8b00da",
@@ -170,43 +217,28 @@ mod tests {
     ];
 
     for vector in test_vectors {
-      let keys = match keys::generate_master_keys_secp256k1(vector.seed, None, None) {
-        Ok(keys) => keys,
+      let mut wallet = CryptoWallet::new();
+      wallet.seed_secret.seed = Zeroizing::new(String::from(vector.seed));
+
+      match keys::generate_secp256k1_master_keys(&mut wallet) {
+        Ok(_) => {}
         Err(err) => {
-          return Err(crate::AppError::Custom(format!(
-            "Problem with parsing private_header: {}",
-            err
-          )));
+          return Err(crate::AppError::log(format!("Problem with parsing private_header: {}", err)));
         }
       };
 
-      assert_eq!(
-        keys.master_private_key_encoded,
-        vector.expected_master_xprv.to_string()
-      );
-      assert_eq!(
-        keys.master_public_key_encoded,
-        vector.expected_master_xpub.to_string()
-      );
-      assert_eq!(
-        hex::encode(keys.master_private_key_bytes.clone()),
-        vector.expected_master_private_key
-      );
-      assert_eq!(
-        hex::encode(keys.master_chain_code_bytes.clone()),
-        vector.expected_master_chain_code
-      );
-      assert_eq!(
-        hex::encode(keys.master_public_key_bytes.clone()),
-        vector.expected_master_public_key
-      );
+      assert_eq!(wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded, Zeroizing::new(vector.expected_master_xprv.to_string()));
+      assert_eq!(wallet.secret_keys.master_secp256k1_keys.master_public_key_encoded, Zeroizing::new(vector.expected_master_xpub.to_string()));
+      assert_eq!(hex::encode(wallet.secret_keys.master_secp256k1_keys.master_private_key_bytes.clone()), vector.expected_master_private_key);
+      assert_eq!(hex::encode(wallet.secret_keys.master_secp256k1_keys.master_chain_code_bytes.clone()), vector.expected_master_chain_code);
+      assert_eq!(hex::encode(wallet.secret_keys.master_secp256k1_keys.master_public_key_bytes.clone()), vector.expected_master_public_key);
     }
 
     Ok(())
   }
 
   #[test]
-  fn test_master_to_child_keys() {
+  fn test_master_to_child_keys_secp256k1() {
     let test_vectors = vec![
       _MasterChildVector {
         master_private_key: "3e385c087ab3533637afa4cd893da06b624092bbee9d3221917138413d189686",
@@ -283,35 +315,399 @@ mod tests {
     ];
 
     for vector in test_vectors {
-      let master_private_key_bytes =
-        hex::decode(vector.master_private_key).expect("can not decode master_private_key");
-      let master_chain_code_bytes =
-        hex::decode(vector.master_chain_code).expect("can not decode master_chain_code");
+      let master_private_key_bytes: Zeroizing<Vec<u8>> =
+        Zeroizing::new(hex::decode(vector.master_private_key).expect("can not decode master_private_key"));
+      let master_chain_code_bytes: Zeroizing<Vec<u8>> =
+        Zeroizing::new(hex::decode(vector.master_chain_code).expect("can not decode master_chain_code"));
 
-      match keys::derive_child_key_secp256k1(
-        &master_private_key_bytes,
-        &master_chain_code_bytes,
-        vector.index,
-        vector.hardened,
+      match keys::derive_secp256k1_child(
+        master_private_key_bytes,
+        master_chain_code_bytes,
+        Zeroizing::new(vector.index),
+        Zeroizing::new(vector.hardened),
       ) {
-        Ok(Some((child_private_key_bytes, child_chain_code_bytes, child_public_key_bytes))) => {
-          assert_eq!(
-            hex::encode(child_private_key_bytes),
-            vector.expected_child_private_key_bytes
-          );
-          assert_eq!(
-            hex::encode(child_chain_code_bytes),
-            vector.expected_child_chain_code_bytes
-          );
-          assert_eq!(
-            hex::encode(child_public_key_bytes),
-            vector.expected_child_public_key_bytes
-          );
+        Ok(child_keys) => {
+          assert_eq!(hex::encode(child_keys.child_private_key_bytes.clone()), vector.expected_child_private_key_bytes);
+          assert_eq!(hex::encode(child_keys.child_chain_code_bytes.clone()), vector.expected_child_chain_code_bytes);
+          assert_eq!(hex::encode(child_keys.child_public_key_bytes.clone()), vector.expected_child_public_key_bytes);
         }
         _ => panic!("Error deriving keys"),
       }
     }
   }
+
+  #[test]
+  fn test_seed_to_secp256k1_address() -> FunctionOutput<()> {
+    let test_vectors = vec![
+      _AddressTestVector {
+        seed: "9c341cd0b1630abe1df1ce4c2cdc38c211b1afe37b93cc572846a068a01239dc1892dc9721a8fac7d5f893fab1a02060b96d9313644dc3f3e7616600215cb96c",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(0),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(14),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Bitcoin",
+        expected_address: "19PqdJXMssQNzRazrQVPDoKDwrfd8zyV9s",
+        expected_public_key: "024cf9fc52a084abef7eea3e61df4b40f0ab2b5bffd9a832773fefe64456e3efa6",
+        expected_private_key: "L3eQrW9T2gWtKksWorB7E6BouFvni1ngr34qoa6YwYqij7doanpU",
+        public_key_hash: "0x00",
+        wallet_import_format: "0x80",
+        hash: "sha256",
+      },
+      _AddressTestVector {
+        seed: "9c341cd0b1630abe1df1ce4c2cdc38c211b1afe37b93cc572846a068a01239dc1892dc9721a8fac7d5f893fab1a02060b96d9313644dc3f3e7616600215cb96c",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(9),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Counterparty",
+        expected_address: "1JaMCowqDzuFzTGMBo3tELFudsbYTzFJV2",
+        expected_public_key: "03fc1ec6f1fa293a971b136754319773988ca3f9113b1baddf421c73b9e5ecc62a",
+        expected_private_key: "L3g2WxsDbS77bXAVkVaPtSosXiws4dCnhUqUEupMojWc8ysScSLw",
+        public_key_hash: "0x00",
+        wallet_import_format: "0x80",
+        hash: "sha256",
+      },
+      _AddressTestVector {
+        seed: "9c341cd0b1630abe1df1ce4c2cdc38c211b1afe37b93cc572846a068a01239dc1892dc9721a8fac7d5f893fab1a02060b96d9313644dc3f3e7616600215cb96c",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(21),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Open Assets",
+        expected_address: "akGjhNYqVzC6s69y1kxkxckaUD4jKJr9KCk",
+        expected_public_key: "02388f6a0a14b77466559dcd6c5d26fdc8b1b0a1ef5329846eaa4389cd7145c9f1",
+        expected_private_key: "L5PwmZXVM7FipxabAFcujmLXumF6dYqsrRPfapG6ZGDK7hrU8bJw",
+        public_key_hash: "0x00",
+        wallet_import_format: "0x80",
+        hash: "sha256",
+      },
+      _AddressTestVector {
+        seed: "514729a41c2c95ac0f828d9a359a0d72435fe75074ffe7a4fa0e1c157d16dd1604fde61f64a412b26012deba98bac6340a678c3c15983ee9cab8f93200b84a4c",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(60),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(17),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Ethereum",
+        expected_address: "0xb06483db0ba6003646a66a3e1cda52a07576aa86",
+        expected_public_key: "0x0247e7ecda4c589b2ffd1caffbf0a3ce2a2aa06c3708b01cab8155d6a219fbfea6",
+        expected_private_key: "0xf9e0e82c009606a8ae42f2b9fba9860463b7f6f62a7ea4f0172671e408c5ed4e",
+        public_key_hash: "",
+        wallet_import_format: "",
+        hash: "keccak256",
+      },
+      _AddressTestVector {
+        seed: "514729a41c2c95ac0f828d9a359a0d72435fe75074ffe7a4fa0e1c157d16dd1604fde61f64a412b26012deba98bac6340a678c3c15983ee9cab8f93200b84a4c",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(5),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(7),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Dash",
+        expected_address: "XsESTZSEMo5EovfpiNMKbABrR7MCAtvqHu",
+        expected_public_key: "032730387bb0a63e7734203a5770d2c1d9004e89e09cccec76079b8ccbbd4bebf5",
+        expected_private_key: "XDMyRFdL8VcTMM5YxswdyHqKyoSWCrpFU5sabvLE9bmEq7gzoJ42",
+        public_key_hash: "0x4c",
+        wallet_import_format: "0xcc",
+        hash: "sha256",
+      },
+      _AddressTestVector {
+        seed: "0be631a93733822132f3a961431dbde510ee2c0ba02a327f2ea550af544dea74d7fe3d2e4c633003cb3b4d4a7ad424ebc011e8a46f3ac9c74dd07fa98af914f2",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(3),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(7),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Doge",
+        expected_address: "DB6TUzw5zq9tu2ZRsPPxG13mQkmqTP8MUd",
+        expected_public_key: "02455c276f60ecdb0aad688a8404d6ba6d67eb24bcd627b541d2581516bec65809",
+        expected_private_key: "QVeeh6ojGZgeu3hoQDMGLRHDr7C9BsL3GMYWBFfYwY165sdDDWv5",
+        public_key_hash: "0x1e",
+        wallet_import_format: "0x9e",
+        hash: "sha256",
+      },
+      _AddressTestVector {
+        seed: "2f4a25b911a40d0150a863ed813bde03fdcb4822d3bf0258eb681c4555b9bc7e4e2e1faac2522494cb180a9bafbf0dae4f7f732e33b817849546351fcaa5bf8f",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(118),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(5),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Cosmos",
+        expected_address: "cosmos1hxl4j3d6duxuz9f4dr26jhgflyjmusf59ucwwu",
+        expected_public_key: "cosmospub1addwnpepq20ataq2l606gh7v3jtwwgp6taazgjjkunaus24dyg9whsyr4l3nswr7ynk",
+        expected_private_key: "TkkQN6fYFHwBy5h0lz0HIpIxFWpWAxGgCFGqDWPHZ1A=",
+        public_key_hash: "",
+        wallet_import_format: "",
+        hash: "sha256+ripemd160",
+      },
+      _AddressTestVector {
+        seed: "88a527d1eb006d48a2eaa729a33a631167bb90031069cf0a547de1656cb85227a5283041d863561079c4febfdfebe4f7f99a0cdb2199acf5a24cb7c65ec2e718",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(133),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(436536547),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(1),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(234234350),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Zcash",
+        expected_address: "t1RdfUot8Sc3rhLr4P6p7HL1ucAEyE2jFVW",
+        expected_public_key: "022e17f55f9b93d3a695195c4ef86c5676285016597457ed6daa1edfea34ce6904",
+        expected_private_key: "L4BSgzEtAwYt2VfFXfFxfiMkvrZhzoPpEAkPgiuJKyegwdY7ug5v",
+        public_key_hash: "0x1CB8",
+        wallet_import_format: "",
+        hash: "sha256",
+      },
+      _AddressTestVector {
+        seed: "d556a6ce9fbee435e8286d4a63c55a2d65829c2d30da0cfb5acd7952d4a926af7fa7e29183ecef8ebf32185b01b7c17967037f3262bf002f009f6b56f0979b61",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(195),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(12),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Tron",
+        expected_address: "TWiUzvnaFKd7eceCTJcCkybpfGJoLy3jm2",
+        expected_public_key: "03d793e73c60a171ea1734c90bfae77d234c274517a9c85df9242bab00e91bd685",
+        expected_private_key: "e46e96c9713cc1e6a03fc345d60c009ff79ade19a144290c9b8cc517aa35e3ae",
+        public_key_hash: "0x41",
+        wallet_import_format: "",
+        hash: "keccak256",
+      },
+    ];
+
+    for vector in test_vectors {
+      let mut wallet = CryptoWallet::new();
+
+      wallet.seed_secret.seed = Zeroizing::new(String::from(vector.seed));
+      wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path);
+      wallet.address_components._coin_name = Zeroizing::new(vector.coin_name.to_string());
+      wallet.address_components.public_key_hash = Zeroizing::new(vector.public_key_hash.to_string());
+      wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
+      wallet.address_components.wallet_import_format = Zeroizing::new(vector.wallet_import_format.to_string());
+      wallet.address_components.hash = Zeroizing::new(vector.hash.to_string());
+
+      keys::generate_secp256k1_master_keys(&mut wallet)?;
+      keys::generate_secp256k1_child_keys(&mut wallet)?;
+      keys::generate_secp256k1_address(&mut wallet)?;
+
+      let addresses = wallet.addresses_by_coin.0.get(vector.coin_name).expect("Coin not found");
+      let first = addresses.get(0).expect("No address stored for this coin");
+
+      assert_eq!(first.address, Zeroizing::new(vector.expected_address.to_string()));
+      assert_eq!(first.public_key, Zeroizing::new(vector.expected_public_key.to_string()));
+      assert_eq!(first.private_key, Zeroizing::new(vector.expected_private_key.to_string()));
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn test_mnemonic_to_ed25519_address() {
+    // https://privatekeyfinder.io/mnemonic-converter
+    // https://coinomi.github.io/tools/bip39/ (Not working?????)
+    let mut wallet = CryptoWallet::new();
+
+    let test_vectors = vec![
+      _Ed25519TestVector {
+        mnemonic_words: "dose dumb cluster card tag swallow despair helmet garden pave dust gas",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(43),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(true),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        expected_ed25519_address: "NAUIMD-KYQL63-AMH3XL-LYB55M-VDBRWT-ZOYV3E-GZGQ",
+        public_key_hash: "0x68",
+      },
+      _Ed25519TestVector {
+        mnemonic_words: "dose dumb cluster card tag swallow despair helmet garden pave dust gas",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(43),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(true),
+          address: Zeroizing::new(1),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        expected_ed25519_address: "NCKOWW-MEZUSS-AUF2R4-7SHIFM-ZUKGHK-74QC2P-SUI3",
+        public_key_hash: "0x68",
+      },
+      _Ed25519TestVector {
+        mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(501),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(true),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        expected_ed25519_address: "GPAf4mYkMweFXpncRh5Fsc5vrzYEH8dEtW5Nv7BCW2cx",
+        public_key_hash: "",
+      },
+      _Ed25519TestVector {
+        mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(501),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(7895),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(47158),
+          change_hardened: Zeroizing::new(true),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(true),
+          last_index: Zeroizing::new(0),
+        },
+        expected_ed25519_address: "6aprbLSWi1oHsT27ZSashtDaZBRXHmWoXP9trNzQWH8Y",
+        public_key_hash: "",
+      },
+    ];
+
+    for vector in test_vectors {
+      let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, None) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not generate seed from mnemonic");
+        }
+      };
+
+      let seed_hex = match convert_seed_to_hex(&seed_raw) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not convert seed to mnemonic");
+        }
+      };
+
+      wallet.seed_secret.seed = Zeroizing::new(seed_hex);
+
+      let _ = keys::generate_ed25519_master_keys(&mut wallet);
+
+      wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
+
+      match keys::generate_ed25519_child_keys(&mut wallet) {
+        Ok(keys) => keys,
+        Err(_) => {
+          panic!("Can not generate child keys for ed25519");
+        }
+      };
+
+      let (address, _public_key, _private_key) = match *wallet.address_components.derivation_path.coin {
+        501 => {
+          let address = bs58::encode(wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.clone()).into_string();
+          (
+            address,
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_public_key_bytes)),
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_private_key_bytes)),
+          )
+        }
+        43 => {
+          let pub_key_hash: Zeroizing<String> = Zeroizing::new(vector.public_key_hash.to_string());
+          let pubkey_array: Zeroizing<[u8; 32]> =
+            Zeroizing::new(wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.as_slice().try_into().unwrap());
+          let address = keys::generate_nem_address(pubkey_array, pub_key_hash).unwrap().to_string();
+          (
+            address,
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_public_key_bytes)),
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_private_key_bytes)),
+          )
+        }
+        _ => panic!("Unsupported ed25519 coin_index"),
+      };
+
+      assert_eq!(address, vector.expected_ed25519_address);
+    }
+  }
 }
 
-// -.-. --- .--. -.-- .-. .. --. .... - / --.- .-. ..--- -- .- - .-. --- ----- - -.. --- - .-- - ..-.
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..

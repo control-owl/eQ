@@ -4,39 +4,84 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug eQ",
+            "name": "Debug eQ [Default]",
             "cargo": {
                 "args": [
                     "build",
+                    "--features=default",
                     "--bin=eQ",
-                    "--package=eQ"
+                    "--package=eQ",
+                    "--target-dir=target/default"
                 ],
                 "filter": {
                     "name": "eQ",
                     "kind": "bin"
                 }
             },
-            "program": "${workspaceFolder}/target/debug/eQ", 
+            "program": "${workspaceFolder}/target/default/debug/eQ",
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Release eQ",
+            "name": "Release eQ [Default]",
             "cargo": {
                 "args": [
                     "build",
+                    "--features=default",
                     "--release",
                     "--bin=eQ",
                     "--package=eQ",
+                    "--target-dir=target/default",
                 ],
                 "filter": {
                     "name": "eQ",
                     "kind": "bin"
                 }
             },
-            "program": "${workspaceFolder}/target/release/eQ", 
+            "program": "${workspaceFolder}/target/default/release/eQ",
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug eQ [Dev]",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=dev",
+                    "--bin=eQ",
+                    "--package=eQ",
+                    "--target-dir=target/dev",
+                ],
+                "filter": {
+                    "name": "eQ",
+                    "kind": "bin"
+                }
+            },
+            "program": "${workspaceFolder}/target/dev/debug/eQ",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Release eQ [Dev]",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=dev",
+                    "--release",
+                    "--bin=eQ",
+                    "--package=eQ",
+                    "--target-dir=target/dev",
+                ],
+                "filter": {
+                    "name": "eQ",
+                    "kind": "bin"
+                }
+            },
+            "program": "${workspaceFolder}/target/dev/release/eQ",
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

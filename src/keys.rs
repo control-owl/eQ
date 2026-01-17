@@ -3,103 +3,124 @@
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
+use crate::{
+  AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput, Zeroizing,
+  d3bug,
+};
+use base32::Alphabet;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use bech32::{Bech32, Hrp, encode};
+use curve25519_dalek::Scalar;
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint};
+use ed25519_dalek::SigningKey;
 use num_bigint::BigUint;
 use ring::pbkdf2;
-use sha2::{Digest, Sha256, Sha512};
+use ripemd::Ripemd160;
+use sha2::{Digest, Sha256};
 use sha3::Keccak256;
-
-use crate::{AddressData, AppError, FunctionOutput, MasterKeyData, SeedData, d3bug};
+use tiny_keccak::{Hasher, Keccak};
+use zeroize::Zeroize;
 
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
-
-pub type DerivationResult = Option<([u8; 32], [u8; 32], Vec<u8>)>;
-pub type AddressResult = Option<Address>;
-
-// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
-
-pub enum CryptoPublicKey {
-  Secp256k1(secp256k1::PublicKey),
-  // #[cfg(feature = "dev")]
-  // Ed25519(ed25519_dalek::VerifyingKey),
-}
-
-#[derive(Debug)]
-pub struct Address {
-  pub address: String,
-  pub public_key: String,
-  pub private_key: String,
-}
+const MNEMONIC_PASSPHRASE_LENGTH: u32 = 128;
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_seed(
-  source: &str,
-  entropy_length: Option<usize>,
-  passphrase_text: Option<&str>,
-  dictionary: Option<&str>,
-) -> FunctionOutput<SeedData> {
+  wallet: &mut CryptoWallet,
+  entropy_source: Zeroizing<String>,
+) -> FunctionOutput<()> {
   d3bug("<<< generate_seed", "debug");
-  d3bug(&format!("entropy_length {entropy_length:?}"), "debug");
-  d3bug(&format!("passphrase_text {passphrase_text:?}"), "debug");
-  d3bug(&format!("dictionary {dictionary:?}"), "debug");
 
-  let pre_entropy = generate_pre_entropy(source, entropy_length);
-  let checksum = e_q::calculate_checksum_for_entropy(&pre_entropy);
-  let full_entropy = format!("{}{}", &pre_entropy, &checksum);
-  let mnemonic_words = match generate_mnemonic_words(&full_entropy, dictionary) {
+  let full_entropy: Zeroizing<String>;
+  let mnemonic_dictionary: Zeroizing<String>;
+
+  match entropy_source.as_str() {
+    "SVG" => {
+      full_entropy = wallet.seed_secret.full_entropy.clone();
+      mnemonic_dictionary = wallet.seed_secret.mnemonic_dictionary.clone();
+    }
+    "RNG" => {
+      // TODO: Implement RNG Mnemonic passphrase + add to GUI
+      let entropy_length: Zeroizing<usize> = wallet.seed_secret.entropy_length.clone();
+      mnemonic_dictionary = wallet.seed_secret.mnemonic_dictionary.clone();
+
+      let raw_entropy: Zeroizing<String> = generate_raw_entropy(entropy_source.clone(), Some(entropy_length))?;
+      wallet.seed_secret.raw_entropy = raw_entropy.clone();
+
+      let entropy_checksum: Zeroizing<String> = e_q::calculate_checksum_for_entropy(raw_entropy.clone());
+      wallet.seed_secret.entropy_checksum = entropy_checksum.clone();
+
+      full_entropy = Zeroizing::new(format!("{}{}", *raw_entropy, *entropy_checksum));
+      d3bug(&format!("full_entropy: {:?}", full_entropy), "debug");
+      wallet.seed_secret.full_entropy = full_entropy.clone();
+
+      match wallet.seed_secret.mnemonic_passphrase_source.as_str() {
+        "RNG" => {
+          match generate_raw_mnemonic_passphrase(MNEMONIC_PASSPHRASE_LENGTH as usize) {
+            Ok(pass) => {
+              d3bug(&format!("pass: {:?}", pass), "debug");
+              wallet.seed_secret.mnemonic_passphrase = pass;
+            }
+            Err(err) => return Err(AppError::log(format!("Error: {:?}", err))),
+          };
+        }
+        "Custom" => {}
+        _ => {}
+      }
+    }
+    _ => return Err(AppError::log(format!("Unknown entropy source: {:?}", entropy_source))),
+  }
+
+  let mnemonic_words: Zeroizing<String> = match generate_mnemonic_words(full_entropy.clone(), Some(mnemonic_dictionary)) {
     Ok(words) => words,
     Err(err) => {
-      return Err(AppError::Custom(format!(
-        "Problem with generating mnemonic words: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with generating mnemonic words: {}", err)));
     }
   };
 
-  let password = passphrase_text.unwrap_or("");
-  let salt = format!("mnemonic{password}");
-  let mut seed = [0u8; 64];
+  let salt: Zeroizing<String> = Zeroizing::new(format!("mnemonic{}", *wallet.seed_secret.mnemonic_passphrase));
+  let mut seed: Zeroizing<[u8; 64]> = Zeroizing::new([0u8; 64]);
 
-  // TODO: Create support for QRNG, File
-  pbkdf2::derive(
-    pbkdf2::PBKDF2_HMAC_SHA512,
-    std::num::NonZeroU32::new(2048).unwrap(),
-    salt.as_bytes(),
-    mnemonic_words.as_bytes(),
-    &mut seed,
-  );
+  let iter = match std::num::NonZeroU32::new(2048) {
+    Some(number) => number,
+    _ => {
+      return Err(AppError::log(String::from("Problem with pbkdf2 iter")));
+    }
+  };
 
-  let seed_hex = hex::encode(&seed[..]);
+  pbkdf2::derive(pbkdf2::PBKDF2_HMAC_SHA512, iter, salt.as_bytes(), mnemonic_words.as_bytes(), &mut *seed);
 
-  d3bug(&format!("pre_entropy {pre_entropy:?}"), "debug");
-  d3bug(&format!("checksum {checksum:?}"), "debug");
-  d3bug(&format!("full_entropy {full_entropy:?}"), "debug");
-  d3bug(&format!("mnemonic_words {mnemonic_words:?}"), "debug");
-  d3bug(&format!("password {password:?}"), "debug");
-  d3bug(&format!("seed_hex {seed_hex:?}"), "debug");
+  let seed_hex: Zeroizing<String> = Zeroizing::new(hex::encode(&seed[..]));
 
-  Ok(SeedData {
-    entropy: pre_entropy,
-    entropy_checksum: checksum,
-    full_entropy,
-    mnemonic_words,
-    mnemonic_passphrase: String::from(password),
-    seed: seed_hex,
-  })
+  wallet.seed_secret.mnemonic_words = mnemonic_words;
+  wallet.seed_secret.seed = seed_hex;
+
+  Ok(())
 }
 
-pub fn generate_pre_entropy(_source: &str, entropy_length: Option<usize>) -> String {
-  let entropy_length = entropy_length.unwrap_or(256);
+pub fn generate_raw_entropy(
+  _source: Zeroizing<String>,
+  entropy_length: Option<Zeroizing<usize>>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< generate_raw_entropy", "debug");
 
-  let bytes_needed = entropy_length.div_ceil(8);
-  let mut buffer = vec![0u8; bytes_needed];
+  let entropy_length: Zeroizing<usize> = entropy_length.unwrap_or(Zeroizing::new(256));
+  let bytes_needed: Zeroizing<usize> = Zeroizing::new(entropy_length.div_ceil(8));
+  let mut buffer: Zeroizing<Vec<u8>> = Zeroizing::new(vec![0u8; *bytes_needed]);
 
-  let _ = getrandom::fill(&mut buffer);
+  match getrandom::fill(&mut buffer) {
+    Ok(value) => value,
+    Err(err) => {
+      return Err(AppError::log(format!("Can not generate raw entropy with getrandom: {:?}", err)));
+    }
+  }
 
-  let mut result = String::with_capacity(entropy_length);
-  for byte in buffer {
+  let mut result: Zeroizing<String> = Zeroizing::new(String::with_capacity(*entropy_length));
+  for byte in buffer.iter() {
     for bit in 0..8 {
-      if result.len() == entropy_length {
+      if result.len() == *entropy_length {
         break;
       }
 
@@ -108,26 +129,55 @@ pub fn generate_pre_entropy(_source: &str, entropy_length: Option<usize>) -> Str
     }
   }
 
-  result
+  Ok(result)
+}
+
+fn generate_raw_mnemonic_passphrase(length: usize) -> FunctionOutput<Zeroizing<String>> {
+  let mut bytes = vec![0u8; length];
+  match getrandom::fill(&mut bytes) {
+    Ok(value) => value,
+    Err(err) => {
+      return Err(AppError::log(format!("Can not generate raw mnemonic passphrase getrandom: {:?}", err)));
+    }
+  }
+  let mut result = Zeroizing::new(String::with_capacity(length));
+  let mut i = 0;
+
+  while result.len() < length {
+    if i >= bytes.len() {
+      match getrandom::fill(&mut bytes) {
+        Ok(value) => value,
+        Err(err) => {
+          return Err(AppError::log(format!("Can not generate raw mnemonic passphrase getrandom: {:?}", err)));
+        }
+      }
+      i = 0;
+    }
+    let byte = bytes[i];
+    i += 1;
+
+    if byte < 188 {
+      let idx = (byte % 94) as u8;
+      let ch = 33u8 + idx;
+      result.push(char::from(ch));
+    }
+  }
+
+  Ok(result)
 }
 
 pub fn generate_mnemonic_words(
-  final_entropy_binary: &str,
-  dictionary: Option<&str>,
-) -> FunctionOutput<String> {
-  let chunks: Vec<String> = final_entropy_binary
-    .chars()
-    .collect::<Vec<char>>()
-    .chunks(11)
-    .map(|chunk| chunk.iter().collect())
-    .collect();
+  final_entropy_binary: Zeroizing<String>,
+  dictionary: Option<Zeroizing<String>>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< generate_mnemonic_words", "debug");
 
-  let mnemonic_decimal: Vec<u32> = chunks
-    .iter()
-    .map(|chunk| u32::from_str_radix(chunk, 2).unwrap())
-    .collect();
+  let chunks: Zeroizing<Vec<String>> =
+    Zeroizing::new(final_entropy_binary.chars().collect::<Vec<char>>().chunks(11).map(|chunk| chunk.iter().collect()).collect());
 
-  let dictionary_file = match dictionary.unwrap_or_default() {
+  let mnemonic_decimal: Zeroizing<Vec<u32>> = Zeroizing::new(chunks.iter().map(|chunk| u32::from_str_radix(chunk, 2).unwrap()).collect());
+
+  let dictionary_file = match dictionary.unwrap_or_default().as_str() {
     "Czech" => "czech.txt",
     "French" => "french.txt",
     "Italian" => "italian.txt",
@@ -141,742 +191,1096 @@ pub fn generate_mnemonic_words(
   };
 
   let wordlist_path = std::path::Path::new("wordlists").join(dictionary_file);
-  let wordlist = e_q::get_text_from_resources(wordlist_path.to_str().unwrap());
-  let mnemonic_words_vector: Vec<&str> = wordlist.lines().collect();
-  let mnemonic_words_vector: Vec<&str> = mnemonic_decimal
-    .iter()
-    .map(|&decimal| {
-      if (decimal as usize) < mnemonic_words_vector.len() {
-        mnemonic_words_vector[decimal as usize]
-      } else {
-        "ERROR"
-      }
-    })
-    .collect();
+  let wordlist_location: Zeroizing<String> = match wordlist_path.to_str() {
+    Some(path) => Zeroizing::new(path.to_string()),
+    _ => {
+      return Err(AppError::log(String::from("Can not open/find mnemonic dictionary file")));
+    }
+  };
 
-  Ok(mnemonic_words_vector.join(" "))
+  let wordlist: Zeroizing<String> = e_q::get_text_from_resources(wordlist_location);
+  let mnemonic_words_vector: Zeroizing<Vec<String>> = Zeroizing::new(wordlist.lines().map(|line| line.to_string()).collect());
+  let mnemonic_result: Zeroizing<Vec<String>> = Zeroizing::new(
+    mnemonic_decimal
+      .iter()
+      .map(
+        |&decimal| {
+          if (decimal as usize) < mnemonic_words_vector.len() { mnemonic_words_vector[decimal as usize].clone() } else { "ERROR".to_string() }
+        },
+      )
+      .collect(),
+  );
+
+  Ok(Zeroizing::new(mnemonic_result.join(" ")))
 }
 
-pub fn generate_master_keys_secp256k1(
-  seed: &str,
-  private_header: Option<&str>,
-  public_header: Option<&str>,
-) -> FunctionOutput<MasterKeyData> {
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn generate_secp256k1_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
   d3bug("<<< generate_master_keys_secp256k1", "debug");
-  d3bug(&format!("seed {seed:?}"), "debug");
 
-  let private_header = private_header.unwrap_or("0x0488ADE4");
-  let public_header = public_header.unwrap_or("0x0488B21E");
-  d3bug(&format!("private_header {private_header:?}"), "debug");
-  d3bug(&format!("public_header {public_header:?}"), "debug");
+  let private_header: Zeroizing<String> = Zeroizing::new(String::from("0x0488ADE4"));
+  let public_header: Zeroizing<String> = Zeroizing::new(String::from("0x0488B21E"));
+  let seed: Zeroizing<String> = wallet.seed_secret.seed.clone();
 
-  let private_header = match u32::from_str_radix(private_header.trim_start_matches("0x"), 16) {
-    Ok(value) => value,
+  let private_header: Zeroizing<u32> = match u32::from_str_radix(private_header.trim_start_matches("0x"), 16) {
+    Ok(value) => Zeroizing::new(value),
     Err(err) => {
-      return Err(AppError::Custom(format!(
-        "Problem with parsing private_header: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Parse error: Problem with parsing private_header: {:?}", err)));
     }
   };
 
-  let public_header = match u32::from_str_radix(public_header.trim_start_matches("0x"), 16) {
-    Ok(value) => value,
+  let public_header: Zeroizing<u32> = match u32::from_str_radix(public_header.trim_start_matches("0x"), 16) {
+    Ok(value) => Zeroizing::new(value),
     Err(err) => {
-      return Err(AppError::Custom(format!(
-        "Problem with parsing public_header: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Parsing error: Problem with parsing public_header: {:?}", err)));
     }
   };
 
-  let seed_bytes = match hex::decode(seed) {
-    Ok(value) => value,
+  let seed_bytes: Zeroizing<Vec<u8>> = match hex::decode(seed) {
+    Ok(bytes) => Zeroizing::new(bytes),
     Err(err) => {
-      return Err(AppError::Custom(format!(
-        "Problem with decoding seed_bytes: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with decoding seed_bytes: {}", err)));
     }
   };
 
-  let message = "Bitcoin seed";
-  let hmac_result = calculate_hmac_sha512_hash(message.as_bytes(), &seed_bytes);
-  let (master_private_key_bytes, master_chain_code_bytes) = hmac_result.split_at(32);
-  let mut master_private_key = Vec::new();
+  let message: Zeroizing<Vec<u8>> = Zeroizing::new(String::from("Bitcoin seed").as_bytes().to_vec());
+  let hmac_result: Zeroizing<Vec<u8>> = e_q::calculate_hmac_sha512_hash(message, seed_bytes);
+  let master_private_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(hmac_result.split_at(32).0.to_vec());
+  let master_chain_code_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(hmac_result.split_at(32).1.to_vec());
 
-  master_private_key.extend_from_slice(&u32::to_be_bytes(private_header));
+  let mut master_private_key: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::new());
+  master_private_key.extend_from_slice(&u32::to_be_bytes(*private_header));
   master_private_key.push(0x00);
   master_private_key.extend([0x00; 4].iter());
   master_private_key.extend([0x00; 4].iter());
-  master_private_key.extend_from_slice(master_chain_code_bytes);
+  master_private_key.extend_from_slice(master_chain_code_bytes.as_slice());
   master_private_key.push(0x00);
-  master_private_key.extend_from_slice(master_private_key_bytes);
+  master_private_key.extend_from_slice(master_private_key_bytes.as_slice());
 
-  let checksum: [u8; 4] = calculate_checksum_for_master_keys(&master_private_key);
+  let checksum: Zeroizing<[u8; 4]> = e_q::calculate_checksum_for_master_keys(master_private_key.clone());
+  master_private_key.extend_from_slice(&*checksum);
 
-  master_private_key.extend_from_slice(&checksum);
+  let master_private_key_encoded: Zeroizing<String> = Zeroizing::new(bs58::encode(&master_private_key).into_string());
+
+  let array: Zeroizing<[u8; 32]> = {
+    if master_private_key_bytes.len() != 32 {
+      return Err(AppError::log(String::from("master_private_key_bytes must be 32 bytes")));
+    }
+
+    let mut arr: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+    arr.copy_from_slice(master_private_key_bytes.as_ref());
+
+    Zeroizing::new(*arr)
+  };
+
+  let master_secret_key =
+    secp256k1::SecretKey::from_byte_array(*array).map_err(|err| AppError::log(format!("Invalid master_secret_key: {err:?}")))?;
 
   let secp = secp256k1::Secp256k1::new();
 
-  let master_private_key_encoded = bs58::encode(&master_private_key).into_string();
+  let master_public_key_bytes: Zeroizing<[u8; 33]> = Zeroizing::new(secp256k1::PublicKey::from_secret_key(&secp, &master_secret_key).serialize());
+  master_secret_key.secret_bytes().zeroize();
 
-  let array: [u8; 32] = master_private_key_bytes
-    .try_into()
-    .map_err(|_| AppError::Custom("master_private_key_bytes must be 32 bytes".into()))?;
+  let mut master_public_key: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::new());
 
-  let master_secret_key = secp256k1::SecretKey::from_byte_array(array)
-    .map_err(|err| AppError::Custom(format!("Invalid master_secret_key: {err:?}")))?;
-
-  let master_public_key_bytes: [u8; 33] =
-    secp256k1::PublicKey::from_secret_key(&secp, &master_secret_key).serialize();
-
-  let mut master_public_key = Vec::new();
-
-  master_public_key.extend_from_slice(&u32::to_be_bytes(public_header));
+  master_public_key.extend_from_slice(&u32::to_be_bytes(*public_header));
   master_public_key.push(0x00);
   master_public_key.extend([0x00; 4].iter());
   master_public_key.extend([0x00; 4].iter());
-  master_public_key.extend_from_slice(master_chain_code_bytes);
-  master_public_key.extend_from_slice(&master_public_key_bytes);
+  master_public_key.extend_from_slice(&master_chain_code_bytes);
+  master_public_key.extend_from_slice(&*master_public_key_bytes);
 
-  let checksum: [u8; 4] = calculate_checksum_for_master_keys(&master_public_key);
+  let checksum: Zeroizing<[u8; 4]> = e_q::calculate_checksum_for_master_keys(master_public_key.clone());
 
-  master_public_key.extend_from_slice(&checksum);
+  master_public_key.extend_from_slice(&*checksum);
 
-  let master_public_key_encoded = bs58::encode(&master_public_key).into_string();
-  let master_chain_code_bytes: [u8; 32] = master_chain_code_bytes.try_into().unwrap();
-  let master_private_key_bytes: [u8; 32] = master_private_key_bytes.try_into().unwrap();
+  let master_public_key_encoded: Zeroizing<String> = Zeroizing::new(bs58::encode(&master_public_key).into_string());
 
-  d3bug(
-    &format!("master_private_key_encoded {master_private_key_encoded:?}"),
-    "debug",
-  );
-  d3bug(
-    &format!("master_private_key_bytes {master_private_key_bytes:?}"),
-    "debug",
-  );
-  d3bug(
-    &format!("master_public_key_encoded {master_public_key_encoded:?}"),
-    "debug",
-  );
-  d3bug(
-    &format!("master_public_key_bytes {master_public_key_bytes:?}"),
-    "debug",
-  );
-  d3bug(
-    &format!("master_chain_code_bytes {master_chain_code_bytes:?}"),
-    "debug",
-  );
+  let master_chain_code_bytes: Zeroizing<[u8; 32]> = {
+    if master_chain_code_bytes.len() != 32 {
+      return Err(AppError::log(String::from("master_chain_code_bytes must be 32 bytes")));
+    }
 
-  Ok(MasterKeyData {
-    master_private_key_encoded,
-    master_private_key_bytes: master_private_key_bytes.to_vec(),
-    master_public_key_encoded,
-    master_public_key_bytes: master_public_key_bytes.to_vec(),
-    master_chain_code_bytes: master_chain_code_bytes.to_vec(),
-  })
-}
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(master_chain_code_bytes.as_ref());
 
-fn calculate_hmac_sha512_hash(key: &[u8], data: &[u8]) -> Vec<u8> {
-  const BLOCK_SIZE: usize = 128;
-  const HASH_SIZE: usize = 64;
-
-  let padded_key = if key.len() > BLOCK_SIZE {
-    let mut hasher = Sha512::new();
-    hasher.update(key);
-    let mut hashed_key = vec![0u8; HASH_SIZE];
-    hashed_key.copy_from_slice(&hasher.finalize());
-    hashed_key.resize(BLOCK_SIZE, 0x00);
-    hashed_key
-  } else {
-    let mut padded_key = vec![0x00; BLOCK_SIZE];
-    padded_key[..key.len()].copy_from_slice(key);
-    padded_key
+    Zeroizing::new(arr)
   };
 
-  assert_eq!(padded_key.len(), BLOCK_SIZE, "Padded key length mismatch");
+  let master_private_key_bytes: Zeroizing<[u8; 32]> = {
+    if master_private_key_bytes.len() != 32 {
+      return Err(AppError::log(String::from("master_private_key_bytes must be 32 bytes")));
+    }
 
-  let mut inner_pad = vec![0x36; BLOCK_SIZE];
-  let mut outer_pad = vec![0x5c; BLOCK_SIZE];
-  for (i, &b) in padded_key.iter().enumerate() {
-    inner_pad[i] ^= b;
-    outer_pad[i] ^= b;
-  }
+    let mut arr: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+    arr.copy_from_slice(master_private_key_bytes.as_ref());
 
-  let mut hasher = Sha512::new();
-  hasher.update(&inner_pad);
-  hasher.update(data);
-  let inner_hash = hasher.finalize();
-  let mut hasher = Sha512::new();
-  hasher.update(&outer_pad);
-  hasher.update(inner_hash);
-  let final_hash = hasher.finalize().to_vec();
-
-  assert_eq!(final_hash.len(), HASH_SIZE, "Final hash length mismatch");
-
-  final_hash
-}
-
-fn calculate_checksum_for_master_keys(data: &[u8]) -> [u8; 4] {
-  let hash = Sha256::digest(data);
-  let double_hash = Sha256::digest(hash);
-  let mut checksum = [0u8; 4];
-  checksum.copy_from_slice(&double_hash[..4]);
-  checksum
-}
-
-pub fn generate_address(ingredients: AddressData) -> FunctionOutput<AddressResult> {
-  let public_key_hash_vec = if ingredients.key_derivation != "ed25519" {
-    let trimmed = ingredients.public_key_hash.trim_start_matches("0x");
-    hex::decode(trimmed)
-      .map_err(|err| AppError::Custom(format!("Invalid public_key_hash: {err}")))?
-  } else {
-    Vec::new()
+    arr
   };
 
-  let derived_child_keys = derive_child_keys(&ingredients)?;
-  let derived_child_keys = derived_child_keys.ok_or_else(|| {
-    AppError::Custom(format!(
-      "Key derivation returned no result for path: {}",
-      ingredients.derivation_path
-    ))
-  })?;
+  wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded = master_private_key_encoded;
+  wallet.secret_keys.master_secp256k1_keys.master_private_key_bytes = Zeroizing::new(master_private_key_bytes.to_vec());
+  wallet.secret_keys.master_secp256k1_keys.master_public_key_encoded = master_public_key_encoded;
+  wallet.secret_keys.master_secp256k1_keys.master_public_key_bytes = Zeroizing::new(master_public_key_bytes.to_vec());
+  wallet.secret_keys.master_secp256k1_keys.master_chain_code_bytes = Zeroizing::new(master_chain_code_bytes.to_vec());
 
-  let public_key = generate_public_key(&ingredients, &derived_child_keys)?;
-  let public_key_encoded = encode_public_key(&ingredients, &public_key)?;
-  let address = generate_address_internal(&ingredients, &public_key, &public_key_hash_vec)?;
-  let priv_key_wif = encode_private_key(&ingredients, &derived_child_keys.0)?;
-
-  Ok(Some(Address {
-    address,
-    public_key: public_key_encoded,
-    private_key: priv_key_wif,
-  }))
+  Ok(())
 }
 
-fn derive_child_keys(ingredients: &AddressData) -> FunctionOutput<DerivationResult> {
-  match ingredients.key_derivation.as_str() {
-    "secp256k1" => derive_from_path_secp256k1(
-      &ingredients.master_private_key_bytes,
-      &ingredients.master_chain_code_bytes,
-      &ingredients.derivation_path,
-    ),
-    // #[cfg(feature = "dev")]
-    // "ed25519" => crate::dev::derive_from_path_ed25519(
-    //   &ingredients.master_private_key_bytes,
-    //   &ingredients.master_chain_code_bytes,
-    //   &ingredients.derivation_path,
-    // ),
-    _ => Err(AppError::Custom(format!(
-      "Unsupported key derivation method: {}",
-      ingredients.key_derivation
-    ))),
-  }
-}
+pub fn generate_secp256k1_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  d3bug("<<< derive_secp256k1_child_keys", "debug");
 
-fn generate_public_key(
-  ingredients: &AddressData,
-  derived_child_keys: &([u8; 32], [u8; 32], Vec<u8>),
-) -> FunctionOutput<CryptoPublicKey> {
-  match ingredients.key_derivation.as_str() {
-    "secp256k1" => {
-      let secp = secp256k1::Secp256k1::new();
-      let secret_key = secp256k1::SecretKey::from_byte_array(derived_child_keys.0)
-        .map_err(|err| AppError::Custom(format!("Invalid SecretKey: {err}")))?;
-      let secp_pub_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+  let mut private_key: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_secp256k1_keys.master_private_key_bytes.to_vec());
+  let mut chain_code: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_secp256k1_keys.master_chain_code_bytes.to_vec());
+  let mut public_key: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::new());
 
-      Ok(CryptoPublicKey::Secp256k1(secp_pub_key))
-    }
-    //     #[cfg(feature = "dev")]
-    //     "ed25519" => {
-    //       let sign_key = ed25519_dalek::SigningKey::from_bytes(&derived_child_keys.0);
-    //       let pub_key = sign_key.verifying_key();
-    //
-    //       Ok(CryptoPublicKey::Ed25519(pub_key))
-    //     }
-    _ => Err(AppError::Custom(format!(
-      "Unsupported key derivation method: {}",
-      ingredients.key_derivation
-    ))),
-  }
-}
+  let derivation_path: Zeroizing<String> = get_derivation_path("secp256k1", wallet)?;
 
-fn encode_public_key(
-  ingredients: &AddressData,
-  public_key: &CryptoPublicKey,
-) -> FunctionOutput<String> {
-  match ingredients.hash.as_str() {
-    "sha256" | "sha256+ripemd160" => match public_key {
-      CryptoPublicKey::Secp256k1(pk) => Ok(hex::encode(pk.serialize())),
-      // #[cfg(feature = "dev")]
-      // _ => Ok(String::new()),
-    },
-    "keccak256" => match public_key {
-      CryptoPublicKey::Secp256k1(pk) => {
-        let serialized = pk.serialize();
-        if ingredients.coin_index == 195 {
-          Ok(hex::encode(serialized))
-        } else {
-          Ok(format!("0x{}", hex::encode(serialized)))
-        }
-      } // #[cfg(feature = "dev")]
-        // _ => Ok(String::new()),
-    },
-    // #[cfg(feature = "dev")]
-    // "ed25519" => match public_key {
-    //   CryptoPublicKey::Ed25519(pk) => Ok(bs58::encode(pk.to_bytes()).into_string()),
-    //   _ => Ok(String::new()),
-    // },
-    _ => Err(AppError::Custom(format!(
-      "Unsupported hash method: {}",
-      ingredients.hash
-    ))),
-  }
-}
-
-fn generate_address_internal(
-  ingredients: &AddressData,
-  public_key: &CryptoPublicKey,
-  public_key_hash_vec: &[u8],
-) -> FunctionOutput<String> {
-  match ingredients.hash.as_str() {
-    "sha256" => generate_address_sha256(public_key, public_key_hash_vec),
-    "keccak256" => {
-      generate_address_keccak256(public_key, public_key_hash_vec, ingredients.coin_index)
-    }
-    "sha256+ripemd160" => {
-      generate_sha256_ripemd160_address(ingredients.coin_index, public_key, public_key_hash_vec)
-    }
-    // #[cfg(feature = "dev")]
-    // "ed25519" => crate::dev::generate_ed25519_address(public_key),
-    _ => Err(AppError::Custom(format!(
-      "Unsupported hash method: {}",
-      ingredients.hash
-    ))),
-  }
-}
-
-fn encode_private_key(
-  ingredients: &AddressData,
-  private_key_bytes: &[u8; 32],
-) -> FunctionOutput<String> {
-  if ingredients.key_derivation == "ed25519" {
-    Ok(bs58::encode(private_key_bytes).into_string())
-  } else {
-    let secret_key = secp256k1::SecretKey::from_byte_array(*private_key_bytes)
-      .map_err(|err| AppError::Custom(format!("Invalid SecretKey: {err}")))?;
-
-    create_private_key_for_address(
-      Some(&secret_key),
-      Some(true), // compressed
-      Some(&ingredients.wallet_import_format),
-      &ingredients.hash,
-      ingredients.coin_index,
-    )
-    .map_err(|err| AppError::Custom(format!("Failed to convert private key to WIF: {err}")))
-  }
-}
-
-pub fn create_private_key_for_address(
-  private_key: Option<&secp256k1::SecretKey>,
-  compressed: Option<bool>,
-  wif: Option<&str>,
-  hash: &str,
-  coin_index: u32,
-) -> FunctionOutput<String> {
-  let wallet_import_format = match wif {
-    Some(w) => {
-      if w.is_empty() {
-        "80"
-      } else {
-        w.trim_start_matches("0x")
-      }
-    }
-    None => "80",
-  };
-
-  let compressed = compressed.unwrap_or(true);
-
-  let wallet_import_format_bytes = match hex::decode(wallet_import_format) {
-    Ok(bytes) => bytes,
-    Err(err) => return Err(AppError::Custom(format!("Invalid WIF format {err:?}"))),
-  };
-
-  match hash {
-    "sha256" => {
-      let mut extended_key = Vec::with_capacity(34);
-      extended_key.extend_from_slice(&wallet_import_format_bytes);
-
-      if let Some(private_key) = private_key {
-        extended_key.extend_from_slice(&private_key.secret_bytes());
-
-        if compressed {
-          extended_key.push(0x01);
-        }
-      } else {
-        return Err(AppError::Custom("Private key must be provided".to_string()));
-      }
-
-      let checksum = e_q::calculate_double_sha256_hash(&extended_key);
-      let address_checksum = &checksum[0..4];
-      extended_key.extend_from_slice(address_checksum);
-
-      Ok(bs58::encode(extended_key).into_string())
-    }
-    "keccak256" => {
-      if let Some(private_key) = private_key {
-        if coin_index == 195 {
-          Ok(hex::encode(private_key.secret_bytes()))
-        } else {
-          Ok(format!("0x{}", hex::encode(private_key.secret_bytes())))
-        }
-      } else {
-        Err(AppError::Custom("Private key must be provided".to_string()))
-      }
-    }
-    "sha256+ripemd160" => match private_key {
-      Some(key) => {
-        let private_key_hex = hex::encode(key.secret_bytes());
-        // d3bug(&format!("private_key_hex {private_key_hex:?}"), "debug");
-        Ok(private_key_hex)
-      }
-      None => Err(AppError::Custom("Private key must be provided".to_string())),
-    },
-    _ => Err(AppError::Custom(format!("Unsupported hash method: {hash}"))),
-  }
-}
-
-pub fn derive_from_path_secp256k1(
-  master_key: &[u8],
-  master_chain_code: &[u8],
-  path: &str,
-) -> FunctionOutput<DerivationResult> {
-  let mut private_key = master_key.to_vec();
-  let mut chain_code = master_chain_code.to_vec();
-  let mut public_key = Vec::new();
-
-  for part in path.split('/') {
+  for part in derivation_path.split('/') {
     if part == "m" {
       continue;
     }
 
-    let hardened = part.ends_with("'");
-    let index: u32 = match part.trim_end_matches("'").parse() {
-      Ok(index) => {
-        // d3bug(&format!("index {index:?}"), "debug");
-
-        index
-      }
+    let hardened: Zeroizing<bool> = Zeroizing::new(part.ends_with("'"));
+    let index: Zeroizing<u32> = match part.trim_end_matches("'").parse() {
+      Ok(index) => Zeroizing::new(index),
       Err(err) => {
-        return Err(AppError::Custom(format!(
-          "Error: Unable to parse index from path part: {err}"
-        )));
+        return Err(AppError::log(format!("Parse error: Unable to parse index from path part: {:?}", err)));
       }
     };
 
-    let derived = match derive_child_key_secp256k1(&private_key, &chain_code, index, hardened) {
-      Ok(Some(value)) => value,
-      Ok(None) => {
-        return Err(AppError::Custom(
-          "Problem with derivation result: value is None".to_string(),
-        ));
-      }
+    let derived_child_keys: Zeroizing<ChildSecp256k1KeySecretData> = match derive_secp256k1_child(private_key, chain_code, index, hardened) {
+      Ok(keys) => Zeroizing::new(keys),
       Err(err) => {
-        return Err(AppError::Custom(format!(
-          "Problem with deriving child keys: {err:?}"
-        )));
+        return Err(AppError::log(format!("Problem with deriving child keys: {:?}", err)));
       }
     };
 
-    private_key = derived.0.to_vec();
-    chain_code = derived.1.to_vec();
-    public_key = derived.2;
+    private_key = Zeroizing::new(derived_child_keys.child_private_key_bytes.to_vec());
+    chain_code = Zeroizing::new(derived_child_keys.child_chain_code_bytes.to_vec());
+    public_key = Zeroizing::new(derived_child_keys.child_public_key_bytes.to_vec());
   }
-
-  let array: [u8; 32] = private_key
-    .try_into()
-    .map_err(|_| AppError::Custom("private_key must be 32 bytes".into()))?;
-
-  let secret_key = secp256k1::SecretKey::from_byte_array(array)
-    .map_err(|err| AppError::Custom(format!("Invalid secret_key: {err}")))?;
 
   if chain_code.len() != 32 {
-    return Err(AppError::Custom(format!(
-      "Invalid chain code length {:?}",
-      chain_code.len()
-    )));
+    return Err(AppError::log(format!("Invalid chain code length {:?}", chain_code.len())));
   }
 
-  let mut chain_code_array = [0u8; 32];
+  let array: Zeroizing<[u8; 32]> =
+    Zeroizing::new(<[u8; 32]>::try_from(private_key.as_slice()).map_err(|err| AppError::log(format!("private_key must be 32 bytes {:?}", err)))?);
+
+  let secret_key = secp256k1::SecretKey::from_byte_array(*array).map_err(|err| AppError::log(format!("Invalid secret_key: {:?}", err)))?;
+
+  let mut chain_code_array: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
   chain_code_array.copy_from_slice(&chain_code);
 
-  let mut public_key_array = [0u8; 33];
+  let mut public_key_array: Zeroizing<[u8; 33]> = Zeroizing::new([0u8; 33]);
   public_key_array.copy_from_slice(&public_key);
 
-  Ok(Some((
-    secret_key.secret_bytes(),
-    chain_code_array,
-    public_key_array.to_vec(),
-  )))
+  wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes = Zeroizing::new(secret_key.secret_bytes().to_vec());
+  wallet.secret_keys.child_secp256k1_keys.child_public_key_bytes = Zeroizing::new(public_key_array.to_vec());
+  wallet.secret_keys.child_secp256k1_keys.child_chain_code_bytes = Zeroizing::new(chain_code_array.to_vec());
+
+  Ok(())
 }
 
-pub fn generate_address_sha256(
-  public_key: &CryptoPublicKey,
-  public_key_hash: &[u8],
-) -> FunctionOutput<String> {
-  let public_key_bytes = match get_public_key(public_key) {
-    Ok(key) => key,
-    Err(err) => return Err(AppError::Custom(format!("Can not get public key: {err:?}"))),
-  };
+pub fn derive_secp256k1_child(
+  parent_key: Zeroizing<Vec<u8>>,
+  parent_chain_code: Zeroizing<Vec<u8>>,
+  index: Zeroizing<u32>,
+  hardened: Zeroizing<bool>,
+) -> FunctionOutput<ChildSecp256k1KeySecretData> {
+  d3bug("<<< derive_secp256k1_child", "debug");
 
-  // #[cfg(debug_assertions)]
-  // println!("Public key bytes: {public_key_bytes:?}");
-
-  let hash160 = e_q::calculate_sha256_and_ripemd160_hash(&public_key_bytes);
-
-  let mut payload = Vec::with_capacity(public_key_hash.len() + hash160.len());
-  payload.extend_from_slice(public_key_hash);
-  payload.extend_from_slice(&hash160);
-
-  // #[cfg(debug_assertions)]
-  // println!("Extended sha256_and_ripemd160 payload: {payload:?}");
-
-  let checksum = e_q::calculate_double_sha256_hash(&payload);
-  let address_checksum = &checksum[0..4];
-
-  // #[cfg(debug_assertions)]
-  // println!("Address checksum: {address_checksum:?}");
-
-  let mut address_payload = payload;
-  address_payload.extend_from_slice(address_checksum);
-
-  // #[cfg(debug_assertions)]
-  // println!("Extended Address payload: {address_payload:?}");
-
-  Ok(bs58::encode(address_payload).into_string())
-}
-
-pub fn generate_address_keccak256(
-  public_key: &CryptoPublicKey,
-  public_key_hash: &[u8],
-  coin_index: u32,
-) -> FunctionOutput<String> {
-  let public_key_bytes = match public_key {
-    CryptoPublicKey::Secp256k1(key) => key.serialize_uncompressed().to_vec(),
-    // #[cfg(feature = "dev")]
-    // CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
-  };
-
-  // #[cfg(debug_assertions)]
-  // println!("Public key bytes: {public_key_bytes:?}");
-
-  let public_key_slice = match public_key {
-    CryptoPublicKey::Secp256k1(_) => &public_key_bytes[1..],
-    // #[cfg(feature = "dev")]
-    // CryptoPublicKey::Ed25519(_) => &public_key_bytes[..],
-  };
-
-  let mut keccak = Keccak256::new();
-  keccak.update(public_key_slice);
-  let keccak_result = keccak.finalize();
-
-  // #[cfg(debug_assertions)]
-  // println!("Keccak256 hash result: {keccak_result:?}");
-
-  let address_bytes = &keccak_result[12..];
-
-  // #[cfg(debug_assertions)]
-  // println!("Address bytes: {address_bytes:?}");
-
-  let address = match coin_index {
-    195 => {
-      let mut tron_prefixed = public_key_hash.to_vec();
-      tron_prefixed.extend_from_slice(address_bytes);
-
-      let checksum = {
-        let hash = Sha256::digest(&tron_prefixed);
-        let hash2 = Sha256::digest(hash);
-        hash2[..4].to_vec()
-      };
-
-      let mut full_payload = tron_prefixed.clone();
-      full_payload.extend_from_slice(&checksum);
-
-      bs58::encode(full_payload).into_string()
-    }
-    _ => {
-      format!("0x{}", hex::encode(address_bytes))
-    }
-  };
-
-  // #[cfg(debug_assertions)]
-  // println!("Generated address: {address}");
-
-  Ok(address)
-}
-
-pub fn generate_sha256_ripemd160_address(
-  coin_index: u32,
-  public_key: &CryptoPublicKey,
-  public_key_hash: &[u8],
-) -> FunctionOutput<String> {
-  let public_key_bytes = match get_public_key(public_key) {
-    Ok(key) => key,
-    Err(err) => return Err(AppError::Custom(format!("Can not get public key: {err:?}"))),
-  };
-
-  // #[cfg(debug_assertions)]
-  // println!("Public key bytes: {public_key_bytes:?}");
-
-  let hash = e_q::calculate_sha256_and_ripemd160_hash(&public_key_bytes);
-  let mut address_bytes = Vec::new();
-
-  address_bytes.extend_from_slice(public_key_hash);
-  address_bytes.extend(&hash);
-
-  let checksum = Sha256::digest(Sha256::digest(&address_bytes));
-  let checksum = &checksum[0..4];
-
-  let mut full_address_bytes = address_bytes.clone();
-  full_address_bytes.extend(checksum);
-
-  let alphabet = match coin_index {
-    144 => bs58::Alphabet::RIPPLE,
-    _ => bs58::Alphabet::DEFAULT,
-  };
-
-  let encoded_address = bs58::encode(full_address_bytes)
-    .with_alphabet(alphabet)
-    .into_string();
-
-  // #[cfg(debug_assertions)]
-  // println!("Base58 encoded address: {encoded_address}");
-
-  Ok(encoded_address)
-}
-
-pub fn derive_child_key_secp256k1(
-  parent_key: &[u8],
-  parent_chain_code: &[u8],
-  index: u32,
-  hardened: bool,
-) -> FunctionOutput<DerivationResult> {
-  if index & 0x80000000 != 0 && !hardened {
-    return Err(AppError::Custom(format!("Problem with index {index:?}")));
+  if *index & 0x80000000 != 0 && !*hardened {
+    return Err(AppError::log(format!("Problem with index {:?}", index)));
   }
 
   let secp = secp256k1::Secp256k1::new();
-  let mut data = Vec::with_capacity(37);
+  let mut data: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(37));
 
-  if hardened {
+  if *hardened {
     data.push(0x00);
-    data.extend_from_slice(parent_key);
+    data.extend_from_slice(&parent_key);
   } else {
-    let array: [u8; 32] = parent_key
-      .try_into()
-      .map_err(|_| AppError::Custom("parent_key must be 32 bytes".into()))?;
+    let array: Zeroizing<[u8; 32]> = Zeroizing::new(
+      <[u8; 32]>::try_from(parent_key.as_slice()).map_err(|err| AppError::log(format!("Slice error: parent_key must be 32 bytes: {:?}", err)))?,
+    );
 
-    let parent_secret_key = secp256k1::SecretKey::from_byte_array(array)
-      .map_err(|err| AppError::Custom(format!("Invalid SecretKey: {err}")))?;
-
+    let parent_secret_key = secp256k1::SecretKey::from_byte_array(*array).map_err(|err| AppError::log(format!("Invalid SecretKey: {err}")))?;
     let parent_pubkey = secp256k1::PublicKey::from_secret_key(&secp, &parent_secret_key);
+
     data.extend_from_slice(&parent_pubkey.serialize()[..]);
   }
 
-  let index_bytes = if hardened {
-    let index = index + WALLET_MAX_ADDRESSES + 1;
-    index.to_be_bytes()
+  let index_bytes: Zeroizing<[u8; 4]> = if *hardened {
+    let index: Zeroizing<u32> = Zeroizing::new(*index + WALLET_MAX_ADDRESSES + 1);
+    Zeroizing::new(index.to_be_bytes())
   } else {
-    index.to_be_bytes()
+    Zeroizing::new(index.to_be_bytes())
   };
 
-  data.extend_from_slice(&index_bytes);
+  data.extend_from_slice(&*index_bytes);
 
-  // d3bug(&format!("data_for_hmac_sha512 {data:?}"), "debug");
+  let result: Zeroizing<Vec<u8>> = e_q::calculate_hmac_sha512_hash(parent_chain_code, data);
 
-  let result = e_q::calculate_hmac_sha512_hash(parent_chain_code, &data);
+  let child_private_key_bytes: Zeroizing<[u8; 32]> =
+    Zeroizing::new(result[..32].try_into().map_err(|err| AppError::log(format!("Slice with incorrect length for private key: {:?}", err)))?);
 
-  let child_private_key_bytes: [u8; 32] = result[..32]
-    .try_into()
-    .map_err(|_| AppError::Custom("Slice with incorrect length for private key".to_string()))?;
+  let combined_bytes_padded: Zeroizing<[u8; 32]> = {
+    let curve_order = BigUint::from_bytes_be(&secp256k1::constants::CURVE_ORDER);
+    let combined_int = (BigUint::from_bytes_be(&*child_private_key_bytes) + BigUint::from_bytes_be(&parent_key)) % &curve_order;
 
-  let child_chain_code_bytes: [u8; 32] = result[32..]
-    .try_into()
-    .map_err(|_| AppError::Custom("Slice with incorrect length for chain code".to_string()))?;
+    let combined_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(combined_int.to_bytes_be());
+    let mut padded: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
 
-  let child_key_int = BigUint::from_bytes_be(&child_private_key_bytes);
-  let parent_key_int = BigUint::from_bytes_be(parent_key);
-  let curve_order = BigUint::from_bytes_be(&secp256k1::constants::CURVE_ORDER);
-  let combined_int = (parent_key_int + child_key_int) % &curve_order;
-  let combined_bytes = combined_int.to_bytes_be();
-  let combined_bytes_padded = {
-    let mut padded = [0u8; 32];
     let offset = 32 - combined_bytes.len();
     padded[offset..].copy_from_slice(&combined_bytes);
+
     padded
   };
-  // let array: [u8; 32] = combined_bytes_padded
-  //   .try_into()
-  //   .map_err(|_| AppError::Custom("combined_bytes_padded must be 32 bytes".into()))?;
 
-  let child_secret_key = secp256k1::SecretKey::from_byte_array(combined_bytes_padded)
-    .map_err(|err| AppError::Custom(format!("Invalid child_secret_key: {err}")))?;
+  let child_private_key =
+    secp256k1::SecretKey::from_byte_array(*combined_bytes_padded).map_err(|err| AppError::log(format!("Invalid child_private_key: {err}")))?;
+  let child_private_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(child_private_key.secret_bytes().to_vec());
 
-  let child_secret_key_bytes = child_secret_key.secret_bytes();
-  let child_pubkey = secp256k1::PublicKey::from_secret_key(&secp, &child_secret_key);
-  let child_public_key_bytes = child_pubkey.serialize().to_vec();
+  let child_public_key_bytes: Zeroizing<Vec<u8>> =
+    Zeroizing::new(secp256k1::PublicKey::from_secret_key(&secp, &child_private_key).serialize().to_vec());
 
-  // d3bug(
-  //   &format!("child_private_key_bytes {child_private_key_bytes:?}"),
-  //   "debug",
-  // );
-  // d3bug(
-  //   &format!("child_chain_code_bytes {child_chain_code_bytes:?}"),
-  //   "debug",
-  // );
-  // d3bug(
-  //   &format!("child_public_key_bytes {child_public_key_bytes:?}"),
-  //   "debug",
-  // );
-
-  Ok(Some((
-    child_secret_key_bytes,
-    child_chain_code_bytes,
-    child_public_key_bytes,
-  )))
+  Ok(ChildSecp256k1KeySecretData { child_private_key_bytes, child_chain_code_bytes: Zeroizing::new(result[32..].to_vec()), child_public_key_bytes })
 }
 
-fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Vec<u8>> {
-  let public_key_bytes = match public_key {
-    CryptoPublicKey::Secp256k1(key) => key.serialize().to_vec(),
-    // #[cfg(feature = "dev")]
-    // CryptoPublicKey::Ed25519(key) => key.to_bytes().to_vec(),
+pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  d3bug("<<< generate_secp256k1_address", "debug");
+
+  let public_key = generate_public_key(wallet)?;
+
+  let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+  let coin_name: Zeroizing<String> = wallet.address_components._coin_name.clone();
+  let public_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
+  let hash: Zeroizing<String> = wallet.address_components.hash.clone();
+  let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
+  let wallet_import_format: Zeroizing<String> = wallet.address_components.wallet_import_format.clone();
+  let child_private_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes.clone();
+
+  let private_key: Zeroizing<[u8; 32]> = Zeroizing::new(
+    child_private_key_bytes
+      .as_slice()
+      .try_into()
+      .map_err(|err| AppError::log(format!("Slice error: Invalid private key length (expected 32 bytes): {:?}", err)))?,
+  );
+
+  let derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
+    Ok(path) => path,
+    Err(err) => return Err(AppError::log(format!("Can not parse derivation path: {:?}", err))),
+  };
+
+  if *coin_index == 118 {
+    let secp_pubkey = match &public_key {
+      CryptoPublicKey::Secp256k1(pk) => pk,
+      _ => {
+        return Err(AppError::log(String::from("Only Secp256k1 for generating Secp256k1 addresses")));
+      }
+    };
+
+    let pub_compressed: Zeroizing<Vec<u8>> = Zeroizing::new(secp_pubkey.serialize().to_vec());
+    let address: Zeroizing<String> = generate_atom_address(pub_compressed.clone())?;
+    let public_key_encoded: Zeroizing<String> = encode_cosmos_pubkey_bech32(pub_compressed)?;
+    let private_key_encoded: Zeroizing<String> = Zeroizing::new(BASE64.encode(private_key));
+
+    wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
+      coin_index,
+      path: derivation_path,
+      address,
+      public_key: public_key_encoded,
+      private_key: private_key_encoded,
+    });
+
+    Ok(())
+  } else {
+    let public_key_hash_vec: Zeroizing<Vec<u8>> = {
+      let trimmed: Zeroizing<String> = Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
+
+      let hex: Zeroizing<Vec<u8>> = match hex::decode(trimmed) {
+        Ok(hex) => Zeroizing::new(hex),
+        Err(err) => {
+          return Err(AppError::log(format!("Invalid public_key_hash: {:?}", err)));
+        }
+      };
+
+      hex
+    };
+
+    let public_key_encoded: Zeroizing<String> = encode_public_key(hash.clone(), coin_index.clone(), &public_key)?;
+    let address: Zeroizing<String> = generate_address_internal(hash.clone(), coin_index.clone(), &public_key, public_key_hash_vec)?;
+    let priv_key_wif: Zeroizing<String> = encode_private_key(key_derivation, wallet_import_format, hash, coin_index.clone(), private_key)?;
+
+    if *coin_index == 21 {
+      let btc_decoded = bs58::decode(address.clone()).into_vec().map_err(|e| AppError::log(format!("Invalid Base58 address: {e}")))?;
+
+      if btc_decoded.len() < 1 + 20 + 4 {
+        return Err(AppError::log(format!("Unexpected Base58 length for BTC address: {} (need ≥ 25 bytes: 1+20+4)", btc_decoded.len())));
+      }
+
+      let (btc_body, btc_checksum_bytes) = btc_decoded.split_at(btc_decoded.len() - 4);
+
+      let mut sha256_btc_1 = Sha256::new();
+      sha256_btc_1.update(btc_body);
+      let btc_hash_once = sha256_btc_1.finalize();
+
+      let mut sha256_btc_2 = Sha256::new();
+      sha256_btc_2.update(btc_hash_once);
+      let btc_hash_twice = sha256_btc_2.finalize();
+
+      let btc_expected_checksum = &btc_hash_twice[0..4];
+      if btc_checksum_bytes != btc_expected_checksum {
+        return Err(AppError::log("BTC Base58Check checksum mismatch"));
+      }
+
+      if btc_body.len() != 1 + 20 {
+        return Err(AppError::log(format!("Unexpected BTC body length: {} (expected 21 bytes: 1+20)", btc_body.len())));
+      }
+
+      let btc_version: u8 = btc_body[0];
+      let btc_payload_hash160: &[u8] = &btc_body[1..];
+
+      let oa_namespace: u8 = 0x13;
+      let mut oa_address_body = Vec::with_capacity(1 + 1 + btc_payload_hash160.len());
+      oa_address_body.push(oa_namespace);
+      oa_address_body.push(btc_version);
+      oa_address_body.extend_from_slice(btc_payload_hash160);
+
+      let mut sha256_oa_1 = Sha256::new();
+      sha256_oa_1.update(&oa_address_body);
+      let oa_hash_once = sha256_oa_1.finalize();
+
+      let mut sha256_oa_2 = Sha256::new();
+      sha256_oa_2.update(oa_hash_once);
+      let oa_hash_twice = sha256_oa_2.finalize();
+
+      let oa_checksum_bytes = &oa_hash_twice[0..4];
+
+      let mut oa_address_bytes = oa_address_body;
+      oa_address_bytes.extend_from_slice(oa_checksum_bytes);
+      let oa_colored_address = Zeroizing::new(bs58::encode(oa_address_bytes).into_string());
+
+      wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
+        coin_index,
+        path: derivation_path,
+        address: oa_colored_address,
+        public_key: public_key_encoded,
+        private_key: priv_key_wif,
+      });
+
+      return Ok(());
+    }
+
+    wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
+      coin_index,
+      path: derivation_path,
+      address,
+      public_key: public_key_encoded,
+      private_key: priv_key_wif,
+    });
+
+    Ok(())
+  }
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+// Zeroizing
+
+fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPublicKey> {
+  d3bug("<<< generate_public_key", "debug");
+
+  let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
+
+  match key_derivation.as_str() {
+    "secp256k1" => {
+      let secp = secp256k1::Secp256k1::new();
+
+      let child_private_key: Zeroizing<[u8; 32]> = Zeroizing::new(
+        wallet
+          .secret_keys
+          .child_secp256k1_keys
+          .child_private_key_bytes
+          .as_slice()
+          .try_into()
+          .map_err(|_| AppError::log(String::from("secp256k1 Child key not 32 bytes")))?,
+      );
+
+      let secret_key =
+        secp256k1::SecretKey::from_byte_array(*child_private_key).map_err(|err| AppError::log(format!("Invalid SecretKey: {:?}", err)))?;
+      let secp_pub_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+
+      Ok(CryptoPublicKey::Secp256k1(secp_pub_key))
+    }
+    "ed25519" => {
+      let child_private_key: Zeroizing<[u8; 32]> = Zeroizing::new(
+        wallet
+          .secret_keys
+          .child_ed25519_keys
+          .child_private_key_bytes
+          .as_slice()
+          .try_into()
+          .map_err(|_| AppError::log(String::from("ed25519 Child private key not 32 bytes")))?,
+      );
+
+      match *wallet.address_components.derivation_path.coin {
+        43 => {
+          use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint, scalar::Scalar};
+          use ed25519_dalek::VerifyingKey;
+          use tiny_keccak::{Hasher, Keccak};
+
+          let mut h = [0u8; 64];
+          let mut hasher = Keccak::v512();
+          hasher.update(&*child_private_key);
+          hasher.finalize(&mut h);
+
+          let mut s = [0u8; 32];
+          s.copy_from_slice(&h[..32]);
+          s[0] &= 248;
+          s[31] &= 127;
+          s[31] |= 64;
+
+          let a = Scalar::from_bytes_mod_order(s);
+
+          let point: EdwardsPoint = ED25519_BASEPOINT_POINT * a;
+          let pk_bytes = point.compress().to_bytes();
+
+          let verifying_key = VerifyingKey::from_bytes(&pk_bytes).map_err(|e| AppError::log(format!("Invalid NEM Ed25519 public key: {:?}", e)))?;
+          d3bug(&format!("-----------Public key: {:?}", verifying_key), "debug");
+          Ok(CryptoPublicKey::Ed25519(verifying_key))
+        }
+        _ => {
+          let signing_key = ed25519_dalek::SigningKey::from_bytes(&child_private_key);
+          let verifying_key = signing_key.verifying_key();
+
+          Ok(CryptoPublicKey::Ed25519(verifying_key))
+        }
+      }
+    }
+    _ => Err(AppError::log(format!("Unsupported key derivation method: {:?}", key_derivation))),
+  }
+}
+
+fn encode_public_key(
+  hash: Zeroizing<String>,
+  coin_index: Zeroizing<u32>,
+  public_key: &CryptoPublicKey,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< encode_public_key", "debug");
+
+  match hash.as_str() {
+    "sha256" | "sha256+ripemd160" => match public_key {
+      CryptoPublicKey::Secp256k1(pk) => Ok(Zeroizing::new(hex::encode(pk.serialize()))),
+      _ => Err(AppError::log(format!("Problem with Secp256k1 public key and hash in encode_public_key: {:?}", hash))),
+    },
+    "keccak256" => match public_key {
+      CryptoPublicKey::Secp256k1(pk) => {
+        let serialized: Zeroizing<[u8; 33]> = Zeroizing::new(pk.serialize());
+
+        if *coin_index == 195 { Ok(Zeroizing::new(hex::encode(serialized))) } else { Ok(Zeroizing::new(format!("0x{}", hex::encode(serialized)))) }
+      }
+      _ => Err(AppError::log(format!("Problem with Secp256k1 public key and hash in encode_public_key: {:?}", hash))),
+    },
+    // "ed25519" | "sha3-256" => match public_key {
+    //   CryptoPublicKey::Ed25519(pk) => Ok(Zeroizing::new(bs58::encode(pk.to_bytes()).into_string())),
+    //   _ => Err(AppError::log(format!("Problem with ed25519 public key and hash in encode_public_key: {:?}", hash))),
+    // },
+    _ => Err(AppError::log(format!("Unsupported hash method: {:?}", hash))),
+  }
+}
+
+fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Zeroizing<Vec<u8>>> {
+  d3bug("<<< get_public_key", "debug");
+
+  let public_key_bytes: Zeroizing<Vec<u8>> = match public_key {
+    CryptoPublicKey::Secp256k1(key) => Zeroizing::new(key.serialize().to_vec()),
+    CryptoPublicKey::Ed25519(key) => Zeroizing::new(key.to_bytes().to_vec()),
   };
 
   Ok(public_key_bytes)
 }
 
-pub fn _generate_seed_from_mnemonic(mnemonic: &str, passphrase: &str) -> FunctionOutput<[u8; 64]> {
-  let salt = format!("mnemonic{passphrase}");
-  let mut seed = [0u8; 64];
-  ring::pbkdf2::derive(
-    ring::pbkdf2::PBKDF2_HMAC_SHA512,
-    std::num::NonZeroU32::new(2048).unwrap(),
-    salt.as_bytes(),
-    mnemonic.as_bytes(),
-    &mut seed,
-  );
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-  Ok(seed)
+pub fn create_private_key_for_address(
+  private_key: Option<&secp256k1::SecretKey>,
+  compressed: Option<Zeroizing<bool>>,
+  wif: Option<Zeroizing<String>>,
+  hash: Zeroizing<String>,
+  coin_index: Zeroizing<u32>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< create_private_key_for_address", "debug");
+
+  let wallet_import_format: Zeroizing<String> = match wif.as_ref() {
+    Some(w) if !w.is_empty() => Zeroizing::new(w.trim_start_matches("0x").to_string()),
+    _ => Zeroizing::new(String::from("80")),
+  };
+
+  let compressed: Zeroizing<bool> = compressed.unwrap_or(Zeroizing::new(true));
+
+  let wallet_import_format_bytes: Zeroizing<Vec<u8>> = match hex::decode(wallet_import_format) {
+    Ok(bytes) => Zeroizing::new(bytes),
+    Err(err) => {
+      return Err(AppError::log(format!("Invalid WIF format {:?}", err)));
+    }
+  };
+
+  match hash.as_str() {
+    "sha256" => {
+      let mut extended_key: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(34));
+      extended_key.extend_from_slice(&wallet_import_format_bytes);
+
+      if let Some(private_key) = private_key {
+        extended_key.extend_from_slice(&private_key.secret_bytes());
+
+        if *compressed {
+          extended_key.push(0x01);
+        }
+      } else {
+        return Err(AppError::log(String::from("Private key must be provided")));
+      }
+
+      let checksum: Zeroizing<Vec<u8>> = e_q::calculate_double_sha256_hash(extended_key.clone());
+
+      let address_checksum: Zeroizing<[u8; 4]> =
+        Zeroizing::new(checksum[0..4].try_into().map_err(|err| AppError::log(format!("Address checksum can not be calculated: {:?}", err)))?);
+
+      extended_key.extend_from_slice(address_checksum.as_slice());
+
+      Ok(Zeroizing::new(bs58::encode(extended_key).into_string()))
+    }
+    "keccak256" => {
+      if let Some(private_key) = private_key {
+        if *coin_index == 195 {
+          Ok(Zeroizing::new(hex::encode(private_key.secret_bytes())))
+        } else {
+          Ok(Zeroizing::new(format!("0x{}", hex::encode(private_key.secret_bytes()))))
+        }
+      } else {
+        Err(AppError::log("Private key must be provided".to_string()))
+      }
+    }
+    "sha256+ripemd160" => match private_key {
+      Some(key) => {
+        let private_key_hex = hex::encode(key.secret_bytes());
+        Ok(Zeroizing::new(private_key_hex))
+      }
+      None => Err(AppError::log(String::from("Private key must be provided"))),
+    },
+    _ => Err(AppError::log(format!("Unsupported hash method: {:?}", hash))),
+  }
 }
 
-pub fn _convert_seed_to_mnemonic(seed: &[u8]) -> FunctionOutput<String> {
-  let mut hex = String::with_capacity(128);
+fn encode_private_key(
+  key_derivation: Zeroizing<String>,
+  wallet_import_format: Zeroizing<String>,
+  hash: Zeroizing<String>,
+  coin_index: Zeroizing<u32>,
+  private_key_bytes: Zeroizing<[u8; 32]>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< encode_private_key", "debug");
 
-  for byte in seed.iter() {
-    hex.push_str(&format!("{byte:02x}"));
+  if *key_derivation == "ed25519" {
+    Ok(Zeroizing::new(bs58::encode(private_key_bytes).into_string()))
+  } else {
+    let secret_key =
+      secp256k1::SecretKey::from_byte_array(*private_key_bytes).map_err(|err| AppError::log(format!("Invalid SecretKey: {:?}", err)))?;
+
+    create_private_key_for_address(
+      Some(&secret_key),
+      Some(Zeroizing::new(true)), // compressed
+      Some(wallet_import_format),
+      hash,
+      coin_index,
+    )
+    .map_err(|err| AppError::log(format!("Failed to convert private key to WIF: {:?}", err)))
+  }
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+fn generate_address_internal(
+  hash: Zeroizing<String>,
+  coin_index: Zeroizing<u32>,
+  public_key: &CryptoPublicKey,
+  public_key_hash_vec: Zeroizing<Vec<u8>>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< generate_address_internal", "debug");
+
+  match hash.as_str() {
+    "sha256" => generate_sha256_address(public_key, public_key_hash_vec),
+    "keccak256" => generate_keccak256_address(public_key, public_key_hash_vec, coin_index),
+    "sha256+ripemd160" => generate_sha256_ripemd160_address(coin_index, public_key, public_key_hash_vec),
+    _ => Err(AppError::log(format!("Unsupported hash method: {:?}", hash))),
+  }
+}
+
+pub fn generate_sha256_address(
+  public_key: &CryptoPublicKey,
+  public_key_hash: Zeroizing<Vec<u8>>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< generate_address_sha256", "debug");
+
+  let public_key_bytes: Zeroizing<Vec<u8>> = match get_public_key(public_key) {
+    Ok(key) => key,
+    Err(err) => {
+      return Err(AppError::log(format!("Can not get public key: {err:?}")));
+    }
+  };
+
+  let hash160: Zeroizing<Vec<u8>> = e_q::calculate_sha256_and_ripemd160_hash(public_key_bytes);
+
+  let mut payload: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(public_key_hash.len() + hash160.len()));
+  payload.extend_from_slice(&public_key_hash);
+  payload.extend_from_slice(&hash160);
+
+  let checksum: Zeroizing<Vec<u8>> = e_q::calculate_double_sha256_hash(payload.clone());
+
+  let address_checksum: Zeroizing<[u8; 4]> =
+    Zeroizing::new(checksum[0..4].try_into().map_err(|err| AppError::log(format!("Wrong address checksum: {:?}", err)))?);
+
+  let mut address_payload: Zeroizing<Vec<u8>> = payload;
+  address_payload.extend_from_slice(&*address_checksum);
+
+  let address: Zeroizing<String> = Zeroizing::new(bs58::encode(address_payload).into_string());
+
+  Ok(address)
+}
+
+pub fn generate_keccak256_address(
+  public_key: &CryptoPublicKey,
+  public_key_hash: Zeroizing<Vec<u8>>,
+  coin_index: Zeroizing<u32>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< generate_address_keccak256", "debug");
+
+  let public_key_bytes: Zeroizing<Vec<u8>> = match public_key {
+    CryptoPublicKey::Secp256k1(key) => Zeroizing::new(key.serialize_uncompressed().to_vec()),
+    CryptoPublicKey::Ed25519(key) => Zeroizing::new(key.to_bytes().to_vec()),
+  };
+
+  let public_key_slice: Zeroizing<Vec<u8>> = match public_key {
+    CryptoPublicKey::Secp256k1(_) => Zeroizing::new(public_key_bytes[1..].to_vec()),
+    CryptoPublicKey::Ed25519(_) => Zeroizing::new(public_key_bytes[..].to_vec()),
+  };
+
+  let keccak_result = {
+    let mut keccak = Keccak256::new();
+    keccak.update(public_key_slice);
+    keccak.finalize()
+  };
+
+  let address_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(keccak_result[12..].to_vec());
+
+  let address: Zeroizing<String> = match *coin_index {
+    195 => {
+      let mut tron_prefixed: Zeroizing<Vec<u8>> = public_key_hash;
+      tron_prefixed.extend_from_slice(&address_bytes);
+
+      let checksum: Zeroizing<Vec<u8>> = {
+        let hash = Sha256::digest(&tron_prefixed);
+        let hash2 = Sha256::digest(hash);
+        Zeroizing::new(hash2[..4].to_vec())
+      };
+
+      let mut full_payload: Zeroizing<Vec<u8>> = tron_prefixed.clone();
+      full_payload.extend_from_slice(&checksum);
+
+      Zeroizing::new(bs58::encode(full_payload).into_string())
+    }
+    _ => Zeroizing::new(format!("0x{}", hex::encode(address_bytes))),
+  };
+
+  Ok(address)
+}
+
+pub fn generate_sha256_ripemd160_address(
+  coin_index: Zeroizing<u32>,
+  public_key: &CryptoPublicKey,
+  public_key_hash: Zeroizing<Vec<u8>>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug("<<< generate_sha256_ripemd160_address", "debug");
+
+  let public_key_bytes: Zeroizing<Vec<u8>> = match get_public_key(public_key) {
+    Ok(key) => key,
+    Err(err) => {
+      return Err(AppError::log(format!("Can not get public key for sha256 and ripemd160 address: {:?}", err)));
+    }
+  };
+
+  let hash: Zeroizing<Vec<u8>> = e_q::calculate_sha256_and_ripemd160_hash(public_key_bytes);
+
+  let mut address_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::new());
+  address_bytes.extend_from_slice(&public_key_hash);
+  address_bytes.extend(&*hash);
+
+  let checksum: Zeroizing<Vec<u8>> = Zeroizing::new(Sha256::digest(Sha256::digest(&address_bytes))[..4].to_vec());
+
+  let mut full_address_bytes: Zeroizing<Vec<u8>> = address_bytes.clone();
+  full_address_bytes.extend_from_slice(&checksum);
+
+  let alphabet = match *coin_index {
+    144 => bs58::Alphabet::RIPPLE,
+    _ => bs58::Alphabet::DEFAULT,
+  };
+
+  let encoded_address: Zeroizing<String> = Zeroizing::new(bs58::encode(full_address_bytes).with_alphabet(alphabet).into_string());
+
+  Ok(encoded_address)
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+fn generate_atom_address(pub_compressed: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
+  let hash20: Zeroizing<Vec<u8>> = e_q::calculate_sha256_and_ripemd160_hash(pub_compressed);
+
+  let address: Zeroizing<String> = match bech32_encode::<Bech32>(Zeroizing::new(String::from("cosmos")), hash20) {
+    Ok(address) => address,
+    Err(err) => {
+      return Err(AppError::log(format!("Problem with bech32 encoding: {:?}", err)));
+    }
+  };
+
+  Ok(address)
+}
+
+fn encode_cosmos_pubkey_bech32(pub_compressed: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
+  let prefix: Zeroizing<[u8; 5]> = Zeroizing::new([0xEB, 0x5A, 0xE9, 0x87, 0x21]);
+  let mut data: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(38));
+
+  data.extend_from_slice(&*prefix);
+  data.extend_from_slice(&pub_compressed);
+
+  let key: Zeroizing<String> = match bech32_encode::<Bech32>(Zeroizing::new(String::from("cosmospub")), data) {
+    Ok(key) => key,
+    Err(err) => {
+      return Err(AppError::log(format!("Problem with encoding public key with bech32: {:?}", err)));
+    }
+  };
+
+  Ok(key)
+}
+
+fn bech32_encode<Checksum: bech32::Checksum>(
+  hrp: Zeroizing<String>,
+  data: Zeroizing<Vec<u8>>,
+) -> FunctionOutput<Zeroizing<String>> {
+  let hrp_parsed = Hrp::parse(&hrp).map_err(|err| AppError::log(format!("Invalid HRP '{:?}': {:?}", hrp, err)))?;
+
+  let data: Zeroizing<String> = match encode::<Checksum>(hrp_parsed, &data) {
+    Ok(data) => Zeroizing::new(data),
+    Err(err) => {
+      return Err(AppError::log(format!("Bech32 encode error: {:?}", err)));
+    }
+  };
+
+  Ok(data)
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn generate_ed25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  d3bug(">>> generate_master_keys_ed25519", "debug");
+
+  let seed: Zeroizing<String> = wallet.seed_secret.seed.clone();
+  let message: Zeroizing<Vec<u8>> = Zeroizing::new(String::from("ed25519 seed").as_bytes().to_vec());
+
+  let seed_bytes: Zeroizing<Vec<u8>> = match hex::decode(seed.clone()) {
+    Ok(values) => Zeroizing::new(values),
+    Err(err) => {
+      return Err(AppError::log(format!("Hex error: Can not decode seed: {}", err)));
+    }
+  };
+
+  let result: Zeroizing<Vec<u8>> = e_q::calculate_hmac_sha512_hash(message, seed_bytes);
+  if result.len() != 64 {
+    return Err(AppError::log(String::from("Wrong hash length output in calculate_hmac_sha512_hash")));
   }
 
-  Ok(hex)
+  let mut master_private_key: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+  master_private_key.copy_from_slice(&result[..32]);
+
+  let mut master_chain_code: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+  master_chain_code.copy_from_slice(&result[32..]);
+
+  let signing_key = SigningKey::from_bytes(&master_private_key);
+  let public_key = signing_key.verifying_key();
+
+  let master_xprv: Zeroizing<String> = Zeroizing::new(bs58::encode(&master_private_key).into_string());
+  let master_xpub: Zeroizing<String> = Zeroizing::new(bs58::encode(&public_key.as_bytes()).into_string());
+
+  wallet.secret_keys.master_ed25519_keys.master_private_key_bytes = Zeroizing::new(master_private_key.to_vec());
+  wallet.secret_keys.master_ed25519_keys.master_public_key_bytes = Zeroizing::new(public_key.to_bytes().to_vec());
+  wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes = Zeroizing::new(master_chain_code.to_vec());
+  wallet.secret_keys.master_ed25519_keys.master_private_key_encoded = master_xprv;
+  wallet.secret_keys.master_ed25519_keys.master_public_key_encoded = master_xpub;
+
+  Ok(())
+}
+
+pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  d3bug(">>> derive_ed25519_child_keys", "debug");
+
+  let master_key: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_private_key_bytes.to_vec());
+  let master_chain_code: Zeroizing<Vec<u8>> = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes.to_vec());
+
+  let derivation_path: Zeroizing<String> = match get_derivation_path("ed25519", wallet) {
+    Ok(path) => path,
+    Err(err) => return Err(AppError::log(format!("Can not parse derivation path: {:?}", err))),
+  };
+
+  if master_key.len() != 32 {
+    return Err(AppError::log(format!("Master key must be 32 bytes, got {}", master_key.len())));
+  };
+
+  if master_chain_code.len() != 32 {
+    return Err(AppError::log(format!("Master chain key must be 32 bytes, got {}", master_chain_code.len())));
+  };
+
+  if !derivation_path.starts_with("m/") {
+    return Err(AppError::log("Path must start with: m/".to_string()));
+  }
+
+  let mut private_key: Zeroizing<Vec<u8>> = master_key;
+  let mut chain_code: Zeroizing<Vec<u8>> = master_chain_code;
+  let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+
+  for part in derivation_path.split('/').skip(1) {
+    let hardened: Zeroizing<bool> = Zeroizing::new(part.ends_with("'"));
+    let index_str: Zeroizing<String> = Zeroizing::new(part.trim_end_matches("'").to_string());
+    let index: Zeroizing<u32> =
+      Zeroizing::new(index_str.parse().map_err(|err| AppError::log(format!("Parsing error. Invalid index: {:?}, Error: {:?}", index_str, err)))?);
+
+    let child_index: Zeroizing<u32> = if *hardened { (*index | 0x80000000).into() } else { index };
+    let derived: Zeroizing<ChildEd25519KeySecretData> = Zeroizing::new(derive_ed25519_child(private_key, chain_code, child_index)?);
+
+    private_key = derived.child_private_key_bytes.clone();
+    chain_code = derived.child_chain_code_bytes.clone();
+  }
+
+  let mut master_key: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+  master_key.copy_from_slice(&private_key);
+
+  let mut child_priv32 = Zeroizing::new([0u8; 32]);
+  child_priv32.copy_from_slice(&private_key);
+
+  let child_pub_bytes = if *coin_index == 43 {
+    // NEM/NIS1
+    nem_pubkey_from_child_priv(child_priv32)?.to_vec()
+  } else {
+    // RFC8032
+    SigningKey::from_bytes(&child_priv32).verifying_key().to_bytes().to_vec()
+  };
+
+  wallet.secret_keys.child_ed25519_keys.child_private_key_bytes = Zeroizing::new(private_key.to_vec());
+  wallet.secret_keys.child_ed25519_keys.child_chain_code_bytes = Zeroizing::new(chain_code.to_vec());
+  wallet.secret_keys.child_ed25519_keys.child_public_key_bytes = Zeroizing::new(child_pub_bytes);
+
+  Ok(())
+}
+
+pub fn derive_ed25519_child(
+  parent_key: Zeroizing<Vec<u8>>,
+  parent_chain_code: Zeroizing<Vec<u8>>,
+  index: Zeroizing<u32>,
+) -> FunctionOutput<ChildEd25519KeySecretData> {
+  d3bug(">>> derive_child_key_ed25519", "debug");
+  // let prefix_byte: u8 = if *coin_index == 43 { 0x01 } else { 0x00 };
+  let prefix_byte: u8 = 0x00;
+
+  if parent_key.len() != 32 || parent_chain_code.len() != 32 {
+    return Err(AppError::log(String::from("Invalid parent_key or parent_chain_code length")));
+  }
+
+  if *index < 0x80000000 {
+    return Err(AppError::log(String::from("Ed25519 only supports hardened derivation")));
+  }
+
+  let data: Zeroizing<Vec<u8>> = Zeroizing::new(std::iter::once(prefix_byte).chain(parent_key.iter().copied()).chain(index.to_be_bytes()).collect());
+
+  let hmac: Zeroizing<Vec<u8>> = e_q::calculate_hmac_sha512_hash(parent_chain_code, data);
+
+  if hmac.len() != 64 {
+    return Err(AppError::log("calculate_hmac_sha512_hash len is not 64".to_string()));
+  }
+
+  Ok(ChildEd25519KeySecretData {
+    child_private_key_bytes: Zeroizing::new(hmac[..32].to_vec()),
+    child_chain_code_bytes: Zeroizing::new(hmac[32..].to_vec()),
+    child_public_key_bytes: Zeroizing::new(Vec::new()),
+  })
+}
+
+pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  d3bug(">>> generate_ed25519_address", "debug");
+
+  let child_public_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.clone();
+  let child_private_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_ed25519_keys.child_private_key_bytes.clone();
+  let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+  let coin_name: Zeroizing<String> = wallet.address_components._coin_name.clone();
+  let pub_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
+
+  let derivation_path: Zeroizing<String> = match get_derivation_path("ed25519", wallet) {
+    Ok(path) => path,
+    Err(err) => return Err(AppError::log(format!("Can not parse derivation path: {:?}", err))),
+  };
+
+  let (address, public_key, private_key) = match *coin_index {
+    501 => {
+      let address = bs58::encode(child_public_key_bytes.clone()).into_string();
+      (Zeroizing::new(address), Zeroizing::new(hex::encode(&child_public_key_bytes)), Zeroizing::new(hex::encode(&child_private_key_bytes)))
+    }
+    43 => {
+      let pubkey_array: Zeroizing<[u8; 32]> = Zeroizing::new(child_public_key_bytes.as_slice().try_into().unwrap());
+      let address = generate_nem_address(pubkey_array, pub_key_hash)?;
+      (address, Zeroizing::new(hex::encode(&child_public_key_bytes)), Zeroizing::new(hex::encode(&child_private_key_bytes)))
+    }
+    _ => return Err(AppError::log(format!("Unsupported ed25519 coin_index: {:?}", coin_index))),
+  };
+
+  wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
+    coin_index,
+    path: derivation_path,
+    address,
+    public_key,
+    private_key,
+  });
+
+  Ok(())
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+fn get_derivation_path(
+  curve: &str,
+  wallet: &mut CryptoWallet,
+) -> FunctionOutput<Zeroizing<String>> {
+  let extra_hard = !matches!(curve, "secp256k1");
+
+  let path = wallet.address_components.derivation_path.clone();
+
+  let derivation_path: Zeroizing<String> = match *path.purpose {
+    32 => Zeroizing::new(format!(
+      "m/{}{}/{}{}/{}{}",
+      *path.account,
+      if *path.account_hardened || extra_hard { "'" } else { "" },
+      *path.change,
+      if *path.change_hardened || extra_hard { "'" } else { "" },
+      *path.address,
+      if *path.address_hardened || extra_hard { "'" } else { "" },
+    )),
+    _ => match curve {
+      "secp256k1" => Zeroizing::new(format!(
+        "m/{}{}/{}{}/{}{}/{}{}/{}{}",
+        *path.purpose,
+        if *path.purpose_hardened || extra_hard { "'" } else { "" },
+        *path.coin,
+        if *path.coin_hardened || extra_hard { "'" } else { "" },
+        *path.account,
+        if *path.account_hardened || extra_hard { "'" } else { "" },
+        *path.change,
+        if *path.change_hardened || extra_hard { "'" } else { "" },
+        *path.address,
+        if *path.address_hardened || extra_hard { "'" } else { "" },
+      )),
+      _ => Zeroizing::new(format!(
+        "m/{}{}/{}{}/{}{}/{}{}/{}{}",
+        *path.purpose,
+        if *path.purpose_hardened || extra_hard { "'" } else { "" },
+        *path.coin,
+        if *path.coin_hardened || extra_hard { "'" } else { "" },
+        *path.account,
+        if *path.account_hardened || extra_hard { "'" } else { "" },
+        *path.change,
+        if *path.change_hardened || extra_hard { "'" } else { "" },
+        *path.address,
+        if *path.address_hardened || extra_hard { "'" } else { "" },
+      )),
+    },
+  };
+
+  Ok(derivation_path)
+}
+
+pub fn generate_nem_address(
+  pubkey_bytes: Zeroizing<[u8; 32]>,
+  pub_key_hash: Zeroizing<String>,
+) -> FunctionOutput<Zeroizing<String>> {
+  d3bug(">>> generate_nem_address", "debug");
+
+  let k256 = keccak256_nis1(Zeroizing::new(pubkey_bytes.to_vec()));
+  let ripemd_hash = Ripemd160::digest(&k256);
+
+  let trimmed = pub_key_hash.trim_start_matches("0x").to_lowercase();
+  let version: u8 = u8::from_str_radix(&trimmed, 16).map_err(|err| AppError::log(format!("Invalid public_key_hash hex: {:?}", err)))?;
+
+  let mut payload = Zeroizing::new(Vec::new());
+  payload.push(version);
+  payload.extend_from_slice(&ripemd_hash);
+
+  let checksum = keccak256_nis1(payload.clone());
+  payload.extend_from_slice(&checksum[..4]);
+
+  let b32 = base32::encode(Alphabet::Rfc4648 { padding: false }, &payload);
+  let nem_address = b32.chars().enumerate().fold(String::new(), |mut acc, (i, c)| {
+    if i > 0 && i % 6 == 0 {
+      acc.push('-');
+    }
+
+    acc.push(c);
+
+    acc
+  });
+
+  Ok(Zeroizing::new(nem_address))
+}
+
+fn nem_pubkey_from_child_priv(child_private_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<[u8; 32]>> {
+  d3bug(">>> nem_pubkey_from_child_priv", "debug");
+
+  let mut hash = [0u8; 64];
+  let mut keccak512 = Keccak::v512();
+  keccak512.update(child_private_key.as_slice());
+  keccak512.finalize(&mut hash);
+
+  let mut scalar_bytes = [0u8; 32];
+  scalar_bytes.copy_from_slice(&hash[..32]);
+  scalar_bytes[0] &= 248;
+  scalar_bytes[31] &= 127;
+  scalar_bytes[31] |= 64;
+
+  let scalar = Scalar::from_bytes_mod_order(scalar_bytes);
+
+  let edward_point: EdwardsPoint = ED25519_BASEPOINT_POINT * scalar;
+
+  Ok(Zeroizing::new(edward_point.compress().to_bytes()))
+}
+
+fn keccak256_nis1(data: Zeroizing<Vec<u8>>) -> Zeroizing<[u8; 32]> {
+  d3bug(">>> keccak256_nis1", "debug");
+
+  let mut out = Zeroizing::new([0u8; 32]);
+  let mut k256 = Keccak::v256();
+
+  k256.update(&data);
+  k256.finalize(&mut *out);
+
+  out
+}
+
+#[test]
+fn nem_whitepaper_example_address() {
+  use zeroize::Zeroizing;
+
+  let pubkey_hex = "c5247738c3a510fb6c11413331d8a47764f6e78ffcdb02b6878d5dd3b77f38ed";
+  let pubkey_bytes = hex::decode(pubkey_hex).expect("invalid hex");
+  let pubkey_arr: [u8; 32] = pubkey_bytes.try_into().expect("public key must be 32 bytes");
+
+  let addr =
+    generate_nem_address(Zeroizing::new(pubkey_arr), Zeroizing::new("0x68".to_string())).expect("failed to generate NEM address").to_string();
+
+  assert_eq!(addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6", "Whitepaper example address must match exactly");
 }

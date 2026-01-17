@@ -1,0 +1,9 @@
+## Disclaimer of Liability
+
+This application (“the Software”) is provided on an “as is” and “as available” basis and is currently in a beta development stage. The developer makes no representations or warranties of any kind, express or implied, regarding the operation, reliability, security, or functionality of the Software.
+
+The developer does not store, have access to, or have the capability to recover any private keys, seed phrases, passwords, authentication credentials, or other sensitive information generated, stored, or used by the user. The user bears sole responsibility for the safeguarding, backup, and management of such information.
+
+To the fullest extent permitted by applicable law, the developer shall not be liable for any direct, indirect, incidental, special, consequential, exemplary, or punitive damages, including but not limited to loss of funds, loss of access, unauthorized transactions, data loss, security breaches, or any other damages arising out of or related to the use or inability to use the Software, whether based on contract, tort, negligence, strict liability, or otherwise.
+
+By installing, accessing, or using the Software, the user acknowledges and agrees to this Disclaimer of Liability and assumes all associated risks.

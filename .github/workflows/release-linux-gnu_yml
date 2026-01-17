@@ -116,29 +116,6 @@ jobs:
             echo "Tag $VERSION created successfully."
           fi
 
-      - name: "Generate signature file"
-        run: |
-          BIN="${{ env.APP_PATH }}/${{ env.APP_NAME }}"
-          SIG="${BIN}-${{ matrix.features }}.sig"
-
-          if [ ! -f "$BIN" ]; then
-            echo "Error: Binary not found at $BIN"
-            exit 1
-          fi
-
-          $BIN & PID=$!
-          for i in {1..30}; do
-            [ -f "$SIG" ] && break
-            sleep 1
-          done
-          kill $PID || true
-
-          if [ ! -f "$SIG" ]; then
-            echo "Error: SIG file not found at $SIG"
-            exit 1
-          fi
-          echo "Signature file generated sucessfully at: $SIG"
-
       - name: Prepare release files
         run: |
           BIN_DIR="target/${{ matrix.target }}/release"
@@ -148,17 +125,15 @@ jobs:
           OUTPUT_DIR="${{ env.OUTPUT_DIR }}"
           TARGET="${{ matrix.target }}"
           BIN_FILE="${APP_NAME}"
-          SIG_FILE="${APP_NAME}-${FEATURES}.sig"
           OUTPUT_BIN="${APP_NAME}-${VERSION}-${FEATURES}"
           TAR_FILE="${OUTPUT_BIN}-${TARGET}.tar.gz"
 
           strip "${BIN_DIR}/${BIN_FILE}"
           mkdir -p "${OUTPUT_DIR}"
           cp "${BIN_DIR}/${BIN_FILE}" "${OUTPUT_DIR}/${OUTPUT_BIN}"
-          cp "${BIN_DIR}/${SIG_FILE}" "${OUTPUT_DIR}/${SIG_FILE}"
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
-            -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" "${SIG_FILE}" \
+            -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
             -C ../../ Changelog.md LICENSE.txt \
           && echo "Release files prepared"
 

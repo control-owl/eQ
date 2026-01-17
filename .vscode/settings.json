@@ -1,8 +1,12 @@
 {
     "cSpell.words": [
+        "bech",
         "chinese",
+        "ciphertext",
+        "cosmospub",
         "czech",
         "Deque",
+        "ecdb",
         "eframe",
         "egui",
         "getrandom",
@@ -10,9 +14,16 @@
         "japanese",
         "korean",
         "portuguese",
+        "shamir",
         "spanish",
         "sysinfo",
-        "wordlists"
+        "winres",
+        "wordlists",
+        "zeroize",
+        "Zeroize",
+        "Zeroizing"
     ],
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "rust-analyzer.cargo.features": "all",
+    "terminal.integrated.scrollback": 1000000
 }
