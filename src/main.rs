@@ -235,6 +235,7 @@ struct GuiSettings {
 
   unify_evm: bool,
   unify_master_keys: bool,
+  hardened_address: bool,
 }
 
 impl GuiSettings {
@@ -255,6 +256,7 @@ impl GuiSettings {
 
       unify_evm: false,
       unify_master_keys: true,
+      hardened_address: true,
     }
   }
 }
@@ -364,7 +366,7 @@ impl EgoQuantum {
             self.wallet.address_components.derivation_path.coin_hardened = Zeroizing::new(true);
             self.wallet.address_components.derivation_path.account_hardened = Zeroizing::new(true);
             self.wallet.address_components.derivation_path.change_hardened = Zeroizing::new(*bip == 32);
-            self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(true);
+            self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.gui.hardened_address);
 
             self.wallet.address_components._coin_name = Zeroizing::new(columns[3].to_string());
             self.wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
@@ -680,8 +682,8 @@ impl EgoQuantum {
           "Show addresses exactly as derived for each chain, preserving native formatting and reducing cross-chain linkability for greater privacy.",
         ];
 
-        let resp: egui::Response = ui.add_enabled(false,egui::Checkbox::new(&mut self.gui.unify_evm, "Standardize EVM Addresses"));
-        resp.on_hover_text(evm_label.join("\n")).on_disabled_hover_text(&devel);
+        let evm_resp: egui::Response = ui.add_enabled(false,egui::Checkbox::new(&mut self.gui.unify_evm, "Standardize EVM Addresses"));
+        evm_resp.on_hover_text(evm_label.join("\n")).on_disabled_hover_text(&devel);
 
         let master_label = ["When enabled:",
           "All coins will be generated from Bitcoin's Master Private Keys.",
@@ -690,8 +692,18 @@ impl EgoQuantum {
           "If coin has its own Master Private Key headers then they will be used.",
         ];
 
-        let resp2: egui::Response = ui.add_enabled(false, egui::Checkbox::new(&mut self.gui.unify_master_keys, "Unify Master Keys"));
-        resp2.on_hover_text(master_label.join("\n")).on_disabled_hover_text(&devel);
+        let master_resp: egui::Response = ui.add_enabled(false, egui::Checkbox::new(&mut self.gui.unify_master_keys, "Unify Master Keys"));
+        master_resp.on_hover_text(master_label.join("\n")).on_disabled_hover_text(&devel);
+
+        let hardened_address_label = ["When enabled:",
+          "All addresses will be derived with hardened path",
+          "\n",
+          "When disabled:",
+          "Address follows normal path.",
+        ];
+
+        let hardened_address_resp: egui::Response = ui.add_enabled(true, egui::Checkbox::new(&mut self.gui.hardened_address, "Hardened Addresses"));
+        hardened_address_resp.on_hover_text(hardened_address_label.join("\n")).on_disabled_hover_text(&devel);
 
       });
 
