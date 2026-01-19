@@ -41,7 +41,7 @@ The header is used as **Additional Authenticated Data (AAD)** during encryption.
 │ KDF parameter data    │ X bytes  │ offset 8 .. 8+X-1       │
 ├────────────────────────────────────────────────────────────┤
 │ Salt length           │ 4 bytes  │ offset 8+X .. 11+X      │
-│ Salt                  │ S bytes  │ offset 12+X .. 11+X+S   │
+│ Salt                  │ S bytes  │ offset 12+X .. 12+X+S   │
 ├────────────────────────────────────────────────────────────┤
 │ Payload length        │ 4 bytes  │ offset 12+X+S .. 15+X+S │
 │ Nonce                 │ 12 bytes │ offset 16+X+S .. 27+X+S │
