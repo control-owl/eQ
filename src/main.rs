@@ -194,6 +194,7 @@ struct AddressPublicData {
   key_derivation: Zeroizing<String>,
   wallet_import_format: Zeroizing<String>,
   hash: Zeroizing<String>,
+  evm: Zeroizing<bool>,
 }
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone)]
@@ -370,8 +371,11 @@ impl EgoQuantum {
             self.wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
             self.wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());
             self.wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
+            self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
-            for address_index in 0..address_count {
+            for address_index in
+              *self.wallet.address_components.derivation_path.last_index..address_count + *self.wallet.address_components.derivation_path.last_index
+            {
               self.wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
 
               match self.wallet.address_components.key_derivation.as_str() {
@@ -383,6 +387,7 @@ impl EgoQuantum {
                     }
                   };
 
+                  // match keys::generate_secp256k1_address(&mut self.wallet, Some(self.wallet.address_components.evm)) {
                   match keys::generate_secp256k1_address(&mut self.wallet) {
                     Ok(_) => {}
                     Err(err) => {
