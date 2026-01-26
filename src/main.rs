@@ -1,5 +1,5 @@
 // authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
-// license = "CC-BY-NC-ND-4.0  [2023-2025]  Control Owl"
+// license = "CC-BY-NC-ND-4.0  [2023-2026]  Control Owl"
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -1133,6 +1133,8 @@ fn main() -> FunctionOutput<()> {
 
   Ok(())
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn escape_csv_field(s: &str) -> FunctionOutput<String> {
   if s.contains(',') || s.contains('"') || s.contains('\n') {

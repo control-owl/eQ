@@ -20,10 +20,10 @@
 ▐░░░░░░░░░░░▌        ▐░▌  
  ▀▀▀▀▀▀▀▀▀▀▀          ▀   
 CC-BY-NC-ND-4.0
-Control Owl [2025]
+Control Owl [2023-2026]
 ```
 
-**eQ** is a **high-performance cryptographic key generator** built with **Rust** and **egui**, designed for **speed**, **security**, and **minimal** system dependencies. It supports generating secure addresses for **280 coins**. Check the [coin list](./Coins.md)
+**eQ** is a **high-performance cryptographic key generator** built with **Rust** and **egui**, designed for **speed**, **security**, and **minimal** system dependencies. It supports generating secure addresses for **285 coins**. Check the [coin list](./Coins.md)
 
 This is the second generation of our key generator, following [QR2M](https://github.com/control-owl/QR2M).
 
@@ -69,7 +69,7 @@ See the [LICENSE]((./LICENSE.txt)) file or the official [deed](https://creativec
 
 ## Features
 
-- Generate keys for **280** [coins](./Coins.md) in one click
+- Generate keys for **285** [coins](./Coins.md) in one click
 - **Ultra-fast performance** powered by Rust
 - **Minimalistic UI** built with egui
 - **Cross-platform** support: Windows, Linux, macOS

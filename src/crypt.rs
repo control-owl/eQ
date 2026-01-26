@@ -1,5 +1,5 @@
 // authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
-// license = "CC-BY-NC-ND-4.0  [2023-2025]  Control Owl"
+// license = "CC-BY-NC-ND-4.0  [2023-2026]  Control Owl"
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, Zeroize, ZeroizeOnDrop};

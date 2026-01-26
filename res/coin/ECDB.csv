@@ -138,7 +138,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,134,LSK,Lisk,,,,,,,,,1214
 0,135,STEEM,Steem,,,,,,,,,1230
 1,136,XZC,Zcoin,secp256k1,sha256,,,0x52,0x07,0xd2,,1414
-0,137,RBTC,Rootstock Bitcoin,,,,,,,,,3626
+1,137,RBTC,Rootstock Bitcoin,secp256k1,keccak256,,,,,,TRUE,3626
 0,138,GB,Giftblock,,,,,,,,,
 0,139,RPT,RealPointCoin,,,,,,,,,1585
 1,140,LBC,LBRY Credits,secp256k1,sha256,,,0x55,0x7a,0x1c,,1298
@@ -773,6 +773,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,791,SOMA,Soma,,,,,,,,,
 0,794,INTR,Interlay,,,,,,,,,
 0,795,KINT,Kintsugi,,,,,,,,,
+0,797,MVRX,Muvor ERP,,,,,,,,,
 0,799,PDEX,Polkadex,,,,,,,,,
 1,800,BEET,Beetle Coin,secp256k1,sha256,,,0x1a,0x55,0x99,,3242
 0,801,DST,DSTRA,,,,,,,,,
@@ -841,6 +842,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,899,XEC,eCash,secp256k1,sha256,,,,,,,
 0,900,LMO,Lumeneo,,,,,,,,,
 0,901,NXT,NxtMeta,,,,,,,,,
+0,903,EGN,EGAHN Intelligence Network,,,,,,,,,
 0,904,HNT,Helium,,,,,,,,,
 0,906,XPX,Sirius,,,,,,,,,
 0,907,FIS,StaFi,,,,,,,,,
@@ -902,6 +904,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1014,JOY,Joystream,,,,,,,,,
 0,1015,ZCX,ZEN Exchange Token,,,,,,,,,
 0,1017,ZTC,Zenchain,,,,,,,,,
+0,1019,ZENO,Zenotta,,,,,,,,,
 1,1020,EVC,Evrice,secp256k1,keccak256,,,,,,TRUE,8820
 0,1022,XRD,Radix DLT,,,,,,,,,
 0,1023,ONE,Harmony One (Legacy),,,,,,,,,
@@ -909,7 +912,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1025,CZZ,Classzz,,,,,,,,,
 0,1026,KEX,Kira Exchange Token,,,,,,,,,
 0,1027,MCM,Mochimo,,,,,,,,,
-0,1028,PLS,Pulse Coin,,,,,,,,,
+1,1028,PLS,Pulse Chain,secp256k1,keccak256,,,,,,TRUE,11145
 0,1032,BTCR,BTCR,,,,,,,,,
 0,1042,MFID,Moonfish ID,,,,,,,,,
 0,1100,CROSS,Cross Chain,,,,,,,,,
@@ -980,6 +983,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 1,1907,BITCI,Bitcicoin,secp256k1,keccak256,,,,,,TRUE,8357
 0,1919,VIPS,VIPSTARCOIN,,,,,,,,,
 1,1926,CITY,City Coin,secp256k1,sha256,,,0x1c,0x58,0xed,,4545
+0,1935,HRC,Hypercoin,,,,,,,,,
 0,1951,ESA,Esa,,,,,,,,,
 0,1952,ESC,EsaCoin,,,,,,,,,
 0,1955,XX,xx coin,,,,,,,,,
@@ -1098,6 +1102,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,6174,MOI,My Own Internet,,,,,,,,,
 0,6278,STEAMX,Rails Network Mainnet,,,,,,,,,
 0,6310,VRL,Virel Protocol,,,,,,,,,
+0,6383,NEUE,Dap,,,,,,,,,
 0,6532,UM,Penumbra,,,,,,,,,
 0,6599,RSC,Royal Sports City,,,,,,,,,
 0,6666,BPA,Bitcoin Pizza,,,,,,,,,
@@ -1138,8 +1143,8 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,8997,BBC,Babacoin,,,,,,,,,
 0,8998,JGC,JagoanCoin,,,,,,,,,
 0,8999,BTP,Bitcoin Pay,,,,,,,,,
-0,9000,AVAX,Avalanche,secp256k1,sha256,,,,,,,
-1,9001,ARB1,Arbitrum,secp256k1,keccak256,,,,,,TRUE,
+0,9000,AVAX,Avalanche,secp256k1,sha256,,,,,,,5805
+1,9001,ARB1,Arbitrum One,secp256k1,keccak256,,,,,,TRUE,
 0,9002,BOBA,Boba,,,,,,,,,
 0,9003,LOOP,Loopring,,,,,,,,,
 0,9004,STRK,StarkNet,,,,,,,,,
@@ -1147,13 +1152,14 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 1,9006,BNB,Binance Smart Chain,secp256k1,keccak256,,,,,,TRUE,1839
 0,9007,SATOX,Satoxcoin,,,,,,,,,25487
 0,9345,WEIL,Weilliptic,,,,,,,,,
+0,9633,SYL,OpenSY,,,,,,,,,
 1,9797,NRG,Energi (Legacy),secp256k1,sha256,0xD7DC6E9F,0x03B8C856,0x21,0x35,0x6a,,
 0,9888,BTF,Bitcoin Faith,,,,,,,,,
 0,9969,OSMI,Osmium,,,,,,,,,
 0,9999,GOD,Bitcoin God,,,,,,,,,
 0,10000,FO,FIBOS,,,,,,,,,
 0,10001,SPACE,Space,,,,,,,,,
-0,10007,S,SONIC,secp256k1,keccak256,,,,,,TRUE,32684
+1,10007,S,SONIC,secp256k1,keccak256,,,,,,TRUE,32684
 0,10111,DHP,dHealth,,,,,,,,,
 0,10226,RTM,Raptoreum,,,,,,,,,
 1,10242,AA,Arthera,secp256k1,keccak256,,,,,,TRUE,
@@ -1232,7 +1238,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,333333,3333,Pi Value Consensus,,,,,,,,,
 1,424242,X42,x42 Protocol,secp256k1,sha256,,,0x4b,0x7d,0xcc,,4097
 0,440017,@G,Graphite,,,,,,,,,34910
-1,534352,SCR,Scroll,secp256k1,keccak256,,,,,,TRUE,
+1,534352,SCR,Scroll,secp256k1,keccak256,,,,,,TRUE,26998
 0,666666,VITE,Vite,,,,,,,,,
 0,696365,ICE,Ice Network,,,,,,,,,27650
 0,696969,TXC,TEXITcoin,,,,,,,,,32744
@@ -1246,6 +1252,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 1,1313500,XERO,Xerom,secp256k1,keccak256,,,,,,TRUE,
 0,1712144,LAX,LAPO,,,,,,,,,
 0,3924011,EPK,EPIK Protocol,,,,,,,,,
+0,4353123,BBLU,Bitcoin-Blu,,,,,,,,,
 0,4741444,HYD,Hydra Token,,,,,,,,,
 0,5063758,MM,Miden,,,,,,,,,
 0,5249353,BCO,BitcoinOre,,,,,,,,,
@@ -1264,6 +1271,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 1,7825266,WGR,Wagerr,secp256k1,sha256,0x0221312B,0x022D2533,0x49,0x3f,0xc7,,1779
 0,7825267,OBSR,OBServer,,,,,,,,,
 0,8163271,AFS,ANFS,,,,,,,,,
+0,8163321,BTCV,Bitcoin-Value,,,,,,,,,
 0,10000118,OSMO,Osmosis,,,,,,,,,12220
 0,11259375,LBR,0L,,,,,,,,,
 0,15118976,XDS,XDS,,,,,,,,,
