@@ -20,6 +20,9 @@ mod crypt;
 mod keys;
 mod test_vectors;
 
+#[cfg(feature = "dev")]
+mod dev;
+
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
@@ -233,6 +236,9 @@ struct GuiSettings {
   save_dialog: crypt::SaveWalletDialog,
   open_dialog: crypt::OpenWalletDialog,
 
+  #[cfg(feature = "dev")]
+  secrets_dialog: dev::ShowSecretsDialog,
+
   unify_evm: bool,
   unify_master_keys: bool,
   hardened_address: bool,
@@ -253,6 +259,9 @@ impl GuiSettings {
 
       save_dialog: crypt::SaveWalletDialog::new(),
       open_dialog: crypt::OpenWalletDialog::default(),
+
+      #[cfg(feature = "dev")]
+      secrets_dialog: dev::ShowSecretsDialog::new(),
 
       unify_evm: false,
       unify_master_keys: true,
@@ -540,6 +549,7 @@ impl EgoQuantum {
     ui: &mut egui::Ui,
   ) {
     let devel = String::from("Still in development");
+    let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
     egui::MenuBar::new().ui(ui, |ui| {
       ui.menu_button("File", |ui| {
@@ -554,7 +564,6 @@ impl EgoQuantum {
           self.gui.open_dialog.open = true;
         }
 
-        let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
         if ui
           .add_enabled(has_addresses, egui::Button::new("Save"))
@@ -709,8 +718,28 @@ impl EgoQuantum {
 
         ui.separator();
 
-        if ui.add_enabled(false, egui::Button::new("Show secrets")).on_disabled_hover_text(&devel).on_hover_text("Show all wallet secrets").clicked() {
-          // TODO: Create secrets window
+        if ui
+          .add_enabled(has_addresses, egui::Button::new("Show secrets"))
+          .on_disabled_hover_text("Generate wallet first")
+          .on_hover_text("Show all wallet secrets")
+          .clicked()
+        {
+          self.gui.secrets_dialog.full_entropy = self.wallet.seed_secret.full_entropy.clone();
+          self.gui.secrets_dialog.entropy = self.wallet.seed_secret.raw_entropy.clone();
+          self.gui.secrets_dialog.entropy_checksum = self.wallet.seed_secret.entropy_checksum.clone();
+          
+          self.gui.secrets_dialog.mnemonic_words = self.wallet.seed_secret.mnemonic_words.clone();
+          self.gui.secrets_dialog.mnemonic_passphrase = self.wallet.seed_secret.mnemonic_passphrase.clone();
+          self.gui.secrets_dialog.seed = self.wallet.seed_secret.seed.clone();
+
+          self.gui.secrets_dialog.master_secp256k1_private_key = self.wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded.clone();
+          self.gui.secrets_dialog.master_secp256k1_public_key = self.wallet.secret_keys.master_secp256k1_keys.master_public_key_encoded.clone();
+
+          self.gui.secrets_dialog.master_ed25519_private_key = self.wallet.secret_keys.master_ed25519_keys.master_private_key_encoded.clone();
+          self.gui.secrets_dialog.master_ed25519_public_key = self.wallet.secret_keys.master_ed25519_keys.master_public_key_encoded.clone();
+
+          self.gui.secrets_dialog.open = true;
+          
         }
       });
 
@@ -1021,6 +1050,8 @@ impl eframe::App for EgoQuantum {
     self.gui.save_dialog.show(ctx);
 
     self.gui.open_dialog.show(ctx);
+
+    self.gui.secrets_dialog.show(ctx);
 
     if let Some(loaded_wallet) = ctx.data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet"))) {
       self.wallet = loaded_wallet;

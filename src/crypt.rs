@@ -204,6 +204,7 @@ impl SaveWalletDialog {
   }
 
   fn close_and_clear(&mut self) {
+    self.zeroize();
     *self = SaveWalletDialog::new();
   }
 
@@ -473,12 +474,15 @@ pub struct OpenWalletDialog {
   pub open: bool,
   pub password: String,
 
+  // TODO: Improve
   #[zeroize(skip)]
   pub selected_svgs: Vec<String>,
 
+  // TODO: Improve
   #[zeroize(skip)]
   decoded_shares: Zeroizing<Vec<Vec<u8>>>,
 
+  // TODO: Improve
   #[zeroize(skip)]
   pub loaded_wallet: Option<SharedWallet>,
 }
@@ -554,6 +558,7 @@ impl OpenWalletDialog {
   }
 
   fn close_and_clear(&mut self) {
+    self.zeroize();
     *self = OpenWalletDialog::new();
   }
 
