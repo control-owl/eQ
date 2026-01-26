@@ -21,7 +21,7 @@ rfd = "0.17.2"
 svg = "0.18.0"
 
 # System and environment
-sysinfo = "0.37.2"
+sysinfo = "0.38.0"
 getrandom = "0.3.4"
 include_dir = "0.7.4"
 

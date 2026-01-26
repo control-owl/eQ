@@ -524,9 +524,11 @@ impl EgoQuantum {
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[0]), sources[0])
           .on_hover_text_at_pointer(descriptions[0]);
 
+        #[cfg(feature = "dev")]
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[1]), sources[1])
           .on_hover_text_at_pointer(descriptions[1]);
 
+        #[cfg(feature = "dev")]
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[2]), sources[2])
           .on_hover_text_at_pointer(descriptions[2]);
       });
@@ -705,6 +707,11 @@ impl EgoQuantum {
         let hardened_address_resp: egui::Response = ui.add_enabled(true, egui::Checkbox::new(&mut self.gui.hardened_address, "Hardened Addresses"));
         hardened_address_resp.on_hover_text(hardened_address_label.join("\n")).on_disabled_hover_text(&devel);
 
+        ui.separator();
+
+        if ui.add_enabled(false, egui::Button::new("Show secrets")).on_disabled_hover_text(&devel).on_hover_text("Show all wallet secrets").clicked() {
+          // TODO: Create secrets window
+        }
       });
 
       ui.menu_button("Help", |ui| {
