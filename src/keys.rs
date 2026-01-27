@@ -150,7 +150,7 @@ fn generate_raw_mnemonic_passphrase(length: usize) -> FunctionOutput<Zeroizing<S
     i += 1;
 
     if byte < 188 {
-      let idx = (byte % 94) as u8;
+      let idx = byte % 94;
       let ch = 33u8 + idx;
       result.push(char::from(ch));
     }
