@@ -2,9 +2,9 @@ name: Verify GPG Signature
 
 on:
   push:
-    branches:  [ "stable" ]
+    branches:  [ "stable", "release-test" ]
   pull_request:
-    branches:  [ "stable" ]
+    branches:  [ "stable", "release-test" ]
 
 permissions:
   contents: read
