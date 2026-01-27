@@ -132,17 +132,6 @@ jobs:
         run: |
           sha256sum "${OUTPUT_DIR}/${TAR_FILE}" > "${OUTPUT_DIR}/${TAR_FILE}.sha256"
 
-      - name: Install cosign (Sigstore) 
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign artifact with Sigstore 
-        run: | 
-          cosign sign-blob \
-          --yes \
-          --output-signature "${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sig" \
-          --output-certificate "${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.crt" \
-          "${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}"
-
       - name: "Upload to GitHub Releases"
         uses: softprops/action-gh-release@v2
         env:
@@ -151,8 +140,6 @@ jobs:
           files: |
             ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }} 
             ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256 
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sig 
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.crt 
             Changelog.md 
             LICENSE.txt
           draft: false
