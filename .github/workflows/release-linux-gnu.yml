@@ -2,7 +2,7 @@ name: Release Linux x86_64 GNU
 
 on:
   workflow_run:
-    workflows: ["Verify GPG Signature"]
+    workflows: [ "Verify GPG Signature" ]
     types:
       - completed
     branches: [ "stable" ]
@@ -10,11 +10,13 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   standard:
     name: ${{ matrix.features }}-${{ matrix.target }}
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu]
@@ -27,14 +29,10 @@ jobs:
       OUTPUT_DIR: "LAB7041/${{ matrix.target }}"
 
     steps:
-      # - name: "Install system dependencies"
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y \
-      #       libgtk-4-dev \
-      #       libadwaita-1-dev \
-      #       pkg-config \
-      #       libssl-dev
+      - name: "Install system dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config
 
       - name: "Checkout repository"
         uses: actions/checkout@v4
@@ -81,15 +79,6 @@ jobs:
           fi
           echo "VERSION_NUMBER=${VERSION_NUMBER}" | tee -a $GITHUB_ENV
 
-      - name: "Import GPG key"
-        uses: crazy-max/ghaction-import-gpg@v6
-        with:
-          gpg_private_key: ${{ secrets.ACTIONS_KEY }}
-          passphrase: ${{ secrets.ACTIONS_PASS }}
-          git_user_signingkey: true
-          git_commit_gpgsign: false
-          git_tag_gpgsign: true
-
       - name: "Create tag"
         run: |
           git config user.name "${{ env.APP_NAME }}"
@@ -134,8 +123,25 @@ jobs:
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
-            -C ../../ Changelog.md LICENSE.txt \
-          && echo "Release files prepared"
+            -C ../../ Changelog.md LICENSE.txt
+          
+          echo "Release files prepared"
+
+      - name: Generate SHA256 checksum
+        run: |
+          cd "${OUTPUT_DIR}"
+          sha256sum "${{ env.TAR_FILE }}" > "${{ env.TAR_FILE }}.sha256"
+
+      - name: Install cosign (Sigstore) 
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign artifact with Sigstore 
+        run: | 
+          cosign sign-blob \ 
+          --yes \ 
+          --output-signature "${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sig" \
+          --output-certificate "${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.crt" \ 
+          "${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}"
 
       - name: "Upload to GitHub Releases"
         uses: softprops/action-gh-release@v2
@@ -143,8 +149,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            ${{ env.OUTPUT_DIR }}/${{ env.APP_NAME }}-${{ env.VERSION_NUMBER }}-${{ matrix.features }}-${{ matrix.target }}.tar.gz
-            Changelog.md
+            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }} 
+            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256 
+            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sig 
+            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.crt 
+            Changelog.md 
             LICENSE.txt
           draft: false
           prerelease: true
