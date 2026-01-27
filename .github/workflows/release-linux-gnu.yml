@@ -125,12 +125,12 @@ jobs:
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
             -C ../../ Changelog.md LICENSE.txt
           
+          echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_ENV
           echo "Release files prepared"
 
       - name: Generate SHA256 checksum
         run: |
-          cd "${OUTPUT_DIR}"
-          sha256sum "${{ env.TAR_FILE }}" > "${{ env.TAR_FILE }}.sha256"
+          sha256sum "${OUTPUT_DIR}/${TAR_FILE}" > "${OUTPUT_DIR}/${TAR_FILE}.sha256"
 
       - name: Install cosign (Sigstore) 
         uses: sigstore/cosign-installer@v3
