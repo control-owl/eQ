@@ -237,7 +237,7 @@ struct GuiSettings {
   open_dialog: crypt::OpenWalletDialog,
 
   #[cfg(feature = "dev")]
-  secrets_dialog: dev::ShowSecretsDialog,
+  secrets_dialog: crypt::ShowSecretsDialog,
 
   unify_evm: bool,
   unify_master_keys: bool,
@@ -261,7 +261,7 @@ impl GuiSettings {
       open_dialog: crypt::OpenWalletDialog::default(),
 
       #[cfg(feature = "dev")]
-      secrets_dialog: dev::ShowSecretsDialog::new(),
+      secrets_dialog: crypt::ShowSecretsDialog::new(),
 
       unify_evm: false,
       unify_master_keys: true,
