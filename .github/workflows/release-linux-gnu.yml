@@ -92,7 +92,7 @@ jobs:
           else
             echo "Tag $VERSION does not exist on remote. Creating new signed tag."
           
-            if ! git tag -a "$VERSION" -s -m "Release $VERSION"; then
+            if ! git tag -a "$VERSION" -m "Release $VERSION"; then
               echo "GPG signing failed"
               exit 1
             fi
