@@ -1007,7 +1007,6 @@ pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<
   let mut private_key: Zeroizing<Vec<u8>> = master_key;
   let mut chain_code: Zeroizing<Vec<u8>> = master_chain_code;
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
-
   for part in derivation_path.split('/').skip(1) {
     let hardened: Zeroizing<bool> = Zeroizing::new(part.ends_with("'"));
     let index_str: Zeroizing<String> = Zeroizing::new(part.trim_end_matches("'").to_string());

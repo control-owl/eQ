@@ -345,7 +345,9 @@ impl EgoQuantum {
     let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
 
     // TODO: Add address_count as GUI parameters
-    let address_count = std::cmp::max(self.gui.address_count, *self.wallet.address_components.derivation_path.last_index);
+    let source =  self.get_entropy_source();
+    let index = if *source == "SVG" { *self.wallet.address_components.derivation_path.last_index } else { 0 };
+    let address_count = std::cmp::max(self.gui.address_count, index);
 
     // ECDB: Extended Coin DataBase
     let resource_path = std::path::Path::new("coin").join("ECDB.csv");
@@ -380,8 +382,10 @@ impl EgoQuantum {
             self.wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
             self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
+
+            
             for address_index in
-              0.. *self.wallet.address_components.derivation_path.last_index
+              0.. address_count
             {
               self.wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
 
