@@ -1,3 +1,11 @@
+# version 1.0.1
+- Secrets window
+- Added new coins:
+    - Rootstock Bitcoin
+    - Pulse Chain
+    - SONIC
+    - Scroll
+
 # version 1.0.0
 - First version
 - Generate keys for 280 coins

@@ -1,7 +1,7 @@
 [package]
 name = "eQ"
 description = "Crypto key generator"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
 repository = "https://github.com/control-owl/eQ"
@@ -72,7 +72,7 @@ winres = "0.1.12"
 
 [package.metadata.winres]
 OriginalFilename = "eQ.EXE"
-LegalCopyright = "CC-BY-NC-ND-4.0 (2023-2025) Control Owl"
+LegalCopyright = "CC-BY-NC-ND-4.0 (2023-2026) Control Owl"
 FileDescription = "Crypto key generator"
 
 [package.metadata.excluded]
