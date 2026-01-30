@@ -741,7 +741,7 @@ pub fn encrypt_wallet(
 ) -> FunctionOutput<Zeroizing<Vec<u8>>> {
   let rng = SystemRandom::new();
 
-  let mut salt: [u8; 32] = [0u8; SALT_LEN];
+  let mut salt = vec![0u8; SALT_LEN];
   rng.fill(&mut salt).map_err(|err| AppError::log(format!("RNG salt error: {:?}", err)))?;
 
   let mut nonce_bytes = [0u8; NONCE_LEN];

@@ -235,8 +235,6 @@ struct GuiSettings {
 
   save_dialog: crypt::SaveWalletDialog,
   open_dialog: crypt::OpenWalletDialog,
-
-  #[cfg(feature = "dev")]
   secrets_dialog: crypt::ShowSecretsDialog,
 
   unify_evm: bool,
@@ -259,8 +257,6 @@ impl GuiSettings {
 
       save_dialog: crypt::SaveWalletDialog::new(),
       open_dialog: crypt::OpenWalletDialog::default(),
-
-      #[cfg(feature = "dev")]
       secrets_dialog: crypt::ShowSecretsDialog::new(),
 
       unify_evm: false,
@@ -385,7 +381,7 @@ impl EgoQuantum {
             self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
             for address_index in
-              *self.wallet.address_components.derivation_path.last_index..address_count + *self.wallet.address_components.derivation_path.last_index
+              0.. *self.wallet.address_components.derivation_path.last_index
             {
               self.wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
 
