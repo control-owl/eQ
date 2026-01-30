@@ -1217,17 +1217,13 @@ pub struct ShowSecretsDialog {
   selected_tab: Tab,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug, Default)]
 enum Tab {
+  #[default]
   Entropy,
+
   Seed,
   MasterKeys,
-}
-
-impl Default for Tab {
-  fn default() -> Self {
-    Tab::Entropy
-  }
 }
 
 impl ShowSecretsDialog {
