@@ -345,7 +345,7 @@ impl EgoQuantum {
     let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
 
     // TODO: Add address_count as GUI parameters
-    let source =  self.get_entropy_source();
+    let source = self.get_entropy_source();
     let index = if *source == "SVG" { *self.wallet.address_components.derivation_path.last_index } else { 0 };
     let address_count = std::cmp::max(self.gui.address_count, index);
 
@@ -382,11 +382,7 @@ impl EgoQuantum {
             self.wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
             self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
-
-            
-            for address_index in
-              0.. address_count
-            {
+            for address_index in 0..address_count {
               self.wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
 
               match self.wallet.address_components.key_derivation.as_str() {
@@ -727,7 +723,7 @@ impl EgoQuantum {
           self.gui.secrets_dialog.full_entropy = self.wallet.seed_secret.full_entropy.clone();
           self.gui.secrets_dialog.entropy = self.wallet.seed_secret.raw_entropy.clone();
           self.gui.secrets_dialog.entropy_checksum = self.wallet.seed_secret.entropy_checksum.clone();
-          
+
           self.gui.secrets_dialog.mnemonic_words = self.wallet.seed_secret.mnemonic_words.clone();
           self.gui.secrets_dialog.mnemonic_passphrase = self.wallet.seed_secret.mnemonic_passphrase.clone();
           self.gui.secrets_dialog.seed = self.wallet.seed_secret.seed.clone();
@@ -739,7 +735,6 @@ impl EgoQuantum {
           self.gui.secrets_dialog.master_ed25519_public_key = self.wallet.secret_keys.master_ed25519_keys.master_public_key_encoded.clone();
 
           self.gui.secrets_dialog.open = true;
-          
         }
       });
 
