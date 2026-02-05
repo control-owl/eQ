@@ -115,7 +115,7 @@ jobs:
           TARGET="${{ matrix.target }}"
           BIN_FILE="${APP_NAME}"
           OUTPUT_BIN="${APP_NAME}-${VERSION}"
-          TAR_FILE="${OUTPUT_BIN}.tar.gz"
+          TAR_FILE="${APP_NAME}-${VERSION}-${FEATURES}-Linux.tar.gz"
 
           strip "${BIN_DIR}/${BIN_FILE}"
           mkdir -p "${OUTPUT_DIR}"
