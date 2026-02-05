@@ -113,7 +113,7 @@ jobs:
           OUTPUT_DIR="${{ env.OUTPUT_DIR }}"
           TARGET="${{ matrix.target }}"
           BIN_FILE="${APP_NAME}"
-          OUTPUT_BIN="${APP_NAME}-${VERSION}-${FEATURES}-macOS"
+          OUTPUT_BIN="${APP_NAME}-${VERSION}"
           TAR_FILE="${OUTPUT_BIN}.tar.gz"
 
           strip "${BIN_DIR}/${BIN_FILE}"

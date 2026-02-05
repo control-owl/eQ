@@ -119,7 +119,7 @@ jobs:
           $OUTPUT_DIR = "${{ env.OUTPUT_DIR }}"
           $TARGET = "${{ matrix.target }}"
           $BIN_FILE = "$APP_NAME.exe"
-          $OUTPUT_BIN="${APP_NAME}-${VERSION}-${FEATURES}-Windows"
+          $OUTPUT_BIN="${APP_NAME}-${VERSION}.exe"
           $ZIP_FILE="${OUTPUT_BIN}.zip"
           $ROOT = $env:GITHUB_WORKSPACE
 
