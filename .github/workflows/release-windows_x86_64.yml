@@ -74,15 +74,23 @@ jobs:
       - name: Extract version number
         shell: pwsh
         run: |
-          $line = Get-Content Changelog.md -TotalCount 1
-          $version = $line.Split(':')[1].Trim().Replace('#version','').Trim()
+          $line = (Get-Content Changelog.md | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1).Trim()
+
+          if (-not $line) {
+              Write-Error "Changelog.md first non-empty line is empty or unreadable"
+              exit 1
+          }
+
+          $clean = $line -replace '^#', '' -replace 'version', '' -replace ':', ''
+          $version = $clean.Trim()
 
           if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            Write-Error "VERSION_NUMBER invalid: $version"
-            exit 1
+              Write-Error "VERSION_NUMBER invalid: $version"
+              exit 1
           }
 
           Add-Content -Path $env:GITHUB_ENV -Value "VERSION_NUMBER=$version"
+
 
       - name: Create tag
         shell: pwsh
@@ -111,24 +119,27 @@ jobs:
           $OUTPUT_DIR = "${{ env.OUTPUT_DIR }}"
           $TARGET = "${{ matrix.target }}"
           $BIN_FILE = "$APP_NAME.exe"
-          $OUTPUT_BIN = "$APP_NAME-$VERSION-$FEATURES.exe"
-          $TAR_FILE = "$APP_NAME-$VERSION-$FEATURES-$TARGET.tar.gz"
+          $OUTPUT_BIN="${APP_NAME}-${VERSION}-${FEATURES}-Windows"
+          $ZIP_FILE="${OUTPUT_BIN}.zip"
 
           llvm-strip "$BIN_DIR/$BIN_FILE"
 
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
           Copy-Item "$BIN_DIR/$BIN_FILE" "$OUTPUT_DIR/$OUTPUT_BIN"
 
-          tar -czf "$OUTPUT_DIR/$TAR_FILE" `
-            -C "$OUTPUT_DIR" "$OUTPUT_BIN" `
-            -C ../../ Changelog.md LICENSE.txt
+          Compress-Archive -Path `
+            "$OUTPUT_DIR/$OUTPUT_BIN", `
+            "../../Changelog.md", `
+            "../../LICENSE.txt" `
+            -DestinationPath "$OUTPUT_DIR/$ZIP_FILE" `
+            -Force
 
-          Add-Content -Path $env:GITHUB_ENV -Value "TAR_FILE=$TAR_FILE"
+          Add-Content -Path $env:GITHUB_ENV -Value "ZIP_FILE=$ZIP_FILE"
 
       - name: Generate SHA256 checksum
         shell: pwsh
         run: |
-          CertUtil -hashfile "${{ env.OUTPUT_DIR }}\${{ env.TAR_FILE }}" SHA256 > "${{ env.OUTPUT_DIR }}\${{ env.TAR_FILE }}.sha256"
+          CertUtil -hashfile "${{ env.OUTPUT_DIR }}\${{ env.ZIP_FILE }}" SHA256 > "${{ env.OUTPUT_DIR }}\${{ env.ZIP_FILE }}.sha256"
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
@@ -136,8 +147,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256
+            ${{ env.OUTPUT_DIR }}/${{ env.ZIP_FILE }}
+            ${{ env.OUTPUT_DIR }}/${{ env.ZIP_FILE }}.sha256
             Changelog.md
             LICENSE.txt
           draft: false
