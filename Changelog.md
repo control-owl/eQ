@@ -1,3 +1,8 @@
+# version 1.1.0
+- cargo update: getrandom
+- git pre-push hook added
+- new release: macOS, windows
+
 # version 1.0.1
 - Secrets window
 - Added new coins:

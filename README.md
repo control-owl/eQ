@@ -58,13 +58,13 @@ See the [LICENSE]((./LICENSE.txt)) file or the official [deed](https://creativec
 | **Security Status**  |
 | -------------------- |
 | [![Verify GPG Signature](https://github.com/control-owl/eQ/actions/workflows/verify-gpg-signature.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/verify-gpg-signature.yml) |
-| [![CodeQL](https://github.com/control-owl/eQ/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/github-code-scanning/codeql)               |
+| [![CodeQL](https://github.com/control-owl/eQ/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/github-code-scanning/codeql) |
 
 | **Build Status**     |
 | -------------------- |
-| Linux x86_64 GNU (soon)     |
-| macOS aarch64 Darwin (soon) |
-| Windows (soon) |
+| [![Linux x86_64 GNU](https://github.com/control-owl/eQ/actions/workflows/release-linux-gnu.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/release-linux-gnu.yml) |
+| [![macOS aarch64 Darwin](https://github.com/control-owl/eQ/actions/workflows/release-macos-aarch64.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/release-macos-aarch64.yml) |
+| [![Microslop Windows x86_64](https://github.com/control-owl/eQ/actions/workflows/release-windows_x86_64.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/release-windows_x86_64.yml) |
 
 
 ## Features
@@ -113,10 +113,13 @@ cargo run --release
 ## Screenshots
 
 ### Light theme
-![Screenshot](./.github/preview/1.0.0-light.png "Light theme")
+<img src="./.github/preview/1.0.0-light.png" alt="Light theme" width="800">
 
 ### Dark theme
-![Screenshot](./.github/preview/1.0.0-dark.png "Dark theme")
+<img src="./.github/preview/1.0.0-dark.png" alt="Dark theme" width="800">
+
+### Sample wallet file
+<img src="./.github/preview/test-wallet.svg" alt="Test wallet" width="800">
 
 
 ## Third-Party Libraries

@@ -564,7 +564,7 @@ mod tests {
       keys::generate_secp256k1_address(&mut wallet)?;
 
       let addresses = wallet.addresses_by_coin.0.get(vector.coin_name).expect("Coin not found");
-      let first = addresses.get(0).expect("No address stored for this coin");
+      let first = addresses.first().expect("No address stored for this coin");
 
       assert_eq!(first.address, Zeroizing::new(vector.expected_address.to_string()));
       assert_eq!(first.public_key, Zeroizing::new(vector.expected_public_key.to_string()));

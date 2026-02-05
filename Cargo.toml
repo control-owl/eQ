@@ -1,7 +1,12 @@
+# authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
+# license = "CC-BY-NC-ND-4.0  [2023-2026]  Control Owl"
+
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 [package]
 name = "eQ"
 description = "Crypto key generator"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
 repository = "https://github.com/control-owl/eQ"
@@ -22,7 +27,7 @@ svg = "0.18.0"
 
 # System and environment
 sysinfo = "0.38.0"
-getrandom = "0.3.4"
+getrandom = "0.4.1"
 include_dir = "0.7.4"
 
 # Crypto primitives and hashing
