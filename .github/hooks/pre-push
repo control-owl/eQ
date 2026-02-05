@@ -40,7 +40,7 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || { printf '%b\n' "$BOLD$RED""ERROR: Cannot cd to repo root: $REPO_ROOT""$RESET" >&2; exit 2; }
 
-SCRIPT="$HOOK_DIR/pre-push-checks.sh"
+SCRIPT="../../.github/hooks/pre-push-checks.sh"
 
 if [ ! -e "$SCRIPT" ]; then
   printf '%b\n' "$BOLD$RED""ERROR: $SCRIPT not found.""$RESET" >&2

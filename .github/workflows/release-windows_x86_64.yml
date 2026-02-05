@@ -121,6 +121,7 @@ jobs:
           $BIN_FILE = "$APP_NAME.exe"
           $OUTPUT_BIN="${APP_NAME}-${VERSION}-${FEATURES}-Windows"
           $ZIP_FILE="${OUTPUT_BIN}.zip"
+          $ROOT = $env:GITHUB_WORKSPACE
 
           llvm-strip "$BIN_DIR/$BIN_FILE"
 
@@ -129,8 +130,8 @@ jobs:
 
           Compress-Archive -Path `
             "$OUTPUT_DIR/$OUTPUT_BIN", `
-            "../../Changelog.md", `
-            "../../LICENSE.txt" `
+            "$ROOT/Changelog.md", `
+            "$ROOT/LICENSE.txt" `
             -DestinationPath "$OUTPUT_DIR/$ZIP_FILE" `
             -Force
 
