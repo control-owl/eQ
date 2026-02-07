@@ -1375,7 +1375,7 @@ impl eframe::App for ShowSecretsDialog {
 #[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug, Default)]
 enum AnuTab {
   #[default]
-  ANU,
+  Anu,
 
   Settings,
 }
@@ -1421,7 +1421,7 @@ impl ShowAnuDialog {
       array_length: Zeroizing::new(10),
       block_size: Zeroizing::new(128),
 
-      selected_tab: AnuTab::ANU,
+      selected_tab: AnuTab::Anu,
 
       fetched_json: String::new(),
       show_randomize: false,
@@ -1469,7 +1469,7 @@ impl ShowAnuDialog {
     ui.add_space(GUI_MARGIN);
 
     ui.horizontal(|ui| {
-      ui.selectable_value(&mut self.selected_tab, AnuTab::ANU, "ANU");
+      ui.selectable_value(&mut self.selected_tab, AnuTab::Anu, "ANU");
       ui.selectable_value(&mut self.selected_tab, AnuTab::Settings, "Settings");
     });
 
@@ -1477,7 +1477,7 @@ impl ShowAnuDialog {
 
     egui::ScrollArea::vertical().scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
       ui.with_layout(Layout::top_down(Align::Center), |ui| match self.selected_tab {
-        AnuTab::ANU => self.ui_anu(ui),
+        AnuTab::Anu => self.ui_anu(ui),
         AnuTab::Settings => self.ui_settings(ui),
       });
     });
@@ -1531,10 +1531,8 @@ impl ShowAnuDialog {
 
     ui.add_space(GUI_MARGIN);
 
-    if self.show_randomize {
-      if ui.button("Randomize").clicked() {
-        self.randomize_entropy();
-      }
+    if self.show_randomize && ui.button("Randomize").clicked() {
+      self.randomize_entropy();
     }
 
     ui.add_space(GUI_MARGIN);
@@ -1623,7 +1621,7 @@ impl ShowAnuDialog {
                     }
                   }
 
-                  *self.raw_values = vals.into();
+                  *self.raw_values = vals;
                   self.fetched_json = bits;
                 }
 
@@ -1638,7 +1636,7 @@ impl ShowAnuDialog {
                     }
                   }
 
-                  *self.raw_values = vals.into();
+                  *self.raw_values = vals;
                   self.fetched_json = bits;
                 }
 
@@ -1653,7 +1651,7 @@ impl ShowAnuDialog {
                     }
                   }
 
-                  *self.raw_values = vals.into();
+                  *self.raw_values = vals;
                   self.fetched_json = bits;
                 }
               }
