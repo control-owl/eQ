@@ -6,7 +6,7 @@
 [package]
 name = "eQ"
 description = "Crypto key generator"
-version = "1.0.2"
+version = "1.2.0"
 authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
 repository = "https://github.com/control-owl/eQ"
@@ -26,7 +26,7 @@ rfd = "0.17.2"
 svg = "0.18.0"
 
 # System and environment
-sysinfo = "0.38.0"
+sysinfo = "0.38.1"
 getrandom = "0.4.1"
 include_dir = "0.7.4"
 
@@ -53,6 +53,11 @@ base64 = "0.22.1"
 # Secrets
 shamir_share = "0.2.1"
 zeroize = { version = "1.8.2", features = ["derive"] }
+
+# ANU
+ureq = "3.2.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
 
 # -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 

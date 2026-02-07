@@ -1,3 +1,9 @@
+# version 1.2.0
+- cargo update: sysinfo
+- cargo add: ureq
+- new: QRNG as entropy source
+- new: ANU window
+
 # version 1.1.0
 - cargo update: getrandom
 - git pre-push hook added

@@ -26,6 +26,7 @@ const SALT_LEN: usize = 32;
 const NONCE_LEN: usize = 12;
 const TAG_LEN: usize = 16;
 const SVG_BOX_SIZE: usize = 16;
+const ANU_COOLDOWN: u32 = 60 * 2;
 
 pub type SharedWallet = Rc<RefCell<Zeroizing<CryptoWallet>>>;
 
@@ -1214,11 +1215,11 @@ pub struct ShowSecretsDialog {
   pub master_ed25519_private_key: Zeroizing<String>,
   pub master_ed25519_public_key: Zeroizing<String>,
 
-  selected_tab: Tab,
+  selected_tab: SecretsTab,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug, Default)]
-enum Tab {
+enum SecretsTab {
   #[default]
   Entropy,
 
@@ -1245,7 +1246,7 @@ impl ShowSecretsDialog {
       master_ed25519_private_key: Zeroizing::new(String::new()),
       master_ed25519_public_key: Zeroizing::new(String::new()),
 
-      selected_tab: Tab::Entropy,
+      selected_tab: SecretsTab::Entropy,
     }
   }
 
@@ -1281,18 +1282,18 @@ impl ShowSecretsDialog {
     ui.add_space(GUI_MARGIN);
 
     ui.horizontal(|ui| {
-      ui.selectable_value(&mut self.selected_tab, Tab::Entropy, "Entropy");
-      ui.selectable_value(&mut self.selected_tab, Tab::Seed, "Seed");
-      ui.selectable_value(&mut self.selected_tab, Tab::MasterKeys, "Master Keys");
+      ui.selectable_value(&mut self.selected_tab, SecretsTab::Entropy, "Entropy");
+      ui.selectable_value(&mut self.selected_tab, SecretsTab::Seed, "Seed");
+      ui.selectable_value(&mut self.selected_tab, SecretsTab::MasterKeys, "Master Keys");
     });
 
     ui.separator();
 
     egui::ScrollArea::both().scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
       ui.with_layout(Layout::top_down(Align::Center), |ui| match self.selected_tab {
-        Tab::Entropy => self.ui_entropy(ui),
-        Tab::Seed => self.ui_seed(ui),
-        Tab::MasterKeys => self.ui_master_keys(ui),
+        SecretsTab::Entropy => self.ui_entropy(ui),
+        SecretsTab::Seed => self.ui_seed(ui),
+        SecretsTab::MasterKeys => self.ui_master_keys(ui),
       });
     });
 
@@ -1364,6 +1365,428 @@ impl eframe::App for ShowSecretsDialog {
   ) {
     egui::CentralPanel::default().show(ctx, |ui| {
       ui.heading("Wallet secrets");
+      self.show(ctx);
+    });
+  }
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug, Default)]
+enum AnuTab {
+  #[default]
+  ANU,
+
+  Settings,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug, Default)]
+enum AnuDataTypes {
+  #[default]
+  Hex16,
+
+  Uint8,
+  Uint16,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct ShowAnuDialog {
+  pub open: bool,
+
+  data_type: Zeroizing<AnuDataTypes>,
+  array_length: Zeroizing<u32>,
+  block_size: Zeroizing<u32>,
+
+  selected_tab: AnuTab,
+
+  fetched_json: String,
+  show_randomize: bool,
+
+  cooldown_secs: u32,
+
+  #[zeroize(skip)]
+  last_cooldown_update: Option<std::time::Instant>,
+
+  randomized_entropy: Zeroizing<String>,
+  selected_value_indices: Zeroizing<Vec<usize>>,
+  raw_values: Zeroizing<Vec<String>>,
+}
+
+impl ShowAnuDialog {
+  pub fn new() -> Self {
+    Self {
+      open: false,
+
+      data_type: Zeroizing::new(AnuDataTypes::default()),
+      array_length: Zeroizing::new(10),
+      block_size: Zeroizing::new(128),
+
+      selected_tab: AnuTab::ANU,
+
+      fetched_json: String::new(),
+      show_randomize: false,
+
+      cooldown_secs: 0,
+      last_cooldown_update: None,
+
+      randomized_entropy: Zeroizing::new(String::new()),
+      selected_value_indices: Zeroizing::new(Vec::new()),
+      raw_values: Zeroizing::new(Vec::new()),
+    }
+  }
+
+  pub fn show(
+    &mut self,
+    ctx: &egui::Context,
+  ) {
+    if !self.open {
+      return;
+    }
+
+    let mut open = self.open;
+
+    egui::Window::new("Create QRNG entropy").open(&mut open).resizable(true).show(ctx, |ui| {
+      let _ = self.ui_content(ui);
+    });
+
+    if !open {
+      self.close_and_clear();
+    }
+  }
+
+  fn close_and_clear(&mut self) {
+    self.zeroize();
+
+    *self = ShowAnuDialog::new();
+  }
+
+  fn ui_content(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) -> FunctionOutput<()> {
+    self.update_cooldown(ui.ctx());
+
+    ui.add_space(GUI_MARGIN);
+
+    ui.horizontal(|ui| {
+      ui.selectable_value(&mut self.selected_tab, AnuTab::ANU, "ANU");
+      ui.selectable_value(&mut self.selected_tab, AnuTab::Settings, "Settings");
+    });
+
+    ui.separator();
+
+    egui::ScrollArea::vertical().scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
+      ui.with_layout(Layout::top_down(Align::Center), |ui| match self.selected_tab {
+        AnuTab::ANU => self.ui_anu(ui),
+        AnuTab::Settings => self.ui_settings(ui),
+      });
+    });
+
+    Ok(())
+  }
+
+  fn ui_anu(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) -> FunctionOutput<()> {
+    ui.heading("ANU QRNG API");
+    ui.add_space(GUI_MARGIN);
+
+    ui.label("This interface fetches (Q)uantum (R)andom (N)umbers from the (A)ustralian (N)ational (U)niversity.");
+    ui.add_space(GUI_MARGIN);
+
+    let button_label = if self.cooldown_secs == 0 { "Generate QRNG".to_string() } else { format!("Wait {} s", self.cooldown_secs) };
+    let mut generate_button = egui::Button::new(button_label);
+
+    if self.cooldown_secs > 0 {
+      generate_button = generate_button.sense(egui::Sense::hover());
+    }
+
+    let resp = ui.add(generate_button);
+
+    if self.cooldown_secs > 0 {
+      resp.on_hover_text(format!("ANU QRNG API allows only 1 request per {} seconds.", ANU_COOLDOWN));
+    } else if resp.clicked() {
+      self.show_randomize = true;
+      self.fetch_anu_data();
+      self.cooldown_secs = ANU_COOLDOWN;
+      self.last_cooldown_update = None;
+      self.selected_value_indices.clear();
+      self.randomized_entropy = Zeroizing::new(String::new());
+    }
+
+    ui.add_space(GUI_MARGIN);
+
+    ui.label("Raw ANU data:");
+
+    let mut job = egui::text::LayoutJob::default();
+
+    for (i, val) in self.raw_values.iter().enumerate() {
+      let color = if self.selected_value_indices.contains(&i) { egui::Color32::RED } else { egui::Color32::PLACEHOLDER };
+
+      job.append(&format!("{} ", val), 0.0, egui::TextFormat { color, ..Default::default() });
+    }
+
+    ui.label(job);
+
+    ui.add_space(GUI_MARGIN);
+
+    if self.show_randomize {
+      if ui.button("Randomize").clicked() {
+        self.randomize_entropy();
+      }
+    }
+
+    ui.add_space(GUI_MARGIN);
+
+    ui.label("Generated 256-bit entropy:");
+    let mut entropy_str = self.randomized_entropy.to_string();
+    ui.add(
+      egui::TextEdit::multiline(&mut entropy_str).desired_rows(3).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace).interactive(false),
+    );
+    self.randomized_entropy = Zeroizing::new(entropy_str);
+
+    ui.add_space(GUI_MARGIN);
+
+    Ok(())
+  }
+
+  fn ui_settings(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) -> FunctionOutput<()> {
+    ui.heading("Settings");
+
+    ui.add_space(GUI_MARGIN);
+
+    egui::ComboBox::from_label("Data type").selected_text(format!("{:?}", *self.data_type)).show_ui(ui, |ui| {
+      ui.selectable_value(&mut *self.data_type, AnuDataTypes::Hex16, "hex16");
+      ui.selectable_value(&mut *self.data_type, AnuDataTypes::Uint8, "uint8");
+      ui.selectable_value(&mut *self.data_type, AnuDataTypes::Uint16, "uint16");
+    });
+
+    ui.add_space(GUI_MARGIN);
+
+    // min length is 256 bit + place for random
+    let min_length = match *self.data_type {
+      AnuDataTypes::Hex16 => 7,   // 7 * 48 bits = 336 bits
+      AnuDataTypes::Uint8 => 42,  // 42 * 8 bits = 336 bits
+      AnuDataTypes::Uint16 => 21, // 21 * 16 bits = 336 bits
+    };
+
+    ui.add(egui::Slider::new(&mut *self.array_length, min_length..=1024).text("Array length"));
+    ui.add(egui::Slider::new(&mut *self.block_size, min_length..=1024).text("Block size"));
+
+    ui.add_space(GUI_MARGIN);
+
+    Ok(())
+  }
+
+  fn fetch_anu_data(&mut self) {
+    let length = *self.array_length;
+    let size = *self.block_size;
+
+    let data_type = match &*self.data_type {
+      AnuDataTypes::Uint8 => "uint8",
+      AnuDataTypes::Uint16 => "uint16",
+      AnuDataTypes::Hex16 => "hex16",
+    };
+
+    let url = format!("https://qrng.anu.edu.au/API/jsonI.php?length={}&type={}&size={}", length, data_type, size);
+
+    let result = ureq::get(&url).call();
+
+    self.raw_values.clear();
+    self.fetched_json.clear();
+
+    match result {
+      Ok(mut resp) => match resp.body_mut().read_to_string() {
+        Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
+          Ok(json) => {
+            if let Some(arr) = json.get("data").and_then(|v| v.as_array()) {
+              match *self.data_type {
+                AnuDataTypes::Hex16 => {
+                  let mut vals = Vec::new();
+                  let mut bits = String::new();
+
+                  for item in arr {
+                    if let Some(s) = item.as_str() {
+                      // split into 2-char hex bytes
+                      for i in (0..s.len()).step_by(2) {
+                        let byte_hex = &s[i..i + 2];
+                        vals.push(byte_hex.to_string());
+
+                        if let Ok(byte) = u8::from_str_radix(byte_hex, 16) {
+                          bits.push_str(&format!("{:08b}", byte));
+                        }
+                      }
+                    }
+                  }
+
+                  *self.raw_values = vals.into();
+                  self.fetched_json = bits;
+                }
+
+                AnuDataTypes::Uint8 => {
+                  let mut vals = Vec::new();
+                  let mut bits = String::new();
+
+                  for item in arr {
+                    if let Some(n) = item.as_u64() {
+                      vals.push(n.to_string());
+                      bits.push_str(&format!("{:08b}", n as u8));
+                    }
+                  }
+
+                  *self.raw_values = vals.into();
+                  self.fetched_json = bits;
+                }
+
+                AnuDataTypes::Uint16 => {
+                  let mut vals = Vec::new();
+                  let mut bits = String::new();
+
+                  for item in arr {
+                    if let Some(n) = item.as_u64() {
+                      vals.push(n.to_string());
+                      bits.push_str(&format!("{:016b}", n as u16));
+                    }
+                  }
+
+                  *self.raw_values = vals.into();
+                  self.fetched_json = bits;
+                }
+              }
+            }
+          }
+          Err(_) => self.fetched_json = text,
+        },
+        Err(err) => self.fetched_json = format!("Error reading response body: {}", err),
+      },
+      Err(err) => self.fetched_json = format!("HTTP error: {}", err),
+    };
+  }
+
+  fn update_cooldown(
+    &mut self,
+    ctx: &egui::Context,
+  ) {
+    if self.cooldown_secs == 0 {
+      self.last_cooldown_update = None;
+      return;
+    }
+
+    let now = std::time::Instant::now();
+
+    if let Some(last) = self.last_cooldown_update {
+      if now.duration_since(last).as_secs() >= 1 {
+        let elapsed = now.duration_since(last).as_secs() as u32;
+        if elapsed >= self.cooldown_secs {
+          self.cooldown_secs = 0;
+          self.last_cooldown_update = None;
+        } else {
+          self.cooldown_secs -= elapsed;
+          self.last_cooldown_update = Some(now);
+        }
+        ctx.request_repaint(); // keep ticking
+      }
+    } else {
+      self.last_cooldown_update = Some(now);
+      ctx.request_repaint();
+    }
+  }
+
+  fn randomize_entropy(&mut self) {
+    use ring::rand::{SecureRandom, SystemRandom};
+
+    self.selected_value_indices.clear();
+    self.randomized_entropy = Zeroizing::new(String::new());
+
+    if self.raw_values.is_empty() {
+      self.randomized_entropy = Zeroizing::new("No data".to_string());
+      return;
+    }
+
+    let mut per_value_bits: Vec<String> = Vec::new();
+
+    match *self.data_type {
+      AnuDataTypes::Hex16 => {
+        for v in self.raw_values.iter() {
+          if let Ok(byte) = u8::from_str_radix(v, 16) {
+            per_value_bits.push(format!("{:08b}", byte));
+          }
+        }
+      }
+
+      AnuDataTypes::Uint8 => {
+        for v in self.raw_values.iter() {
+          if let Ok(n) = v.parse::<u8>() {
+            per_value_bits.push(format!("{:08b}", n));
+          }
+        }
+      }
+
+      AnuDataTypes::Uint16 => {
+        for v in self.raw_values.iter() {
+          if let Ok(n) = v.parse::<u16>() {
+            per_value_bits.push(format!("{:016b}", n));
+          }
+        }
+      }
+    }
+
+    let total_values = per_value_bits.len();
+    if total_values == 0 {
+      self.randomized_entropy = Zeroizing::new("No values".to_string());
+      return;
+    }
+
+    let rng = SystemRandom::new();
+    let mut buf = [0u8; 4];
+
+    let max_u32 = u32::MAX as u64;
+    let bound = (max_u32 / (total_values as u64)) * (total_values as u64);
+
+    let mut collected_bits = String::new();
+
+    while collected_bits.len() < 256 {
+      let idx = loop {
+        rng.fill(&mut buf).expect("System Random failed");
+        let v = u32::from_le_bytes(buf) as u64;
+        if v < bound {
+          break (v % (total_values as u64)) as usize;
+        }
+      };
+
+      self.selected_value_indices.push(idx);
+      collected_bits.push_str(&per_value_bits[idx]);
+
+      if self.selected_value_indices.len() > total_values {
+        break;
+      }
+    }
+
+    if collected_bits.len() < 256 {
+      self.randomized_entropy = Zeroizing::new("Not enough entropy".to_string());
+      self.selected_value_indices.clear();
+      return;
+    }
+
+    let entropy = collected_bits.chars().take(256).collect::<String>();
+    self.randomized_entropy = Zeroizing::new(entropy);
+  }
+}
+
+impl eframe::App for ShowAnuDialog {
+  fn update(
+    &mut self,
+    ctx: &egui::Context,
+    _frame: &mut eframe::Frame,
+  ) {
+    self.update_cooldown(ctx);
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+      ui.heading("ANU QRNG");
       self.show(ctx);
     });
   }

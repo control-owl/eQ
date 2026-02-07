@@ -236,6 +236,7 @@ struct GuiSettings {
   save_dialog: crypt::SaveWalletDialog,
   open_dialog: crypt::OpenWalletDialog,
   secrets_dialog: crypt::ShowSecretsDialog,
+  anu_dialog: crypt::ShowAnuDialog,
 
   unify_evm: bool,
   unify_master_keys: bool,
@@ -258,6 +259,7 @@ impl GuiSettings {
       save_dialog: crypt::SaveWalletDialog::new(),
       open_dialog: crypt::OpenWalletDialog::default(),
       secrets_dialog: crypt::ShowSecretsDialog::new(),
+      anu_dialog: crypt::ShowAnuDialog::new(),
 
       unify_evm: false,
       unify_master_keys: true,
@@ -450,35 +452,44 @@ impl EgoQuantum {
       ];
 
       ComboBox::from_label("Entropy Source")
-        .selected_text(if self.wallet.seed_secret.entropy_source.is_empty() {
+      .selected_text(if self.wallet.seed_secret.entropy_source.is_empty() {
           VALID_ENTROPY_SOURCES[0]
-        } else {
+      } else {
           &self.wallet.seed_secret.entropy_source
-        })
-        .show_ui(ui, |ui| {
+      })
+      .show_ui(ui, |ui| {
+          // RNG
           ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string()),
-            VALID_ENTROPY_SOURCES[0],
+              &mut self.wallet.seed_secret.entropy_source,
+              Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string()),
+              VALID_ENTROPY_SOURCES[0],
           )
           .on_hover_text_at_pointer(descriptions[0]);
 
+          // QRNG
           #[cfg(feature = "dev")]
-          ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-            VALID_ENTROPY_SOURCES[1],
-          )
-          .on_hover_text_at_pointer(descriptions[1]);
+          {
+              let resp = ui.selectable_value(
+                  &mut self.wallet.seed_secret.entropy_source,
+                  Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
+                  VALID_ENTROPY_SOURCES[1],
+              )
+              .on_hover_text_at_pointer(descriptions[1]);
 
+              if resp.clicked() {
+                  self.gui.anu_dialog.open = true;
+              }
+          }
+
+          // FILE
           #[cfg(feature = "dev")]
           ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string()),
-            VALID_ENTROPY_SOURCES[2],
+              &mut self.wallet.seed_secret.entropy_source,
+              Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string()),
+              VALID_ENTROPY_SOURCES[2],
           )
           .on_hover_text_at_pointer(descriptions[2]);
-        });
+      });
     });
   }
 
@@ -574,6 +585,7 @@ impl EgoQuantum {
           self.gui.save_dialog.password_confirm.clear();
           self.gui.save_dialog.wallet_to_save = Some(Rc::new(RefCell::new(self.wallet.clone())));
           self.gui.save_dialog.open = true;
+          
         }
 
         ui.separator();
@@ -1047,6 +1059,8 @@ impl eframe::App for EgoQuantum {
     self.gui.open_dialog.show(ctx);
 
     self.gui.secrets_dialog.show(ctx);
+    
+    self.gui.anu_dialog.show(ctx);
 
     if let Some(loaded_wallet) = ctx.data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet"))) {
       self.wallet = loaded_wallet;
