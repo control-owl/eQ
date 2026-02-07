@@ -1389,6 +1389,13 @@ enum AnuDataTypes {
   Uint16,
 }
 
+#[derive(PartialEq, Eq, Clone, Copy, Zeroize, Debug, Default)]
+enum EntropyMode {
+  #[default]
+  RandomValues,
+  SequentialSlice,
+}
+
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 pub struct ShowAnuDialog {
   pub open: bool,
@@ -1410,6 +1417,8 @@ pub struct ShowAnuDialog {
   randomized_entropy: Zeroizing<String>,
   selected_value_indices: Zeroizing<Vec<usize>>,
   raw_values: Zeroizing<Vec<String>>,
+
+  entropy_mode: Zeroizing<EntropyMode>,
 }
 
 impl ShowAnuDialog {
@@ -1432,6 +1441,8 @@ impl ShowAnuDialog {
       randomized_entropy: Zeroizing::new(String::new()),
       selected_value_indices: Zeroizing::new(Vec::new()),
       raw_values: Zeroizing::new(Vec::new()),
+
+      entropy_mode: Zeroizing::new(EntropyMode::default()),
     }
   }
 
@@ -1490,15 +1501,38 @@ impl ShowAnuDialog {
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
     ui.heading("ANU QRNG API");
+
     ui.add_space(GUI_MARGIN);
 
     ui.label("This interface fetches (Q)uantum (R)andom (N)umbers from the (A)ustralian (N)ational (U)niversity.");
+
+    ui.add_space(GUI_MARGIN);
+
+    if self.show_randomize && ui.button("Randomize").clicked() {
+      self.randomize_entropy();
+    }
+
+    if self.show_randomize && ui.button("Save").clicked() {
+      self.close_and_clear();
+    }
+
+    ui.label("Generated 256-bit entropy:");
+    let mut entropy_str = self.randomized_entropy.to_string();
+
+    ui.add(
+      egui::TextEdit::multiline(&mut entropy_str).desired_rows(5).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace).interactive(false),
+    );
+
+    self.randomized_entropy = Zeroizing::new(entropy_str);
+
     ui.add_space(GUI_MARGIN);
 
     let button_label = if self.cooldown_secs == 0 { "Generate QRNG".to_string() } else { format!("Wait {} s", self.cooldown_secs) };
     let mut generate_button = egui::Button::new(button_label);
 
     if self.cooldown_secs > 0 {
+      ui.ctx().request_repaint_after(std::time::Duration::from_millis(1000));
+
       generate_button = generate_button.sense(egui::Sense::hover());
     }
 
@@ -1508,11 +1542,14 @@ impl ShowAnuDialog {
       resp.on_hover_text(format!("ANU QRNG API allows only 1 request per {} seconds.", ANU_COOLDOWN));
     } else if resp.clicked() {
       self.show_randomize = true;
+
       self.fetch_anu_data();
+
+      self.selected_value_indices.clear();
+      self.randomize_entropy();
+
       self.cooldown_secs = ANU_COOLDOWN;
       self.last_cooldown_update = None;
-      self.selected_value_indices.clear();
-      self.randomized_entropy = Zeroizing::new(String::new());
     }
 
     ui.add_space(GUI_MARGIN);
@@ -1528,21 +1565,6 @@ impl ShowAnuDialog {
     }
 
     ui.label(job);
-
-    ui.add_space(GUI_MARGIN);
-
-    if self.show_randomize && ui.button("Randomize").clicked() {
-      self.randomize_entropy();
-    }
-
-    ui.add_space(GUI_MARGIN);
-
-    ui.label("Generated 256-bit entropy:");
-    let mut entropy_str = self.randomized_entropy.to_string();
-    ui.add(
-      egui::TextEdit::multiline(&mut entropy_str).desired_rows(3).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace).interactive(false),
-    );
-    self.randomized_entropy = Zeroizing::new(entropy_str);
 
     ui.add_space(GUI_MARGIN);
 
@@ -1565,7 +1587,7 @@ impl ShowAnuDialog {
 
     ui.add_space(GUI_MARGIN);
 
-    // min length is 256 bit + place for random
+    // min length is 256 bit - checksum + place for random
     let min_length = match *self.data_type {
       AnuDataTypes::Hex16 => 7,   // 7 * 48 bits = 336 bits
       AnuDataTypes::Uint8 => 42,  // 42 * 8 bits = 336 bits
@@ -1574,6 +1596,14 @@ impl ShowAnuDialog {
 
     ui.add(egui::Slider::new(&mut *self.array_length, min_length..=1024).text("Array length"));
     ui.add(egui::Slider::new(&mut *self.block_size, min_length..=1024).text("Block size"));
+
+    ui.add_space(GUI_MARGIN);
+
+    ui.label("Entropy extraction mode:");
+    egui::ComboBox::from_label("Mode").selected_text(format!("{:?}", *self.entropy_mode)).show_ui(ui, |ui| {
+      ui.selectable_value(&mut *self.entropy_mode, EntropyMode::RandomValues, "Random values");
+      ui.selectable_value(&mut *self.entropy_mode, EntropyMode::SequentialSlice, "Sequential slice");
+    });
 
     ui.add_space(GUI_MARGIN);
 
@@ -1715,7 +1745,6 @@ impl ShowAnuDialog {
           }
         }
       }
-
       AnuDataTypes::Uint8 => {
         for v in self.raw_values.iter() {
           if let Ok(n) = v.parse::<u8>() {
@@ -1723,7 +1752,6 @@ impl ShowAnuDialog {
           }
         }
       }
-
       AnuDataTypes::Uint16 => {
         for v in self.raw_values.iter() {
           if let Ok(n) = v.parse::<u16>() {
@@ -1733,45 +1761,86 @@ impl ShowAnuDialog {
       }
     }
 
-    let total_values = per_value_bits.len();
-    if total_values == 0 {
-      self.randomized_entropy = Zeroizing::new("No values".to_string());
-      return;
-    }
-
     let rng = SystemRandom::new();
-    let mut buf = [0u8; 4];
 
-    let max_u32 = u32::MAX as u64;
-    let bound = (max_u32 / (total_values as u64)) * (total_values as u64);
-
-    let mut collected_bits = String::new();
-
-    while collected_bits.len() < 256 {
-      let idx = loop {
-        rng.fill(&mut buf).expect("System Random failed");
-        let v = u32::from_le_bytes(buf) as u64;
-        if v < bound {
-          break (v % (total_values as u64)) as usize;
-        }
-      };
-
-      self.selected_value_indices.push(idx);
-      collected_bits.push_str(&per_value_bits[idx]);
-
-      if self.selected_value_indices.len() > total_values {
-        break;
+    // RANDOM VALUE SELECTION
+    if *self.entropy_mode == EntropyMode::RandomValues {
+      let total_values = per_value_bits.len();
+      if total_values == 0 {
+        self.randomized_entropy = Zeroizing::new("No values".to_string());
+        return;
       }
-    }
 
-    if collected_bits.len() < 256 {
-      self.randomized_entropy = Zeroizing::new("Not enough entropy".to_string());
-      self.selected_value_indices.clear();
+      let mut buf = [0u8; 4];
+      let max_u32 = u32::MAX as u64;
+      let bound = (max_u32 / (total_values as u64)) * (total_values as u64);
+
+      let mut collected_bits = String::new();
+
+      while collected_bits.len() < 256 {
+        let idx = loop {
+          rng.fill(&mut buf).expect("SystemRandom failed");
+          let v = u32::from_le_bytes(buf) as u64;
+          if v < bound {
+            break (v % (total_values as u64)) as usize;
+          }
+        };
+
+        self.selected_value_indices.push(idx);
+        collected_bits.push_str(&per_value_bits[idx]);
+
+        if self.selected_value_indices.len() > total_values {
+          break;
+        }
+      }
+
+      if collected_bits.len() < 256 {
+        self.randomized_entropy = Zeroizing::new("Not enough entropy".to_string());
+        self.selected_value_indices.clear();
+        return;
+      }
+
+      let entropy = collected_bits.chars().take(256).collect::<String>();
+      self.randomized_entropy = Zeroizing::new(entropy);
       return;
     }
 
-    let entropy = collected_bits.chars().take(256).collect::<String>();
-    self.randomized_entropy = Zeroizing::new(entropy);
+    // SEQUENTIAL SLICE
+    if *self.entropy_mode == EntropyMode::SequentialSlice {
+      let full_bitstring = per_value_bits.join("");
+
+      if full_bitstring.len() < 256 {
+        self.randomized_entropy = Zeroizing::new("Not enough entropy".to_string());
+        return;
+      }
+
+      let max_offset = full_bitstring.len() - 256;
+
+      let mut buf = [0u8; 4];
+      rng.fill(&mut buf).expect("SystemRandom failed");
+      let rand32 = u32::from_le_bytes(buf) as usize;
+
+      let offset = rand32 % max_offset;
+
+      let entropy = full_bitstring[offset..offset + 256].to_string();
+      self.randomized_entropy = Zeroizing::new(entropy);
+
+      self.selected_value_indices.clear();
+
+      let mut bit_count = 0;
+      for (i, bits) in per_value_bits.iter().enumerate() {
+        let start = bit_count;
+        let end = bit_count + bits.len();
+
+        if offset < end && offset + 256 > start {
+          self.selected_value_indices.push(i);
+        }
+
+        bit_count = end;
+      }
+
+      return;
+    }
   }
 }
 
