@@ -314,8 +314,6 @@ impl EgoQuantum {
       None => self.get_entropy_source(),
     };
 
-    println!("generate_new_wallet entropy_source: {:?}", entropy_source);
-
     let bip: Zeroizing<u32> = match entropy_source.as_str() {
       "Load wallet" => self.wallet.address_components.derivation_path.purpose.clone(),
       _ => self.get_bip(),
@@ -1040,7 +1038,6 @@ impl EgoQuantum {
 
           if self.gui.anu_dialog.save_entropy {
             self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
-            println!("ANU raw_entropy: {:?}", self.wallet.seed_secret.raw_entropy);
           }
 
           let _ = self.generate_new_wallet(Some(source));

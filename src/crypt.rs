@@ -906,9 +906,6 @@ fn create_svg(
 
   let size = (grid * SVG_BOX_SIZE) as f32;
 
-  // let cells = grid * grid;
-  // println!("Auto-selected grid: {}×{} ({} cells) for {} bytes {:.2}x redundancy", grid, grid, cells, share_len, cells as f32 / share_len as f32);
-
   let mut doc = Document::new().set("viewBox", (0, 0, size, size)).set("style", "background:#FFF");
 
   for (i, &byte) in share.iter().cycle().take(grid * grid).enumerate() {

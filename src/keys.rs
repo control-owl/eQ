@@ -33,8 +33,6 @@ pub fn generate_seed(
   let full_entropy: Zeroizing<String>;
   let mnemonic_dictionary: Zeroizing<String>;
 
-  println!("entropy_source: {:?}", entropy_source);
-
   match entropy_source.as_str() {
     "SVG" => {
       full_entropy = wallet.seed_secret.full_entropy.clone();
@@ -42,21 +40,16 @@ pub fn generate_seed(
     }
     "QRNG" => {
       let raw_entropy: Zeroizing<String> = wallet.seed_secret.raw_entropy.clone();
-      println!("raw_entropy: {:?}", raw_entropy);
 
       let entropy_checksum: Zeroizing<String> = e_q::calculate_checksum_for_entropy(raw_entropy.clone());
       wallet.seed_secret.entropy_checksum = entropy_checksum.clone();
 
-      println!("entropy_checksum: {:?}", entropy_checksum);
-
       full_entropy = Zeroizing::new(format!("{}{}", *raw_entropy, *entropy_checksum));
-      println!("full_entropy: {:?}", full_entropy);
       wallet.seed_secret.full_entropy = full_entropy.clone();
 
       mnemonic_dictionary = wallet.seed_secret.mnemonic_dictionary.clone();
     }
     "RNG" => {
-      // TODO: Implement RNG Mnemonic passphrase + add to GUI
       let entropy_length: Zeroizing<usize> = wallet.seed_secret.entropy_length.clone();
       mnemonic_dictionary = wallet.seed_secret.mnemonic_dictionary.clone();
 
