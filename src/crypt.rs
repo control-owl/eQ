@@ -6,6 +6,7 @@ use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, 
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
+use core::f32;
 use egui::{self, Align, Layout};
 use ring::aead::*;
 use ring::pbkdf2::{PBKDF2_HMAC_SHA512, derive};
@@ -1406,7 +1407,7 @@ pub struct ShowAnuDialog {
 
   selected_tab: AnuTab,
 
-  fetched_json: String,
+  fetched_json: Zeroizing<String>,
   show_randomize: bool,
 
   cooldown_secs: u32,
@@ -1414,11 +1415,13 @@ pub struct ShowAnuDialog {
   #[zeroize(skip)]
   last_cooldown_update: Option<std::time::Instant>,
 
-  randomized_entropy: Zeroizing<String>,
+  pub randomized_entropy: Zeroizing<String>,
   selected_value_indices: Zeroizing<Vec<usize>>,
   raw_values: Zeroizing<Vec<String>>,
 
   entropy_mode: Zeroizing<EntropyMode>,
+
+  pub save_entropy: bool,
 }
 
 impl ShowAnuDialog {
@@ -1428,11 +1431,11 @@ impl ShowAnuDialog {
 
       data_type: Zeroizing::new(AnuDataTypes::default()),
       array_length: Zeroizing::new(10),
-      block_size: Zeroizing::new(128),
+      block_size: Zeroizing::new(10),
 
       selected_tab: AnuTab::Anu,
 
-      fetched_json: String::new(),
+      fetched_json: Zeroizing::new(String::new()),
       show_randomize: false,
 
       cooldown_secs: 0,
@@ -1443,6 +1446,8 @@ impl ShowAnuDialog {
       raw_values: Zeroizing::new(Vec::new()),
 
       entropy_mode: Zeroizing::new(EntropyMode::default()),
+
+      save_entropy: false,
     }
   }
 
@@ -1461,15 +1466,15 @@ impl ShowAnuDialog {
     });
 
     if !open {
-      self.close_and_clear();
+      return;
     }
   }
 
-  fn close_and_clear(&mut self) {
-    self.zeroize();
+  // fn close_and_clear(&mut self) {
+  //   self.zeroize();
 
-    *self = ShowAnuDialog::new();
-  }
+  //   *self = ShowAnuDialog::new();
+  // }
 
   fn ui_content(
     &mut self,
@@ -1513,7 +1518,8 @@ impl ShowAnuDialog {
     }
 
     if self.show_randomize && ui.button("Save").clicked() {
-      self.close_and_clear();
+      self.save_entropy = true;
+      self.open = false;
     }
 
     ui.label("Generated 256-bit entropy:");
@@ -1575,37 +1581,40 @@ impl ShowAnuDialog {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
-    ui.heading("Settings");
+    ui.group(|ui| {
+      ui.heading("ANU API");
+      ui.add_space(GUI_MARGIN);
 
-    ui.add_space(GUI_MARGIN);
+      egui::ComboBox::from_label("Data type").selected_text(format!("{:?}", *self.data_type)).show_ui(ui, |ui| {
+        ui.selectable_value(&mut *self.data_type, AnuDataTypes::Uint8, "uint8");
+        ui.selectable_value(&mut *self.data_type, AnuDataTypes::Uint16, "uint16");
+        ui.selectable_value(&mut *self.data_type, AnuDataTypes::Hex16, "hex16");
+      });
+      ui.add_space(GUI_MARGIN);
 
-    egui::ComboBox::from_label("Data type").selected_text(format!("{:?}", *self.data_type)).show_ui(ui, |ui| {
-      ui.selectable_value(&mut *self.data_type, AnuDataTypes::Hex16, "hex16");
-      ui.selectable_value(&mut *self.data_type, AnuDataTypes::Uint8, "uint8");
-      ui.selectable_value(&mut *self.data_type, AnuDataTypes::Uint16, "uint16");
+      // min length = 256 bit - checksum + place for random
+      let min_length = match *self.data_type {
+        AnuDataTypes::Uint8 => 42,  // 42 * 8 bits = 336 bits
+        AnuDataTypes::Uint16 => 21, // 21 * 16 bits = 336 bits
+        AnuDataTypes::Hex16 => 7,   // 7 * 48 bits = 336 bits
+      };
+
+      ui.add(egui::Slider::new(&mut *self.array_length, min_length..=1024).text("Array length"));
+      ui.add(egui::Slider::new(&mut *self.block_size, min_length..=1024).text("Block size"));
+
+      ui.add_space(GUI_MARGIN);
     });
 
-    ui.add_space(GUI_MARGIN);
+    ui.group(|ui| {
+      ui.heading("Entropy");
 
-    // min length is 256 bit - checksum + place for random
-    let min_length = match *self.data_type {
-      AnuDataTypes::Hex16 => 7,   // 7 * 48 bits = 336 bits
-      AnuDataTypes::Uint8 => 42,  // 42 * 8 bits = 336 bits
-      AnuDataTypes::Uint16 => 21, // 21 * 16 bits = 336 bits
-    };
+      egui::ComboBox::from_label("Entropy extraction mode").selected_text(format!("{:?}", *self.entropy_mode)).show_ui(ui, |ui| {
+        ui.selectable_value(&mut *self.entropy_mode, EntropyMode::RandomValues, "Random values");
+        ui.selectable_value(&mut *self.entropy_mode, EntropyMode::SequentialSlice, "Sequential slice");
+      });
 
-    ui.add(egui::Slider::new(&mut *self.array_length, min_length..=1024).text("Array length"));
-    ui.add(egui::Slider::new(&mut *self.block_size, min_length..=1024).text("Block size"));
-
-    ui.add_space(GUI_MARGIN);
-
-    ui.label("Entropy extraction mode:");
-    egui::ComboBox::from_label("Mode").selected_text(format!("{:?}", *self.entropy_mode)).show_ui(ui, |ui| {
-      ui.selectable_value(&mut *self.entropy_mode, EntropyMode::RandomValues, "Random values");
-      ui.selectable_value(&mut *self.entropy_mode, EntropyMode::SequentialSlice, "Sequential slice");
+      ui.add_space(GUI_MARGIN);
     });
-
-    ui.add_space(GUI_MARGIN);
 
     Ok(())
   }
@@ -1652,7 +1661,7 @@ impl ShowAnuDialog {
                   }
 
                   *self.raw_values = vals;
-                  self.fetched_json = bits;
+                  self.fetched_json = Zeroizing::new(bits);
                 }
 
                 AnuDataTypes::Uint8 => {
@@ -1667,7 +1676,7 @@ impl ShowAnuDialog {
                   }
 
                   *self.raw_values = vals;
-                  self.fetched_json = bits;
+                  self.fetched_json = Zeroizing::new(bits);
                 }
 
                 AnuDataTypes::Uint16 => {
@@ -1682,16 +1691,16 @@ impl ShowAnuDialog {
                   }
 
                   *self.raw_values = vals;
-                  self.fetched_json = bits;
+                  self.fetched_json = Zeroizing::new(bits);
                 }
               }
             }
           }
-          Err(_) => self.fetched_json = text,
+          Err(_) => self.fetched_json = Zeroizing::new(text),
         },
-        Err(err) => self.fetched_json = format!("Error reading response body: {}", err),
+        Err(err) => self.fetched_json = Zeroizing::new(format!("Error reading response body: {}", err)),
       },
-      Err(err) => self.fetched_json = format!("HTTP error: {}", err),
+      Err(err) => self.fetched_json = Zeroizing::new(format!("HTTP error: {}", err)),
     };
   }
 

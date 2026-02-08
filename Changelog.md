@@ -3,6 +3,8 @@
 - cargo add: ureq
 - new: QRNG as entropy source
 - new: ANU window
+- privacy: hide private keys
+- fix: address starting point
 
 # version 1.1.0
 - cargo update: getrandom
