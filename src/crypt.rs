@@ -1511,11 +1511,11 @@ impl ShowAnuDialog {
 
     ui.add_space(GUI_MARGIN);
 
-    if self.show_randomize && ui.button("Randomize").clicked() {
+    if self.show_randomize && !self.randomized_entropy.is_empty() && ui.button("Randomize").clicked() {
       self.randomize_entropy();
     }
 
-    if self.show_randomize && ui.button("Save").clicked() {
+    if self.show_randomize && !self.randomized_entropy.is_empty() && ui.button("Save").clicked() {
       self.save_entropy = true;
       self.open = false;
     }
@@ -1535,6 +1535,8 @@ impl ShowAnuDialog {
     let mut generate_button = egui::Button::new(button_label);
 
     if self.cooldown_secs > 0 {
+      ui.label("One request every 2 minutes");
+
       ui.ctx().request_repaint_after(std::time::Duration::from_millis(1000));
 
       generate_button = generate_button.sense(egui::Sense::hover());
@@ -1738,7 +1740,7 @@ impl ShowAnuDialog {
     self.randomized_entropy = Zeroizing::new(String::new());
 
     if self.raw_values.is_empty() {
-      self.randomized_entropy = Zeroizing::new("No data".to_string());
+      self.randomized_entropy = Zeroizing::new(String::new());
       return;
     }
 
