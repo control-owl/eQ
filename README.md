@@ -1,4 +1,4 @@
-# eQ
+# eQ — High‑Performance Cryptographic Key Generator
 
 ## Disclaimer
 
@@ -23,21 +23,41 @@ CC-BY-NC-ND-4.0
 Control Owl [2023-2026]
 ```
 
-**eQ** is a **high-performance cryptographic key generator** built with **Rust** and **egui**, designed for **speed**, **security**, and **minimal** system dependencies. It supports generating secure addresses for **285 coins**. Check the [coin list](./Coins.md)
+**eQ** is a **high‑performance, security‑focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero‑dependency key generation for **285 cryptocurrencies**, with optional **quantum‑grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
 
 This is the second generation of our key generator, following [QR2M](https://github.com/control-owl/QR2M).
 
-- **Focus:** Speed, security, and simplicity
-- **Cross-platform:** Windows, Linux, macOS
-- **Security-first design:** Zeroization, AES-256-GCM encryption, Shamir's Secret Sharing
 
-Wallets can be stored as **AES-256-GCM encrypted SVG images** and optionally **split into multiple shares using Shamir's Secret Sharing** for enhanced security.
+## Key Highlights
+
+### **Quantum‑grade entropy (QRNG)**
+
+eQ can source entropy from the **ANU Quantum Random Numbers Server**, which generates randomness from **vacuum fluctuations measured via quantum optics** — a fundamentally unpredictable physical process.
+
+- Official ANU QRNG service: [https://qrng.anu.edu.au](https://qrng.anu.edu.au)
+- API documentation: [https://qrng.anu.edu.au/contact/api-documentation/](https://qrng.anu.edu.au/contact/api-documentation/)
+
+This provides an additional entropy option beyond system RNGs, especially valuable for users who want **verifiable, physics‑based randomness** rather than algorithmic PRNG output.
+
+### **Security‑first design**
+
+- Full **zeroization** of sensitive data
+- Wallets stored as **AES‑256‑GCM encrypted SVG images**
+- Optional **Shamir’s Secret Sharing** for multi‑share wallet splitting
+- No external dependencies during key generation (offline‑capable)
+
+### **Cross‑platform and fast**
+
+- Native builds for **Windows**, **Linux**, and **macOS**
+- Rust‑powered performance
+- Minimalistic, predictable UI built with **egui**
 
 
 ## Table of Contents
 
 - [Disclaimer](#disclaimer)
 - [Info](#info)
+- [Key Highlights](#key-highlights)
 - [License](#license)
 - [Project Status](#project-status)
 - [Features](#features)
@@ -50,7 +70,7 @@ Wallets can be stored as **AES-256-GCM encrypted SVG images** and optionally **s
 
 This project is licensed under a **Creative Commons Attribution Non Commercial No Derivatives 4.0 International license**. 
 
-See the [LICENSE]((./LICENSE.txt)) file or the official [deed](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.en).
+See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blue)](./LICENSE.txt) file or the official [deed](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.en).
 
 
 ## Project status
@@ -83,7 +103,7 @@ See the [LICENSE]((./LICENSE.txt)) file or the official [deed](https://creativec
 
 ### Official Release
 
-1. Download the latest release from [Releases](https://github.com/control-owl/eQ/releases).
+1. Download the latest release: [![GitHub release](https://img.shields.io/github/v/release/control-owl/eQ)](https://github.com/control-owl/eQ/releases)
 
 
 ### Manual way

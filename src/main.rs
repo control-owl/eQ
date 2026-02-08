@@ -928,7 +928,11 @@ impl EgoQuantum {
                     ui.ctx().copy_text(first.private_key.to_string());
                   }
 
-                  let display_text = if self.gui.hide_private_keys { "••••••••••••••••" } else { &first.private_key };
+                  let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
+                    &first.private_key
+                  } else {
+                    "••••••••••••••••"
+                  };
                   ui.label(display_text);
                 });
               });
@@ -980,8 +984,11 @@ impl EgoQuantum {
                         ui.ctx().copy_text(addr.private_key.to_string());
                       }
 
-                      let display_text =
-                        if self.gui.hide_private_keys { "••••••••••••••••" } else { &addr.private_key };
+                      let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
+                        &addr.private_key
+                      } else {
+                        "••••••••••••••••"
+                      };
                       ui.label(display_text);
                     });
                   });
