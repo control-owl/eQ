@@ -314,12 +314,14 @@ impl EgoQuantum {
       None => self.get_entropy_source(),
     };
 
+    println!("entropy_source: {:?}", entropy_source);
+
     let bip: Zeroizing<u32> = match entropy_source.as_str() {
       "Load wallet" => self.wallet.address_components.derivation_path.purpose.clone(),
       _ => self.get_bip(),
     };
 
-    if self.wallet.seed_secret.full_entropy.is_empty() {
+    if self.wallet.seed_secret.raw_entropy.is_empty() {
       match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
         Ok(_) => {}
         Err(err) => {

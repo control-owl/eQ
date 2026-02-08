@@ -76,7 +76,9 @@ pub fn generate_seed(
         _ => {}
       }
     }
-    _ => return Err(AppError::log(format!("Unknown entropy source: {:?}", entropy_source))),
+    _ => {
+      return Err(AppError::log(format!("Unknown entropy source: {:?}", entropy_source)));
+    }
   }
 
   let mnemonic_words: Zeroizing<String> = match generate_mnemonic_words(full_entropy.clone(), Some(mnemonic_dictionary)) {

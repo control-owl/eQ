@@ -903,10 +903,10 @@ fn create_svg(
   let grid =
     possible_grids.into_iter().find(|&g| g * g >= min_cells_needed).expect("Payload too large even for 48×48 grid – split into multiple images");
 
-  let cells = grid * grid;
   let size = (grid * SVG_BOX_SIZE) as f32;
 
-  println!("Auto-selected grid: {}×{} ({} cells) for {} bytes {:.2}x redundancy", grid, grid, cells, share_len, cells as f32 / share_len as f32);
+  // let cells = grid * grid;
+  // println!("Auto-selected grid: {}×{} ({} cells) for {} bytes {:.2}x redundancy", grid, grid, cells, share_len, cells as f32 / share_len as f32);
 
   let mut doc = Document::new().set("viewBox", (0, 0, size, size)).set("style", "background:#FFF");
 

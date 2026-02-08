@@ -5,6 +5,7 @@
 - new: ANU window
 - privacy: hide private keys
 - fix: address starting point
+- fix: re-saving SVG file
 
 # version 1.1.0
 - cargo update: getrandom
