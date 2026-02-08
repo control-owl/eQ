@@ -1845,8 +1845,6 @@ impl ShowAnuDialog {
 
         bit_count = end;
       }
-
-      return;
     }
   }
 }

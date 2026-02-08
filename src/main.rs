@@ -459,7 +459,6 @@ impl EgoQuantum {
     Frame::group(ui.style()).show(ui, |ui| {
       let descriptions = [
         "Uses your device's built-in random number generator (CPU).",
-        #[cfg(feature = "dev")]
         "Uses quantum processes to create highly unpredictable numbers (ANU).",
         #[cfg(feature = "dev")]
         "Uses the content of a file you provide as a source of randomness.",
@@ -480,27 +479,16 @@ impl EgoQuantum {
           )
           .on_hover_text_at_pointer(descriptions[0]);
 
-          // // QRNG
-          // ui.selectable_value(
-          //   &mut self.wallet.seed_secret.entropy_source,
-          //   Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-          //   VALID_ENTROPY_SOURCES[1],
-          // )
-          // .on_hover_text_at_pointer(descriptions[1]);
+          let resp = ui
+            .selectable_value(
+              &mut self.wallet.seed_secret.entropy_source,
+              Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
+              VALID_ENTROPY_SOURCES[1],
+            )
+            .on_hover_text_at_pointer(descriptions[1]);
 
-          #[cfg(feature = "dev")]
-          {
-            let resp = ui
-              .selectable_value(
-                &mut self.wallet.seed_secret.entropy_source,
-                Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-                VALID_ENTROPY_SOURCES[1],
-              )
-              .on_hover_text_at_pointer(descriptions[1]);
-
-            if resp.clicked() {
-              self.gui.anu_dialog.open = true;
-            }
+          if resp.clicked() {
+            self.gui.anu_dialog.open = true;
           }
 
           // FILE
@@ -562,7 +550,6 @@ impl EgoQuantum {
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[0]), sources[0])
           .on_hover_text_at_pointer(descriptions[0]);
 
-        #[cfg(feature = "dev")]
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[1]), sources[1])
           .on_hover_text_at_pointer(descriptions[1]);
 
@@ -941,11 +928,7 @@ impl EgoQuantum {
                     ui.ctx().copy_text(first.private_key.to_string());
                   }
 
-                  let display_text = if ui.ui_contains_pointer() {
-                    &first.private_key
-                  } else {
-                    if self.gui.hide_private_keys { "••••••••••••••••" } else { &first.private_key }
-                  };
+                  let display_text = if self.gui.hide_private_keys { "••••••••••••••••" } else { &first.private_key };
                   ui.label(display_text);
                 });
               });
@@ -997,11 +980,8 @@ impl EgoQuantum {
                         ui.ctx().copy_text(addr.private_key.to_string());
                       }
 
-                      let display_text = if ui.ui_contains_pointer() {
-                        &addr.private_key
-                      } else {
-                        if self.gui.hide_private_keys { "••••••••••••••••" } else { &addr.private_key }
-                      };
+                      let display_text =
+                        if self.gui.hide_private_keys { "••••••••••••••••" } else { &addr.private_key };
                       ui.label(display_text);
                     });
                   });
