@@ -1,3 +1,12 @@
+# version 1.2.0
+- cargo update: sysinfo
+- cargo add: ureq
+- new: QRNG as entropy source
+- new: ANU window
+- privacy: hide private keys
+- fix: address starting point
+- fix: re-saving SVG file
+
 # version 1.1.0
 - cargo update: getrandom
 - git pre-push hook added

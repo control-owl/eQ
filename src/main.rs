@@ -236,7 +236,9 @@ struct GuiSettings {
   save_dialog: crypt::SaveWalletDialog,
   open_dialog: crypt::OpenWalletDialog,
   secrets_dialog: crypt::ShowSecretsDialog,
+  anu_dialog: crypt::ShowAnuDialog,
 
+  hide_private_keys: bool,
   unify_evm: bool,
   unify_master_keys: bool,
   hardened_address: bool,
@@ -258,7 +260,9 @@ impl GuiSettings {
       save_dialog: crypt::SaveWalletDialog::new(),
       open_dialog: crypt::OpenWalletDialog::default(),
       secrets_dialog: crypt::ShowSecretsDialog::new(),
+      anu_dialog: crypt::ShowAnuDialog::new(),
 
+      hide_private_keys: true,
       unify_evm: false,
       unify_master_keys: true,
       hardened_address: true,
@@ -315,8 +319,8 @@ impl EgoQuantum {
       _ => self.get_bip(),
     };
 
-    if self.wallet.seed_secret.seed.is_empty() {
-      match keys::generate_seed(&mut self.wallet, entropy_source) {
+    if self.wallet.seed_secret.raw_entropy.is_empty() || self.wallet.seed_secret.full_entropy.is_empty() {
+      match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
         Ok(_) => {}
         Err(err) => {
           return Err(AppError::log(format!("Problem with generating seed: {}", err)));
@@ -345,9 +349,21 @@ impl EgoQuantum {
     let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
 
     // TODO: Add address_count as GUI parameters
-    let source = self.get_entropy_source();
-    let index = if *source == "SVG" { *self.wallet.address_components.derivation_path.last_index } else { 0 };
-    let address_count = std::cmp::max(self.gui.address_count, index);
+    let address_count = 10;
+    let last_index = *self.wallet.address_components.derivation_path.last_index;
+
+    let (start_index, end_index) = if entropy_source.as_str() == "SVG" {
+      if self.wallet.addresses_by_coin.0.is_empty() {
+        // Bootstrap SVG mode
+        (0, last_index)
+      } else {
+        // Continue paging
+        (last_index, last_index.saturating_add(address_count))
+      }
+    } else {
+      // Normal mode
+      (last_index, last_index.saturating_add(address_count))
+    };
 
     // ECDB: Extended Coin DataBase
     let resource_path = std::path::Path::new("coin").join("ECDB.csv");
@@ -382,7 +398,7 @@ impl EgoQuantum {
             self.wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
             self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
-            for address_index in 0..address_count {
+            for address_index in start_index..end_index {
               self.wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
 
               match self.wallet.address_components.key_derivation.as_str() {
@@ -430,7 +446,7 @@ impl EgoQuantum {
         }
       }
 
-      *self.wallet.address_components.derivation_path.last_index += address_count;
+      *self.wallet.address_components.derivation_path.last_index = end_index;
     }
 
     Ok(())
@@ -443,7 +459,6 @@ impl EgoQuantum {
     Frame::group(ui.style()).show(ui, |ui| {
       let descriptions = [
         "Uses your device's built-in random number generator (CPU).",
-        #[cfg(feature = "dev")]
         "Uses quantum processes to create highly unpredictable numbers (ANU).",
         #[cfg(feature = "dev")]
         "Uses the content of a file you provide as a source of randomness.",
@@ -456,6 +471,7 @@ impl EgoQuantum {
           &self.wallet.seed_secret.entropy_source
         })
         .show_ui(ui, |ui| {
+          // RNG
           ui.selectable_value(
             &mut self.wallet.seed_secret.entropy_source,
             Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string()),
@@ -463,14 +479,19 @@ impl EgoQuantum {
           )
           .on_hover_text_at_pointer(descriptions[0]);
 
-          #[cfg(feature = "dev")]
-          ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-            VALID_ENTROPY_SOURCES[1],
-          )
-          .on_hover_text_at_pointer(descriptions[1]);
+          let resp = ui
+            .selectable_value(
+              &mut self.wallet.seed_secret.entropy_source,
+              Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
+              VALID_ENTROPY_SOURCES[1],
+            )
+            .on_hover_text_at_pointer(descriptions[1]);
 
+          if resp.clicked() {
+            self.gui.anu_dialog.open = true;
+          }
+
+          // FILE
           #[cfg(feature = "dev")]
           ui.selectable_value(
             &mut self.wallet.seed_secret.entropy_source,
@@ -529,7 +550,6 @@ impl EgoQuantum {
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[0]), sources[0])
           .on_hover_text_at_pointer(descriptions[0]);
 
-        #[cfg(feature = "dev")]
         ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[1]), sources[1])
           .on_hover_text_at_pointer(descriptions[1]);
 
@@ -574,6 +594,7 @@ impl EgoQuantum {
           self.gui.save_dialog.password_confirm.clear();
           self.gui.save_dialog.wallet_to_save = Some(Rc::new(RefCell::new(self.wallet.clone())));
           self.gui.save_dialog.open = true;
+
         }
 
         ui.separator();
@@ -681,6 +702,18 @@ impl EgoQuantum {
       });
 
       ui.menu_button("Privacy", |ui| {
+        let hide_private_keys_label = [
+          "When enabled:",
+          "Private keys will be hidden until you move mouse over it.",
+          "\n",
+          "When disabled:",
+          "All private keys will be visible.",
+        ];
+
+        let hide_private_keys_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.gui.hide_private_keys, "Hide private keys"));
+        hide_private_keys_resp.on_hover_text(hide_private_keys_label.join("\n")).on_disabled_hover_text(&devel);
+
+
         let evm_label = [
           "When enabled:",
           "Normalize how EVM addresses are displayed so they look the same across all networks. This improves usability when managing multiple chains.",
@@ -895,7 +928,11 @@ impl EgoQuantum {
                     ui.ctx().copy_text(first.private_key.to_string());
                   }
 
-                  let display_text = if ui.ui_contains_pointer() { &first.private_key } else { "••••••••••••••••" };
+                  let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
+                    &first.private_key
+                  } else {
+                    "••••••••••••••••"
+                  };
                   ui.label(display_text);
                 });
               });
@@ -947,8 +984,11 @@ impl EgoQuantum {
                         ui.ctx().copy_text(addr.private_key.to_string());
                       }
 
-                      let display_text =
-                        if ui.ui_contains_pointer() { &addr.private_key } else { "••••••••••••••••" };
+                      let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
+                        &addr.private_key
+                      } else {
+                        "••••••••••••••••"
+                      };
                       ui.label(display_text);
                     });
                   });
@@ -982,6 +1022,11 @@ impl EgoQuantum {
       if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
         if ui.button(button_label).clicked() {
           let source = self.get_entropy_source();
+
+          if self.gui.anu_dialog.save_entropy {
+            self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
+          }
+
           let _ = self.generate_new_wallet(Some(source));
         }
       } else {
@@ -1048,6 +1093,8 @@ impl eframe::App for EgoQuantum {
 
     self.gui.secrets_dialog.show(ctx);
 
+    self.gui.anu_dialog.show(ctx);
+
     if let Some(loaded_wallet) = ctx.data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet"))) {
       self.wallet = loaded_wallet;
       match self.generate_new_wallet(Some(Zeroizing::new(String::from("SVG")))) {
@@ -1108,7 +1155,7 @@ fn main() -> FunctionOutput<()> {
 
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
-      .with_inner_size([800.0, 600.0])
+      .with_inner_size([1200.0, 800.0])
       .with_min_inner_size([TEXT_WRAPPER, TEXT_WRAPPER])
       .with_icon(app_icon)
       .with_app_id("eQ"),
