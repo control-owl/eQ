@@ -223,7 +223,7 @@ impl SaveWalletDialog {
         return Err(AppError::log("Shamir parameters are set wrong".to_string()));
       }
 
-      if wallet_data.seed_secret.seed.is_empty() || wallet_data.addresses_by_coin.0.is_empty() {
+      if wallet_data.addresses_by_coin.0.is_empty() {
         return Err(AppError::log("Empty wallet, nothing to save".to_string()));
       }
 

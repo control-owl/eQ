@@ -1185,7 +1185,7 @@ fn main() -> FunctionOutput<()> {
 
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
-      .with_inner_size([800.0, 600.0])
+      .with_inner_size([1200.0, 800.0])
       .with_min_inner_size([TEXT_WRAPPER, TEXT_WRAPPER])
       .with_icon(app_icon)
       .with_app_id("eQ"),
