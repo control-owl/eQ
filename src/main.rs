@@ -314,14 +314,14 @@ impl EgoQuantum {
       None => self.get_entropy_source(),
     };
 
-    println!("entropy_source: {:?}", entropy_source);
+    println!("generate_new_wallet entropy_source: {:?}", entropy_source);
 
     let bip: Zeroizing<u32> = match entropy_source.as_str() {
       "Load wallet" => self.wallet.address_components.derivation_path.purpose.clone(),
       _ => self.get_bip(),
     };
 
-    if self.wallet.seed_secret.raw_entropy.is_empty() {
+    if self.wallet.seed_secret.raw_entropy.is_empty() || self.wallet.seed_secret.full_entropy.is_empty() {
       match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
         Ok(_) => {}
         Err(err) => {
@@ -483,34 +483,27 @@ impl EgoQuantum {
           .on_hover_text_at_pointer(descriptions[0]);
 
           // // QRNG
-          ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-            VALID_ENTROPY_SOURCES[1],
-          )
-          .on_hover_text_at_pointer(descriptions[1]);
+          // ui.selectable_value(
+          //   &mut self.wallet.seed_secret.entropy_source,
+          //   Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
+          //   VALID_ENTROPY_SOURCES[1],
+          // )
+          // .on_hover_text_at_pointer(descriptions[1]);
 
-          // #[cfg(feature = "dev")]
-          // {
-          //   let resp = ui
-          //     .selectable_value(
-          //       &mut self.wallet.seed_secret.entropy_source,
-          //       Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-          //       VALID_ENTROPY_SOURCES[1],
-          //     )
-          //     .on_hover_text_at_pointer(descriptions[1]);
+          #[cfg(feature = "dev")]
+          {
+            let resp = ui
+              .selectable_value(
+                &mut self.wallet.seed_secret.entropy_source,
+                Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
+                VALID_ENTROPY_SOURCES[1],
+              )
+              .on_hover_text_at_pointer(descriptions[1]);
 
-          //   if resp.clicked() {
-          //     self.gui.anu_dialog.open = true;
-
-          //     if !self.gui.anu_dialog.randomized_entropy.is_empty() && !self.gui.anu_dialog.open {
-          //       let _ = self.generate_new_wallet(
-          //         Some(Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string())),
-          //         Some(self.gui.anu_dialog.randomized_entropy.clone()),
-          //       );
-          //     }
-          //   }
-          // }
+            if resp.clicked() {
+              self.gui.anu_dialog.open = true;
+            }
+          }
 
           // FILE
           #[cfg(feature = "dev")]
@@ -1045,21 +1038,12 @@ impl EgoQuantum {
         if ui.button(button_label).clicked() {
           let source = self.get_entropy_source();
 
-          match source.as_str() {
-            "QRNG" => {
-              self.gui.anu_dialog.open = true;
-
-              if self.gui.anu_dialog.save_entropy {
-                self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
-
-                let _ = self.generate_new_wallet(Some(source));
-              }
-            }
-            _ => {
-              // TODO: Improve
-              let _ = self.generate_new_wallet(Some(source));
-            }
+          if self.gui.anu_dialog.save_entropy {
+            self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
+            println!("ANU raw_entropy: {:?}", self.wallet.seed_secret.raw_entropy);
           }
+
+          let _ = self.generate_new_wallet(Some(source));
         }
       } else {
         ui.label("Memory limit reached—cannot generate more addresses.");
