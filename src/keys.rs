@@ -68,23 +68,23 @@ pub fn generate_seed(
 
       full_entropy = Zeroizing::new(format!("{}{}", *raw_entropy, *entropy_checksum));
       wallet.seed_secret.full_entropy = full_entropy.clone();
-
-      match wallet.seed_secret.mnemonic_passphrase_source.as_str() {
-        "RNG" => {
-          match generate_raw_mnemonic_passphrase(MNEMONIC_PASSPHRASE_LENGTH as usize) {
-            Ok(pass) => {
-              wallet.seed_secret.mnemonic_passphrase = pass;
-            }
-            Err(err) => return Err(AppError::log(format!("Error: {:?}", err))),
-          };
-        }
-        "Custom" => {}
-        _ => {}
-      }
     }
     _ => {
       return Err(AppError::log(format!("Unknown entropy source: {:?}", entropy_source)));
     }
+  }
+
+  match wallet.seed_secret.mnemonic_passphrase_source.as_str() {
+    "RNG" => {
+      match generate_raw_mnemonic_passphrase(MNEMONIC_PASSPHRASE_LENGTH as usize) {
+        Ok(pass) => {
+          wallet.seed_secret.mnemonic_passphrase = pass;
+        }
+        Err(err) => return Err(AppError::log(format!("Error: {:?}", err))),
+      };
+    }
+    "Custom" => {}
+    _ => {}
   }
 
   let mnemonic_words: Zeroizing<String> = match generate_mnemonic_words(full_entropy.clone(), Some(mnemonic_dictionary)) {
