@@ -1,3 +1,17 @@
+# version 1.3.0
+- cargo update:
+    - egui (0.33.3 -> 0.34.1)
+    - eframe (0.33.3 -> 0.34.1)
+    - egui_extras (0.33.3 -> 0.34.1)
+    - sysinfo
+    - getrandom
+    - sha2 (0.10.9 -> 0.11.0)
+    - sha3 (0.10.8 -> 0.11.0)
+    - ripemd (0.1.3 -> 0.2.0)
+    - ureq
+- new eQ feature: mkosi
+    - on-screen keyboard
+
 # version 1.2.0
 - cargo update: sysinfo
 - cargo add: ureq

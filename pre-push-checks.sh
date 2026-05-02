@@ -3,6 +3,7 @@
 # license = "CC-BY-NC-ND-4.0  [2023-2026]  Control Owl"
 
 # -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+clear
 
 set -o errexit
 set -o nounset
@@ -150,7 +151,7 @@ done
 printf '\n%s\n\n' "$SEP"
 printf '%b%s%b\n' "$BOLD$GREEN" "ALL CHECK DONE" "$RESET";
 
-printf '\n%b%s%b\n' "$BOLD$GREEN" "Pushing to remote..." "$RESET";
+printf '\n%b%s%b\n' "$BOLD$GREEN" "Ready for push to remote..." "$RESET";
 printf '\n%s\n' "$SEP"
 
 exit 0

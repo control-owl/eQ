@@ -8,6 +8,8 @@ use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, 
 
 use core::f32;
 use egui::{self, Align, Layout};
+#[cfg(feature = "mkosi")]
+use egui_keyboard::Keyboard;
 use ring::aead::*;
 use ring::pbkdf2::{PBKDF2_HMAC_SHA512, derive};
 use ring::rand::{SecureRandom, SystemRandom};
@@ -18,7 +20,6 @@ use std::rc::Rc;
 use svg::Document;
 use svg::node::element::Rectangle;
 use zeroize::Zeroizing;
-
 const WALLET_HEADER: &[u8; 2] = b"eQ";
 const WALLET_VERSION: u8 = 1;
 const PAYLOAD_VERSION: u8 = 1;
@@ -130,6 +131,8 @@ impl std::fmt::Display for KdfChoice {
   }
 }
 
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 pub struct SaveWalletDialog {
   pub open: bool,
@@ -157,6 +160,10 @@ pub struct SaveWalletDialog {
   pub argon2_iterations: u32,
   pub argon2_memory_mb: u32,
   pub argon2_parallelism: u32,
+
+  #[zeroize(skip)]
+  #[cfg(feature = "mkosi")]
+  pub keyboard: VirtualKeyboard,
 }
 
 impl SaveWalletDialog {
@@ -183,6 +190,9 @@ impl SaveWalletDialog {
       argon2_iterations: 3,
       argon2_memory_mb: 64,
       argon2_parallelism: 4,
+
+      #[cfg(feature = "mkosi")]
+      keyboard: VirtualKeyboard::default(),
     }
   }
 
@@ -298,23 +308,30 @@ impl SaveWalletDialog {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
+    #[cfg(feature = "mkosi")]
+    self.keyboard.0.pump_events(ui.ctx());
+
     egui::ScrollArea::both().scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
       ui.with_layout(Layout::top_down(Align::Center), |ui| {
         ui.add_space(GUI_MARGIN);
 
         ui.group(|ui| {
           ui.label("Wallet name");
-          ui.text_edit_singleline(&mut self.wallet_name);
+          ui.add(egui::TextEdit::singleline(&mut self.wallet_name).desired_width(ui.available_width()));
+          // ui.text_edit_singleline(&mut self.wallet_name);
+
+          #[cfg(feature = "mkosi")]
+          self.keyboard.0.show(ui.ctx());
         });
 
         ui.add_space(GUI_MARGIN);
 
         ui.group(|ui| {
           ui.label("Password");
-          ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
+          ui.add(egui::TextEdit::singleline(&mut self.password).desired_width(ui.available_width()).password(true));
 
           ui.label("Confirm password");
-          ui.add(egui::TextEdit::singleline(&mut self.password_confirm).password(true));
+          ui.add(egui::TextEdit::singleline(&mut self.password_confirm).desired_width(ui.available_width()).password(true));
         });
 
         ui.add_space(GUI_MARGIN);
@@ -428,7 +445,7 @@ impl SaveWalletDialog {
 
         ui.add_space(GUI_MARGIN);
 
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+        ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
           if ui.button("Cancel").clicked() {
             self.close_and_clear();
           }
@@ -457,15 +474,14 @@ impl SaveWalletDialog {
 }
 
 impl eframe::App for SaveWalletDialog {
-  fn update(
+  fn ui(
     &mut self,
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
       ui.heading("Save Wallet");
-
-      self.show(ctx);
+      self.show(ui.ctx());
     });
   }
 }
@@ -488,6 +504,10 @@ pub struct OpenWalletDialog {
   // TODO: Improve
   #[zeroize(skip)]
   pub loaded_wallet: Option<SharedWallet>,
+
+  #[zeroize(skip)]
+  #[cfg(feature = "mkosi")]
+  pub keyboard: VirtualKeyboard,
 }
 
 impl OpenWalletDialog {
@@ -570,50 +590,61 @@ impl OpenWalletDialog {
     ui: &mut egui::Ui,
     ctx: &egui::Context,
   ) {
+    #[cfg(feature = "mkosi")]
+    self.keyboard.0.pump_events(ui.ctx());
+
     ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
       ui.add_space(GUI_MARGIN);
 
-      if self.selected_svgs.is_empty() {
-        ui.label("No shares selected");
-      } else {
-        ui.label(format!("Selected {} share(s):", self.selected_svgs.len()));
-        for path in &self.selected_svgs {
-          let file_name = std::path::Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path);
-          ui.label(file_name.to_string());
+      ui.group(|ui| {
+        if self.selected_svgs.is_empty() {
+          ui.label("No shares selected");
+        } else {
+          ui.label(format!("Selected {} share(s):", self.selected_svgs.len()));
+          for path in &self.selected_svgs {
+            let file_name = std::path::Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path);
+            ui.label(file_name.to_string());
+          }
         }
-      }
 
-      ui.add_space(GUI_MARGIN);
+        ui.add_space(GUI_MARGIN);
 
-      if ui.button("Select SVG shares").clicked() {
-        self.pick_svg_files();
-      }
+        if ui.button("Select SVG shares").clicked() {
+          self.pick_svg_files();
+        }
 
-      if !self.selected_svgs.is_empty() && ui.button("Clear selection").clicked() {
-        self.selected_svgs.clear();
-        self.decoded_shares.clear();
-      }
-
-      ui.add_space(GUI_MARGIN);
-
-      ui.horizontal(|ui| {
-        ui.label("Password");
-        ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
+        if !self.selected_svgs.is_empty() && ui.button("Clear selection").clicked() {
+          self.selected_svgs.clear();
+          self.decoded_shares.clear();
+        }
       });
 
-      let can_attempt_load = !self.selected_svgs.is_empty() && !self.password.is_empty();
+      ui.add_space(GUI_MARGIN);
 
-      if ui.add_enabled(can_attempt_load, egui::Button::new("Load Wallet")).clicked()
-        && let Ok(_) = self.try_load_wallet(ctx)
-      {
-        self.close_and_clear()
-      }
+      ui.group(|ui| {
+        ui.horizontal(|ui| {
+          ui.label("Password");
+          ui.add(egui::TextEdit::singleline(&mut self.password).desired_width(ui.available_width()).password(true));
+
+          #[cfg(feature = "mkosi")]
+          self.keyboard.0.show(ui.ctx());
+
+          ui.set_width(ui.available_width());
+        });
+      });
 
       ui.add_space(GUI_MARGIN);
 
-      ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+      ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
         if ui.button("Cancel").clicked() {
           self.close_and_clear();
+        }
+
+        let can_attempt_load = !self.selected_svgs.is_empty() && !self.password.is_empty();
+        if ui.add_enabled(can_attempt_load, egui::Button::new("Load Wallet")).clicked()
+          && let Ok(_) = self.try_load_wallet(ctx)
+        {
+          self.close_and_clear()
         }
       });
     });
@@ -645,15 +676,14 @@ impl OpenWalletDialog {
 }
 
 impl eframe::App for OpenWalletDialog {
-  fn update(
+  fn ui(
     &mut self,
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
       ui.heading("Open Wallet");
-
-      self.show(ctx);
+      self.show(ui.ctx());
     });
   }
 }
@@ -1357,14 +1387,14 @@ impl ShowSecretsDialog {
 }
 
 impl eframe::App for ShowSecretsDialog {
-  fn update(
+  fn ui(
     &mut self,
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
       ui.heading("Wallet secrets");
-      self.show(ctx);
+      self.show(ui.ctx());
     });
   }
 }
@@ -1852,18 +1882,39 @@ impl ShowAnuDialog {
 }
 
 impl eframe::App for ShowAnuDialog {
-  fn update(
+  fn ui(
     &mut self,
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    self.update_cooldown(ctx);
+    self.update_cooldown(ui.ctx());
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
       ui.heading("ANU QRNG");
-      self.show(ctx);
+      self.show(ui.ctx());
     });
   }
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[cfg(feature = "mkosi")]
+#[derive(Default)]
+pub struct VirtualKeyboard(egui_keyboard::Keyboard);
+
+#[cfg(feature = "mkosi")]
+impl Clone for VirtualKeyboard {
+  fn clone(&self) -> Self {
+    VirtualKeyboard(Keyboard::default())
+  }
+}
+
+#[cfg(feature = "mkosi")]
+impl std::fmt::Debug for VirtualKeyboard {
+  fn fmt(
+    &self,
+    f: &mut std::fmt::Formatter,
+  ) -> std::fmt::Result {
+    f.debug_tuple("VirtualKeyboard").finish_non_exhaustive()
+  }
+}

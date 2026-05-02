@@ -8,7 +8,7 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use eframe::egui;
-use egui::{ComboBox, Frame, ThemePreference};
+use egui::{ComboBox, Frame};
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeMap;
 use std::io::BufRead;
@@ -694,11 +694,11 @@ impl EgoQuantum {
           self.gui.theme = "Dark".to_string();
         }
 
-        ui.separator();
+        // ui.separator();
 
-        if ui.button("System").clicked() {
-          self.gui.theme = "System".to_string();
-        }
+        // if ui.button("System").clicked() {
+        //   self.gui.theme = "System".to_string();
+        // }
       });
 
       ui.menu_button("Privacy", |ui| {
@@ -1053,56 +1053,52 @@ impl EgoQuantum {
 }
 
 impl eframe::App for EgoQuantum {
-  fn update(
+  fn ui(
     &mut self,
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
+    let ctx = ui.ctx().clone();
+
     match self.gui.theme.as_str() {
-      "Dark" => ctx.set_theme(ThemePreference::Dark),
-      "Light" => ctx.set_theme(ThemePreference::Light),
-      "System" => ctx.set_theme(ThemePreference::System),
-      _ => ctx.set_theme(ThemePreference::Light),
+      "Dark" => ctx.set_theme(egui::Theme::Dark),
+      "Light" => ctx.set_theme(egui::Theme::Light),
+      // "System" => ctx.set_theme(egui::Theme::from_dark_mode(dark_mode)),
+      _ => ctx.set_theme(egui::Theme::Light),
     }
 
-    let is_maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
-    self.gui.maximized = is_maximized;
+    self.gui.maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
 
-    egui::TopBottomPanel::top("header").show(ctx, |ui| {
+    egui::Panel::top("header").show_inside(ui, |ui| {
       ui.add_space(GUI_MARGIN);
       self.render_wallet_header(ui);
       ui.add_space(GUI_MARGIN);
     });
 
-    egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
+    egui::Panel::bottom("footer").show_inside(ui, |ui| {
       ui.add_space(GUI_MARGIN);
       let _ = self.render_wallet_footer(ui);
       ui.add_space(GUI_MARGIN);
     });
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
       egui::ScrollArea::horizontal().scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
-        ui.set_height(ui.available_height());
+        ui.take_available_height();
         self.render_wallet_table(ui);
       });
     });
 
-    self.gui.save_dialog.show(ctx);
+    self.gui.save_dialog.show(ui.ctx());
+    self.gui.open_dialog.show(ui.ctx());
+    self.gui.secrets_dialog.show(ui.ctx());
+    self.gui.anu_dialog.show(ui.ctx());
 
-    self.gui.open_dialog.show(ctx);
-
-    self.gui.secrets_dialog.show(ctx);
-
-    self.gui.anu_dialog.show(ctx);
-
-    if let Some(loaded_wallet) = ctx.data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet"))) {
+    if let Some(loaded_wallet) = ui.ctx().data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet"))) {
       self.wallet = loaded_wallet;
-      match self.generate_new_wallet(Some(Zeroizing::new(String::from("SVG")))) {
-        Ok(_) => {}
-        Err(err) => {
-          AppError::log(format!("Problem with generating new wallet: {:?}", err));
-        }
-      };
+
+      if let Err(err) = self.generate_new_wallet(Some(Zeroizing::new(String::from("SVG")))) {
+        AppError::log(format!("Problem with generating new wallet: {err:?}"));
+      }
     }
   }
 }
