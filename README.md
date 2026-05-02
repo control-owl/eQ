@@ -27,6 +27,7 @@ Control Owl [2023-2026]
 
 This is the second generation of our key generator, following [QR2M](https://github.com/control-owl/QR2M).
 
+---
 
 ## Key Highlights
 
@@ -52,6 +53,7 @@ This provides an additional entropy option beyond system RNGs, especially valuab
 - Rust‑powered performance
 - Minimalistic, predictable UI built with **egui**
 
+---
 
 ## Table of Contents
 
@@ -65,6 +67,7 @@ This provides an additional entropy option beyond system RNGs, especially valuab
 - [Screenshots](#screenshots)
 - [Third-Party Libraries](#third-party-libraries)
 
+---
 
 ## License
 
@@ -72,6 +75,7 @@ This project is licensed under a **Creative Commons Attribution Non Commercial N
 
 See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blue)](./LICENSE.txt) file or the official [deed](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.en).
 
+---
 
 ## Project status
 
@@ -86,6 +90,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 | [![macOS aarch64 Darwin](https://github.com/control-owl/eQ/actions/workflows/release-macos-aarch64.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/release-macos-aarch64.yml) |
 | [![Microslop Windows x86_64](https://github.com/control-owl/eQ/actions/workflows/release-windows_x86_64.yml/badge.svg)](https://github.com/control-owl/eQ/actions/workflows/release-windows_x86_64.yml) |
 
+---
 
 ## Features
 
@@ -97,7 +102,9 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 - [Zeroizing](https://en.wikipedia.org/wiki/Zeroisation) of all secrets
 - Wallet saved as **AES_256_GCM encrypted SVG image**
 - Optional [Shamir's secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing) for secure wallet splitting
+- Optional On-Screen keyboard
 
+---
 
 ## Installation
 
@@ -120,8 +127,14 @@ cd eQ
 #### 2. Build the Project
 
 ```shell
+
+# Build stable release
 cargo build --release
+
+# Build release with on-screen keyboard
+cargo build --release --features="mkosi"
 ```
+
 
 #### 3. Run the Application
 
@@ -129,6 +142,7 @@ cargo build --release
 cargo run --release
 ```
 
+---
 
 ## Screenshots
 
@@ -138,9 +152,13 @@ cargo run --release
 ### Dark theme
 <img src="./.github/preview/1.0.0-dark.png" alt="Dark theme" width="800">
 
+### On-screen keyboard
+<img src="./.github/preview/1.30.0-keyboard.png" alt="On-screen keyboard" width="800">
+
 ### Sample wallet file
 <img src="./.github/preview/test-wallet.svg" alt="Test wallet" width="800">
 
+---
 
 ## Third-Party Libraries
 
@@ -153,6 +171,7 @@ This project uses the following crates:
 - [curve25519-dalek](https://docs.rs/curve25519_dalek)
 - [ed25519-dalek](https://docs.rs/ed25519_dalek)
 - [egui](https://docs.rs/egui)
+- [egui_keyboard](https://docs.rs/egui_keyboard)
 - [eframe](https://docs.rs/eframe)
 - [egui_extras](https://docs.rs/egui_extras)
 - [getrandom](https://docs.rs/getrandom)
