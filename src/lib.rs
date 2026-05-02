@@ -182,7 +182,13 @@ pub fn calculate_checksum_for_master_keys(data: Zeroizing<Vec<u8>>) -> Zeroizing
 }
 
 pub fn get_active_app_feature() -> &'static str {
-  if cfg!(feature = "dev") { "dev" } else { "default" }
+  if cfg!(feature = "dev") {
+    "dev"
+  } else if cfg!(feature = "mkosi") {
+    "mkosi"
+  } else {
+    "default"
+  }
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
