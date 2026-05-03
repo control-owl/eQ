@@ -28,7 +28,10 @@
     "TODO": {
       "icon": "check",
       "type": "text",
-      "gutterIcon": true
+      "gutterIcon": true,
+      "fontWeight": "800",
+      "foreground": "#ffeb3b",
+      "background": "#000000"
     },
     "JUMP": {
       "icon": "arrow-right",

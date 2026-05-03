@@ -20,6 +20,7 @@ use std::rc::Rc;
 use svg::Document;
 use svg::node::element::Rectangle;
 use zeroize::Zeroizing;
+
 const WALLET_HEADER: &[u8; 2] = b"eQ";
 const WALLET_VERSION: u8 = 1;
 const PAYLOAD_VERSION: u8 = 1;
@@ -493,12 +494,7 @@ pub struct OpenWalletDialog {
   pub open: bool,
   pub password: String,
 
-  // TODO: Improve
-  #[zeroize(skip)]
   pub selected_svgs: Vec<String>,
-
-  // TODO: Improve
-  #[zeroize(skip)]
   decoded_shares: Zeroizing<Vec<Vec<u8>>>,
 
   // TODO: Improve

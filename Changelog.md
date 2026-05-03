@@ -1,3 +1,6 @@
+# version 1.3.1
+- change hardened addresses output improved
+
 # version 1.3.0
 - cargo update:
     - egui (0.33.3 -> 0.34.1)

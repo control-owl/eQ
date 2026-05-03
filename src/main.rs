@@ -696,6 +696,7 @@ impl EgoQuantum {
 
         // ui.separator();
 
+        // Why the fuck there is no system detection in egui? 
         // if ui.button("System").clicked() {
         //   self.gui.theme = "System".to_string();
         // }
@@ -742,8 +743,19 @@ impl EgoQuantum {
           "Address follows normal path.",
         ];
 
-        let hardened_address_resp: egui::Response = ui.add_enabled(true, egui::Checkbox::new(&mut self.gui.hardened_address, "Hardened Addresses"));
-        hardened_address_resp.on_hover_text(hardened_address_label.join("\n")).on_disabled_hover_text(&devel);
+        let hardened_address_resp = ui.add_enabled(
+            true,
+            egui::Checkbox::new(&mut self.gui.hardened_address, "Hardened Addresses")
+        );
+
+        if hardened_address_resp.changed() {
+          // TODO: Improve
+          let _ = self.generate_new_addresses();
+        }
+
+        hardened_address_resp
+            .on_hover_text(hardened_address_label.join("\n"))
+            .on_disabled_hover_text(&devel);
 
         ui.separator();
 
@@ -1049,6 +1061,15 @@ impl EgoQuantum {
 
   fn get_bip(&mut self) -> Zeroizing<u32> {
     self.wallet.address_components.derivation_path.purpose.clone()
+  }
+
+  fn generate_new_addresses(&mut self) -> FunctionOutput<()> {
+    self.wallet.addresses_by_coin.0.clear();
+    self.wallet.address_components.derivation_path.last_index = Zeroizing::new(0);
+
+    // TODO: Improve
+    let _ = self.generate_new_wallet(None);
+    Ok(())
   }
 }
 
