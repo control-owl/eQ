@@ -258,6 +258,7 @@ impl SaveWalletDialog {
         }
       };
 
+      // TODO: Add mkosi support for direct file write
       match rfd::FileDialog::new().set_title("Save wallet file(s)").pick_folder() {
         Some(folder) => {
           if !folder.is_dir() {
@@ -606,6 +607,8 @@ impl OpenWalletDialog {
         ui.add_space(GUI_MARGIN);
 
         if ui.button("Select SVG shares").clicked() {
+          // TODO: Add mkosi support for direct file read
+
           self.pick_svg_files();
         }
 

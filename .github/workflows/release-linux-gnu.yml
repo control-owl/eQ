@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu]
-        features: ["default"] #, "dev"
+        features: ["default", "mkosi"]
       fail-fast: false
 
     env:
@@ -70,7 +70,7 @@ jobs:
 
       - name: "Extract version number"
         run: |
-          VERSION_NUMBER=$(head -n 1 Changelog.md | cut -d ':' -f 2- | tr -d ' #version')
+          VERSION_NUMBER=$(head -n 1 CHANGELOG | cut -d ':' -f 2- | tr -d ' #version')
 
           if [[ ! "$VERSION_NUMBER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: VERSION_NUMBER is not in valid format: ${VERSION_NUMBER}"
@@ -123,7 +123,7 @@ jobs:
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
-            -C ../../ Changelog.md LICENSE.txt
+            -C ../../ CHANGELOG LICENSE
           
           echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_ENV
           echo "Release files prepared"
@@ -140,8 +140,8 @@ jobs:
           files: |
             ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }} 
             ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256 
-            Changelog.md 
-            LICENSE.txt
+            CHANGELOG 
+            LICENSE
           draft: false
           prerelease: true
           tag_name: v${{ env.VERSION_NUMBER }}

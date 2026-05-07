@@ -67,6 +67,7 @@ trap 'popd >/dev/null 2>&1 || true; rm -rf "$TMPDIR"' EXIT
 
 FMT_OUT="$TMPDIR/fmt.out"
 CLIPPY_OUT="$TMPDIR/clippy.out"
+TEST_OUT="$TMPDIR/test.out"
 
 # -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -94,6 +95,23 @@ if cargo clippy --all-targets --all-features -- -D warnings >"$CLIPPY_OUT" 2>&1;
 else
   sed 's/^/    /' "$CLIPPY_OUT" >&2
   printf "%-${LABEL_WIDTH}s %-${STATUS_WIDTH}s %s\n" "$(color_err)" "cargo clippy reported warnings or lint failures"
+  exit 1
+fi
+
+printf '\n%s\n\n' "$SEP"
+
+# -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+center_header "cargo test"
+printf '\n'
+if cargo test --all-targets --all-features -- >"$TEST_OUT" 2>&1; then
+  if [ -s "$TEST_OUT" ]; then
+    sed 's/^/    /' "$TEST_OUT"
+  fi
+  printf "%-${LABEL_WIDTH}s %-${STATUS_WIDTH}s %s\n" "$(color_ok)" "cargo test no errors"
+else
+  sed 's/^/    /' "$TEST_OUT" >&2
+  printf "%-${LABEL_WIDTH}s %-${STATUS_WIDTH}s %s\n" "$(color_err)" "cargo test reported warnings"
   exit 1
 fi
 

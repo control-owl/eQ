@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-pc-windows-msvc]
-        features: ["default"] #, "dev"
+        features: ["default", "mkosi"]
       fail-fast: false
 
     env:
@@ -74,10 +74,10 @@ jobs:
       - name: Extract version number
         shell: pwsh
         run: |
-          $line = (Get-Content Changelog.md | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1).Trim()
+          $line = (Get-Content CHANGELOG | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1).Trim()
 
           if (-not $line) {
-              Write-Error "Changelog.md first non-empty line is empty or unreadable"
+              Write-Error "CHANGELOG first non-empty line is empty or unreadable"
               exit 1
           }
 
@@ -130,8 +130,8 @@ jobs:
 
           Compress-Archive -Path `
             "$OUTPUT_DIR/$OUTPUT_BIN", `
-            "$ROOT/Changelog.md", `
-            "$ROOT/LICENSE.txt" `
+            "$ROOT/CHANGELOG", `
+            "$ROOT/LICENSE" `
             -DestinationPath "$OUTPUT_DIR/$ZIP_FILE" `
             -Force
 
@@ -150,8 +150,8 @@ jobs:
           files: |
             ${{ env.OUTPUT_DIR }}/${{ env.ZIP_FILE }}
             ${{ env.OUTPUT_DIR }}/${{ env.ZIP_FILE }}.sha256
-            Changelog.md
-            LICENSE.txt
+            CHANGELOG
+            LICENSE
           draft: false
           prerelease: true
           tag_name: v${{ env.VERSION_NUMBER }}

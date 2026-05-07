@@ -249,7 +249,7 @@ impl GuiSettings {
     let get_max_rows = e_q::get_free_memory_size();
 
     GuiSettings {
-      theme: "System".to_string(),
+      theme: "Dark".to_string(),
       _language: "English".to_string(),
       maximized: false,
       zoom_factor: 1.0,

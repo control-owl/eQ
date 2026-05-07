@@ -1,3 +1,12 @@
+# version 1.3.2
+- cargo update:
+    - egui (0.34.1 -> 0.34.2)
+    - eframe (0.34.1 -> 0.34.2)
+    - egui_extras (0.34.1 -> 0.34.2)
+    - sysinfo (0.38.4 -> sysinfo = "0.39.0")
+- some files renamed
+- new release feature added: "mkosi" (eQ with on-screen keyboard)
+
 # version 1.3.1
 - change hardened addresses output improved
 
