@@ -132,7 +132,7 @@ cd eQ
 cargo build --release
 
 # Build release with on-screen keyboard
-cargo build --release --features="mkosi"
+cargo build --release --features=osk
 ```
 
 

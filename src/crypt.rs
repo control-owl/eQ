@@ -8,7 +8,7 @@ use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, 
 
 use core::f32;
 use egui::{self, Align, Layout};
-#[cfg(feature = "mkosi")]
+#[cfg(feature = "osk")]
 use egui_keyboard::Keyboard;
 use ring::aead::*;
 use ring::pbkdf2::{PBKDF2_HMAC_SHA512, derive};
@@ -163,7 +163,7 @@ pub struct SaveWalletDialog {
   pub argon2_parallelism: u32,
 
   #[zeroize(skip)]
-  #[cfg(feature = "mkosi")]
+  #[cfg(feature = "osk")]
   pub keyboard: VirtualKeyboard,
 }
 
@@ -192,7 +192,7 @@ impl SaveWalletDialog {
       argon2_memory_mb: 64,
       argon2_parallelism: 4,
 
-      #[cfg(feature = "mkosi")]
+      #[cfg(feature = "osk")]
       keyboard: VirtualKeyboard::default(),
     }
   }
@@ -258,7 +258,7 @@ impl SaveWalletDialog {
         }
       };
 
-      // TODO: Add mkosi support for direct file write
+      // TODO: Add osk support for direct file write
       match rfd::FileDialog::new().set_title("Save wallet file(s)").pick_folder() {
         Some(folder) => {
           if !folder.is_dir() {
@@ -310,7 +310,7 @@ impl SaveWalletDialog {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
-    #[cfg(feature = "mkosi")]
+    #[cfg(feature = "osk")]
     self.keyboard.0.pump_events(ui.ctx());
 
     egui::ScrollArea::both().scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
@@ -322,7 +322,7 @@ impl SaveWalletDialog {
           ui.add(egui::TextEdit::singleline(&mut self.wallet_name).desired_width(ui.available_width()));
           // ui.text_edit_singleline(&mut self.wallet_name);
 
-          #[cfg(feature = "mkosi")]
+          #[cfg(feature = "osk")]
           self.keyboard.0.show(ui.ctx());
         });
 
@@ -503,7 +503,7 @@ pub struct OpenWalletDialog {
   pub loaded_wallet: Option<SharedWallet>,
 
   #[zeroize(skip)]
-  #[cfg(feature = "mkosi")]
+  #[cfg(feature = "osk")]
   pub keyboard: VirtualKeyboard,
 }
 
@@ -587,7 +587,7 @@ impl OpenWalletDialog {
     ui: &mut egui::Ui,
     ctx: &egui::Context,
   ) {
-    #[cfg(feature = "mkosi")]
+    #[cfg(feature = "osk")]
     self.keyboard.0.pump_events(ui.ctx());
 
     ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
@@ -607,7 +607,7 @@ impl OpenWalletDialog {
         ui.add_space(GUI_MARGIN);
 
         if ui.button("Select SVG shares").clicked() {
-          // TODO: Add mkosi support for direct file read
+          // TODO: Add osk support for direct file read
 
           self.pick_svg_files();
         }
@@ -625,7 +625,7 @@ impl OpenWalletDialog {
           ui.label("Password");
           ui.add(egui::TextEdit::singleline(&mut self.password).desired_width(ui.available_width()).password(true));
 
-          #[cfg(feature = "mkosi")]
+          #[cfg(feature = "osk")]
           self.keyboard.0.show(ui.ctx());
 
           ui.set_width(ui.available_width());
@@ -1897,18 +1897,18 @@ impl eframe::App for ShowAnuDialog {
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-#[cfg(feature = "mkosi")]
+#[cfg(feature = "osk")]
 #[derive(Default)]
 pub struct VirtualKeyboard(egui_keyboard::Keyboard);
 
-#[cfg(feature = "mkosi")]
+#[cfg(feature = "osk")]
 impl Clone for VirtualKeyboard {
   fn clone(&self) -> Self {
     VirtualKeyboard(Keyboard::default())
   }
 }
 
-#[cfg(feature = "mkosi")]
+#[cfg(feature = "osk")]
 impl std::fmt::Debug for VirtualKeyboard {
   fn fmt(
     &self,

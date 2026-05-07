@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-pc-windows-msvc]
-        features: ["default", "mkosi"]
+        features: ["default", "osk"]
       fail-fast: false
 
     env:

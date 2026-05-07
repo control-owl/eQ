@@ -86,42 +86,42 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug eQ [mkosi]",
+            "name": "Debug eQ [osk]",
             "cargo": {
                 "args": [
                     "build",
-                    "--features=mkosi",
+                    "--features=osk",
                     "--bin=eQ",
                     "--package=eQ",
-                    "--target-dir=target/mkosi",
+                    "--target-dir=target/osk",
                 ],
                 "filter": {
                     "name": "eQ",
                     "kind": "bin"
                 }
             },
-            "program": "${workspaceFolder}/target/mkosi/debug/eQ",
+            "program": "${workspaceFolder}/target/osk/debug/eQ",
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Release eQ [mkosi]",
+            "name": "Release eQ [osk]",
             "cargo": {
                 "args": [
                     "build",
-                    "--features=mkosi",
+                    "--features=osk",
                     "--release",
                     "--bin=eQ",
                     "--package=eQ",
-                    "--target-dir=target/mkosi",
+                    "--target-dir=target/osk",
                 ],
                 "filter": {
                     "name": "eQ",
                     "kind": "bin"
                 }
             },
-            "program": "${workspaceFolder}/target/mkosi/release/eQ",
+            "program": "${workspaceFolder}/target/osk/release/eQ",
             "cwd": "${workspaceFolder}"
         },
     ]
