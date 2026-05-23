@@ -242,6 +242,8 @@ struct GuiSettings {
   unify_evm: bool,
   unify_master_keys: bool,
   hardened_address: bool,
+
+  bitcoin_legacy_addresses: bool,
 }
 
 impl GuiSettings {
@@ -266,6 +268,8 @@ impl GuiSettings {
       unify_evm: false,
       unify_master_keys: true,
       hardened_address: true,
+
+      bitcoin_legacy_addresses: false,
     }
   }
 }
@@ -411,7 +415,7 @@ impl EgoQuantum {
                   };
 
                   // match keys::generate_secp256k1_address(&mut self.wallet, Some(self.wallet.address_components.evm)) {
-                  match keys::generate_secp256k1_address(&mut self.wallet) {
+                  match keys::generate_secp256k1_address(&mut self.wallet, self.gui.bitcoin_legacy_addresses) {
                     Ok(_) => {}
                     Err(err) => {
                       return Err(AppError::log(format!("Can not derive secp256k1 address: {}", err)));
@@ -508,7 +512,8 @@ impl EgoQuantum {
     ui: &mut egui::Ui,
   ) {
     Frame::group(ui.style()).show(ui, |ui| {
-      let descriptions = ["Classic hierarchical wallet derivation.", "Structured derivation path used for multi-coin wallets."];
+      let descriptions =
+        ["Classic hierarchical wallet derivation.", "Structured derivation path used for multi-coin wallets.", "Bitcoin Taproot support"];
 
       if *self.wallet.address_components.derivation_path.purpose == 0 {
         self.wallet.address_components.derivation_path.purpose = Zeroizing::new(44);
@@ -528,6 +533,13 @@ impl EgoQuantum {
           VALID_BIP_DERIVATIONS[1].to_string(),
         )
         .on_hover_text_at_pointer(descriptions[1]);
+
+        ui.selectable_value(
+          &mut *self.wallet.address_components.derivation_path.purpose,
+          VALID_BIP_DERIVATIONS[2],
+          VALID_BIP_DERIVATIONS[2].to_string(),
+        )
+        .on_hover_text_at_pointer(descriptions[2]);
       });
     });
   }
@@ -714,7 +726,6 @@ impl EgoQuantum {
         let hide_private_keys_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.gui.hide_private_keys, "Hide private keys"));
         hide_private_keys_resp.on_hover_text(hide_private_keys_label.join("\n")).on_disabled_hover_text(&devel);
 
-
         let evm_label = [
           "When enabled:",
           "Normalize how EVM addresses are displayed so they look the same across all networks. This improves usability when managing multiple chains.",
@@ -749,8 +760,9 @@ impl EgoQuantum {
         );
 
         if hardened_address_resp.changed() {
-          // TODO: Improve
-          let _ = self.generate_new_addresses();
+          if has_addresses {
+            let _ = self.generate_new_addresses();
+          }
         }
 
         hardened_address_resp
@@ -781,6 +793,23 @@ impl EgoQuantum {
 
           self.gui.secrets_dialog.open = true;
         }
+      });
+
+      ui.menu_button("Coins", |ui| {
+        ui.menu_button("Bitcoin", |ui| {
+          let bitcoin_legacy_description = [
+            "When enabled:",
+            "Generates both Legacy and Taproot addresses.",
+            "Legacy addresses (P2PKH) - Start with '1...'",
+            "Taproot addresses (P2TR) - Start with 'bc1p...'",
+            "\n",
+            "When disabled:",
+            "Generates only Taproot addresses",
+          ];
+
+          let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.gui.bitcoin_legacy_addresses, "Generate legacy addresses"));
+          bitcoin_legacy_resp.on_hover_text(bitcoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
+        });
       });
 
       ui.menu_button("Help", |ui| {

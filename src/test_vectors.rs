@@ -561,7 +561,7 @@ mod tests {
 
       keys::generate_secp256k1_master_keys(&mut wallet)?;
       keys::generate_secp256k1_child_keys(&mut wallet)?;
-      keys::generate_secp256k1_address(&mut wallet)?;
+      keys::generate_secp256k1_address(&mut wallet, true)?;
 
       let addresses = wallet.addresses_by_coin.0.get(vector.coin_name).expect("Coin not found");
       let first = addresses.first().expect("No address stored for this coin");
@@ -711,3 +711,18 @@ mod tests {
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[test]
+fn nem_whitepaper_example_address() {
+  use zeroize::Zeroizing;
+
+  let pubkey_hex = "c5247738c3a510fb6c11413331d8a47764f6e78ffcdb02b6878d5dd3b77f38ed";
+  let pubkey_bytes = hex::decode(pubkey_hex).expect("invalid hex");
+  let pubkey_arr: [u8; 32] = pubkey_bytes.try_into().expect("public key must be 32 bytes");
+
+  let addr = crate::keys::generate_nem_address(Zeroizing::new(pubkey_arr), Zeroizing::new("0x68".to_string()))
+    .expect("failed to generate NEM address")
+    .to_string();
+
+  assert_eq!(addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6", "Whitepaper example address must match exactly");
+}
