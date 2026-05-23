@@ -1497,12 +1497,10 @@ pub fn generate_bitcoin_taproot_address(
 
   let pubkey_bytes = secp_pubkey.serialize_uncompressed();
   let internal_key: [u8; 32] = pubkey_bytes[1..33].try_into().map_err(|_| AppError::log("Failed to extract x-only internal key"))?;
-
   let tweaked_key = tweak_taproot_key(&internal_key)?;
-
   let taproot_address = encode_taproot_bech32m(&tweaked_key)?;
+  let tweaked_pubkey_hex = Zeroizing::new(hex::encode(tweaked_key));
 
-  let tweaked_pubkey_hex = Zeroizing::new(hex::encode(&tweaked_key));
   let priv_key_wif: Zeroizing<String> =
     encode_private_key(key_derivation.clone(), wallet_import_format.clone(), hash.clone(), coin_index.clone(), private_key)?;
 
@@ -1516,12 +1514,8 @@ pub fn generate_bitcoin_taproot_address(
 }
 
 fn encode_taproot_bech32m(tweaked_key: &[u8; 32]) -> FunctionOutput<Zeroizing<String>> {
-  let address = segwit::encode(
-    Hrp::parse("bc").map_err(|e| AppError::log(format!("HRP error: {:?}", e)))?,
-    segwit::VERSION_1, // Witness version 1
-    tweaked_key,
-  )
-  .map_err(|e| AppError::log(format!("Bech32m encoding failed: {:?}", e)))?;
+  let address = segwit::encode(Hrp::parse("bc").map_err(|e| AppError::log(format!("HRP error: {:?}", e)))?, segwit::VERSION_1, tweaked_key)
+    .map_err(|e| AppError::log(format!("Bech32m encoding failed: {:?}", e)))?;
 
   Ok(Zeroizing::new(address))
 }
@@ -1535,8 +1529,8 @@ fn tweak_taproot_key(internal_key: &[u8; 32]) -> FunctionOutput<[u8; 32]> {
   let tag_hash = hasher.finalize_reset();
 
   let mut hasher = Sha256::new();
-  hasher.update(&tag_hash);
-  hasher.update(&tag_hash);
+  hasher.update(tag_hash);
+  hasher.update(tag_hash);
   hasher.update(internal_key);
   hasher.update(merkle_root);
   let tweak = hasher.finalize();

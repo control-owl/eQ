@@ -751,10 +751,8 @@ impl EgoQuantum {
             egui::Checkbox::new(&mut self.gui.hardened_address, "Hardened Addresses")
         );
 
-        if hardened_address_resp.changed() {
-          if has_addresses {
+        if hardened_address_resp.changed() && has_addresses {
             let _ = self.generate_new_addresses();
-          }
         }
 
         hardened_address_resp

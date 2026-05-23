@@ -591,7 +591,7 @@ mod tests {
       keys::generate_secp256k1_master_keys(&mut wallet)?;
       keys::generate_secp256k1_child_keys(&mut wallet)?;
 
-      let legacy = if *vector.derivation_path.purpose == 86 { false } else { true };
+      let legacy = *vector.derivation_path.purpose != 86;
 
       keys::generate_secp256k1_address(&mut wallet, legacy)?;
 
