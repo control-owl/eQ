@@ -582,7 +582,7 @@ mod tests {
 
       wallet.seed_secret.seed = Zeroizing::new(String::from(vector.seed));
       wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
-      wallet.address_components._coin_name = Zeroizing::new(vector.coin_name.to_string());
+      wallet.address_components.coin_name = Zeroizing::new(vector.coin_name.to_string());
       wallet.address_components.public_key_hash = Zeroizing::new(vector.public_key_hash.to_string());
       wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
       wallet.address_components.wallet_import_format = Zeroizing::new(vector.wallet_import_format.to_string());
@@ -769,7 +769,7 @@ mod tests {
     for vector in test_vectors {
       let mut wallet = CryptoWallet::new();
 
-      wallet.address_components._coin_name = Zeroizing::new("Bitcoin".to_string());
+      wallet.address_components.coin_name = Zeroizing::new("Bitcoin".to_string());
       wallet.address_components.derivation_path.coin = Zeroizing::new(0);
       wallet.address_components.key_derivation = Zeroizing::new("secp256k1".to_string());
       wallet.address_components.wallet_import_format = Zeroizing::new("0x80".to_string());

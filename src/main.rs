@@ -191,7 +191,7 @@ struct DerivationPathData {
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 struct AddressPublicData {
-  _coin_name: Zeroizing<String>,
+  coin_name: Zeroizing<String>,
   derivation_path: Zeroizing<DerivationPathData>,
   public_key_hash: Zeroizing<String>,
   key_derivation: Zeroizing<String>,
@@ -395,7 +395,7 @@ impl EgoQuantum {
             self.wallet.address_components.derivation_path.change_hardened = Zeroizing::new(*bip == 32);
             self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.gui.hardened_address);
 
-            self.wallet.address_components._coin_name = Zeroizing::new(columns[3].to_string());
+            self.wallet.address_components.coin_name = Zeroizing::new(columns[3].to_string());
             self.wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
             self.wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
             self.wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());

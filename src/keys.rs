@@ -453,7 +453,7 @@ pub fn generate_secp256k1_address(
 ) -> FunctionOutput<()> {
   let public_key = generate_public_key(wallet)?;
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
-  let coin_name: Zeroizing<String> = wallet.address_components._coin_name.clone();
+  let coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
   let public_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
   let hash: Zeroizing<String> = wallet.address_components.hash.clone();
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
@@ -476,19 +476,7 @@ pub fn generate_secp256k1_address(
   match *coin_index {
     // Bitcoin: Legacy + Taproot addresses
     0 => {
-      return generate_bitcoin_addresses(
-        bitcoin_legacy,
-        wallet,
-        &public_key,
-        &coin_name,
-        &coin_index,
-        &derivation_path,
-        &public_key_hash,
-        &hash,
-        &key_derivation,
-        &wallet_import_format,
-        private_key,
-      );
+      return generate_bitcoin_addresses(bitcoin_legacy, wallet, &public_key, &derivation_path, private_key);
     }
 
     // Cosmos Coin
@@ -517,18 +505,7 @@ pub fn generate_secp256k1_address(
 
     // Open Assets Coin
     21 => {
-      return generate_open_assets_address(
-        wallet,
-        &public_key,
-        &coin_name,
-        &coin_index,
-        &derivation_path,
-        &public_key_hash,
-        &hash,
-        &key_derivation,
-        &wallet_import_format,
-        private_key,
-      );
+      return generate_open_assets_address(wallet, &public_key, &derivation_path, private_key);
     }
 
     _ => {}
@@ -1176,7 +1153,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
   let child_public_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.clone();
   let child_private_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_ed25519_keys.child_private_key_bytes.clone();
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
-  let coin_name: Zeroizing<String> = wallet.address_components._coin_name.clone();
+  let coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
   let pub_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
 
   let derivation_path: Zeroizing<String> = match get_derivation_path("ed25519", wallet) {
@@ -1326,15 +1303,16 @@ fn keccak256_nis1(data: Zeroizing<Vec<u8>>) -> Zeroizing<[u8; 32]> {
 fn generate_open_assets_address(
   wallet: &mut CryptoWallet,
   public_key: &CryptoPublicKey,
-  coin_name: &Zeroizing<String>,
-  coin_index: &Zeroizing<u32>,
   derivation_path: &Zeroizing<String>,
-  public_key_hash: &Zeroizing<String>,
-  hash: &Zeroizing<String>,
-  key_derivation: &Zeroizing<String>,
-  wallet_import_format: &Zeroizing<String>,
   private_key: Zeroizing<[u8; 32]>,
 ) -> FunctionOutput<()> {
+  let coin_name = wallet.address_components.coin_name.clone();
+  let coin_index = wallet.address_components.derivation_path.coin.clone();
+  let public_key_hash = wallet.address_components.public_key_hash.clone();
+  let hash = wallet.address_components.hash.clone();
+  let key_derivation = wallet.address_components.key_derivation.clone();
+  let wallet_import_format = wallet.address_components.wallet_import_format.clone();
+
   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
     let trimmed: Zeroizing<String> = Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
     let hex: Zeroizing<Vec<u8>> = match hex::decode(trimmed) {
@@ -1416,48 +1394,43 @@ fn generate_bitcoin_addresses(
   bitcoin_legacy: bool,
   wallet: &mut CryptoWallet,
   public_key: &CryptoPublicKey,
-  coin_name: &Zeroizing<String>,
-  coin_index: &Zeroizing<u32>,
   derivation_path: &Zeroizing<String>,
-  public_key_hash: &Zeroizing<String>,
-  hash: &Zeroizing<String>,
-  key_derivation: &Zeroizing<String>,
-  wallet_import_format: &Zeroizing<String>,
   private_key: Zeroizing<[u8; 32]>,
 ) -> FunctionOutput<()> {
+  let coin_name = wallet.address_components.coin_name.clone();
+  let coin_index = wallet.address_components.derivation_path.coin.clone();
+  let hash = wallet.address_components.hash.clone();
+  let key_derivation = wallet.address_components.key_derivation.clone();
+  let wallet_import_format = wallet.address_components.wallet_import_format.clone();
+
+  let taproot_data =
+    generate_bitcoin_taproot_address(public_key, &coin_index, derivation_path, &hash, &key_derivation, &wallet_import_format, private_key.clone())?;
+
+  let legacy_data = generate_bitcoin_legacy_address(wallet, public_key, derivation_path, private_key)?;
+
   let entries = wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default();
 
   if bitcoin_legacy {
-    let legacy_data = generate_bitcoin_legacy_address(
-      public_key,
-      coin_index,
-      derivation_path,
-      public_key_hash,
-      hash,
-      key_derivation,
-      wallet_import_format,
-      private_key.clone(),
-    )?;
     entries.push(legacy_data);
   }
 
-  let taproot_data =
-    generate_bitcoin_taproot_address(public_key, coin_index, derivation_path, hash, key_derivation, wallet_import_format, private_key)?;
   entries.push(taproot_data);
 
   Ok(())
 }
 
 fn generate_bitcoin_legacy_address(
+  wallet: &mut CryptoWallet,
   public_key: &CryptoPublicKey,
-  coin_index: &Zeroizing<u32>,
   derivation_path: &Zeroizing<String>,
-  public_key_hash: &Zeroizing<String>,
-  hash: &Zeroizing<String>,
-  key_derivation: &Zeroizing<String>,
-  wallet_import_format: &Zeroizing<String>,
   private_key: Zeroizing<[u8; 32]>,
 ) -> FunctionOutput<AddressPrivateData> {
+  let coin_index = wallet.address_components.derivation_path.coin.clone();
+  let public_key_hash = wallet.address_components.public_key_hash.clone();
+  let hash = wallet.address_components.hash.clone();
+  let key_derivation = wallet.address_components.key_derivation.clone();
+  let wallet_import_format = wallet.address_components.wallet_import_format.clone();
+
   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
     let trimmed: Zeroizing<String> = Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
     let hex: Zeroizing<Vec<u8>> = match hex::decode(trimmed) {
