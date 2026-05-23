@@ -1428,7 +1428,6 @@ fn generate_bitcoin_addresses(
   let entries = wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default();
 
   if bitcoin_legacy {
-    // Legacy P2PKH 1...
     let legacy_data = generate_bitcoin_legacy_address(
       public_key,
       coin_index,
@@ -1442,7 +1441,6 @@ fn generate_bitcoin_addresses(
     entries.push(legacy_data);
   }
 
-  // Taproot P2TR bc1p...
   let taproot_data =
     generate_bitcoin_taproot_address(public_key, coin_index, derivation_path, hash, key_derivation, wallet_import_format, private_key)?;
   entries.push(taproot_data);
@@ -1497,14 +1495,11 @@ pub fn generate_bitcoin_taproot_address(
     _ => return Err(AppError::log("Only Secp256k1 supported for Bitcoin Taproot")),
   };
 
-  // 1. Get x-only internal public key (32 bytes)
   let pubkey_bytes = secp_pubkey.serialize_uncompressed();
   let internal_key: [u8; 32] = pubkey_bytes[1..33].try_into().map_err(|_| AppError::log("Failed to extract x-only internal key"))?;
 
-  // 2. Compute tweaked key according to BIP 341 (Key-Path only)
   let tweaked_key = tweak_taproot_key(&internal_key)?;
 
-  // 3. Encode as bech32m address
   let taproot_address = encode_taproot_bech32m(&tweaked_key)?;
 
   let tweaked_pubkey_hex = Zeroizing::new(hex::encode(&tweaked_key));
@@ -1515,7 +1510,7 @@ pub fn generate_bitcoin_taproot_address(
     coin_index: coin_index.clone(),
     path: derivation_path.clone(),
     address: taproot_address,
-    public_key: tweaked_pubkey_hex, // Usually we show the tweaked key for Taproot
+    public_key: tweaked_pubkey_hex,
     private_key: priv_key_wif,
   })
 }

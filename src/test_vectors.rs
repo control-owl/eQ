@@ -346,6 +346,29 @@ mod tests {
   fn test_seed_to_secp256k1_address() -> FunctionOutput<()> {
     let test_vectors = vec![
       _AddressTestVector {
+        seed: "ca0b25f8fdb4be298d4ddaa2c121576ccd19bad6ffc9c2f8d48164fb0b938b1ac1025c20e90f58113e6b147ca687a5219f8d3c56da49c9d259050300b33ffed6",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(86),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(0),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Bitcoin",
+        expected_address: "bc1pfpge3jey3q8csyjs98yjkkpqssxcyzr44pnwphr0eau2l879awes7zp5lh",
+        expected_public_key: "485198cb24880f88125029c92b5820840d820875a866e0dc6fcf78af9fc5ebb3",
+        expected_private_key: "L3ofu47veqxLqbVyyusoM2BRcYb79CnqyUc5dQ5YsVdbSt3XbSKB",
+        public_key_hash: "0x00",
+        wallet_import_format: "0x80",
+        hash: "sha256",
+      },
+      _AddressTestVector {
         seed: "9c341cd0b1630abe1df1ce4c2cdc38c211b1afe37b93cc572846a068a01239dc1892dc9721a8fac7d5f893fab1a02060b96d9313644dc3f3e7616600215cb96c",
         derivation_path: DerivationPathData {
           purpose: Zeroizing::new(44),
@@ -558,7 +581,7 @@ mod tests {
       let mut wallet = CryptoWallet::new();
 
       wallet.seed_secret.seed = Zeroizing::new(String::from(vector.seed));
-      wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path);
+      wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
       wallet.address_components._coin_name = Zeroizing::new(vector.coin_name.to_string());
       wallet.address_components.public_key_hash = Zeroizing::new(vector.public_key_hash.to_string());
       wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
@@ -567,7 +590,10 @@ mod tests {
 
       keys::generate_secp256k1_master_keys(&mut wallet)?;
       keys::generate_secp256k1_child_keys(&mut wallet)?;
-      keys::generate_secp256k1_address(&mut wallet, true)?;
+
+      let legacy = if *vector.derivation_path.purpose == 86 { false } else { true };
+
+      keys::generate_secp256k1_address(&mut wallet, legacy)?;
 
       let addresses = wallet.addresses_by_coin.0.get(vector.coin_name).expect("Coin not found");
       let first = addresses.first().expect("No address stored for this coin");

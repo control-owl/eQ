@@ -512,8 +512,7 @@ impl EgoQuantum {
     ui: &mut egui::Ui,
   ) {
     Frame::group(ui.style()).show(ui, |ui| {
-      let descriptions =
-        ["Classic hierarchical wallet derivation.", "Structured derivation path used for multi-coin wallets.", "Bitcoin Taproot support"];
+      let descriptions = ["Classic hierarchical wallet derivation.", "Structured derivation path used for multi-coin wallets."];
 
       if *self.wallet.address_components.derivation_path.purpose == 0 {
         self.wallet.address_components.derivation_path.purpose = Zeroizing::new(44);
@@ -533,13 +532,6 @@ impl EgoQuantum {
           VALID_BIP_DERIVATIONS[1].to_string(),
         )
         .on_hover_text_at_pointer(descriptions[1]);
-
-        ui.selectable_value(
-          &mut *self.wallet.address_components.derivation_path.purpose,
-          VALID_BIP_DERIVATIONS[2],
-          VALID_BIP_DERIVATIONS[2].to_string(),
-        )
-        .on_hover_text_at_pointer(descriptions[2]);
       });
     });
   }
