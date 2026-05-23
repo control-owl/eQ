@@ -54,6 +54,12 @@ struct _AddressTestVector {
   hash: &'static str,
 }
 
+struct _TaprootTestVector {
+  private_key_hex: String,
+  expected_tweaked_pubkey: String,
+  expected_address: String,
+}
+
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[cfg(test)]
@@ -707,6 +713,64 @@ mod tests {
 
       assert_eq!(address, vector.expected_ed25519_address);
     }
+  }
+
+  #[test]
+  fn test_private_key_to_taproot_address() -> FunctionOutput<()> {
+    let test_vectors = vec![
+      _TaprootTestVector {
+        private_key_hex: "ec001e81736b115fe8f19580a04508e91cc575a63f22d7708c5920c9846e9738".to_string(),
+        expected_tweaked_pubkey: "1b52784dc657018e3d65852e7017f3651759c39ccde83da93edf1b8f9bbc3868".to_string(),
+        expected_address: "bc1prdf8snwx2uqcu0t9s5h8q9lnv5t4nsuueh5rm2f7mudclxau8p5qj53lkg".to_string(),
+      },
+      _TaprootTestVector {
+        private_key_hex: "8895f49af1ea5fb3f11232033631947cfc9569cc3e4847a06270b74a8a85d89f".to_string(),
+        expected_tweaked_pubkey: "153ff536e05521f9dd16838fd8c71fccec1c5692f351146422306d6c60250c91".to_string(),
+        expected_address: "bc1pz5ll2dhq25slnhgksw8a33clenkpc45j7dg3gepzxpkkccp9pjgskj0609".to_string(),
+      },
+      _TaprootTestVector {
+        private_key_hex: "0000000000000000000000000000000000000000000000000000000000000001".to_string(),
+        expected_tweaked_pubkey: "da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21".to_string(),
+        expected_address: "bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9".to_string(),
+      },
+      _TaprootTestVector {
+        private_key_hex: "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140".to_string(),
+        expected_tweaked_pubkey: "da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21".to_string(),
+        expected_address: "bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9".to_string(),
+      },
+    ];
+
+    for vector in test_vectors {
+      let mut wallet = CryptoWallet::new();
+
+      wallet.address_components._coin_name = Zeroizing::new("Bitcoin".to_string());
+      wallet.address_components.derivation_path.coin = Zeroizing::new(0);
+      wallet.address_components.key_derivation = Zeroizing::new("secp256k1".to_string());
+      wallet.address_components.wallet_import_format = Zeroizing::new("0x80".to_string());
+      wallet.address_components.hash = Zeroizing::new("sha256".to_string());
+
+      let priv_bytes = hex::decode(&vector.private_key_hex).unwrap();
+      wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes = Zeroizing::new(priv_bytes.clone());
+
+      let private_key: Zeroizing<[u8; 32]> = Zeroizing::new(priv_bytes.try_into().unwrap());
+
+      let public_key = keys::generate_public_key(&mut wallet)?;
+
+      let taproot_data = crate::keys::generate_bitcoin_taproot_address(
+        &public_key,
+        &wallet.address_components.derivation_path.coin,
+        &Zeroizing::new("m/86'/0'/0'/0/0'".to_string()),
+        &wallet.address_components.hash,
+        &wallet.address_components.key_derivation,
+        &wallet.address_components.wallet_import_format,
+        private_key,
+      )?;
+
+      assert_eq!(taproot_data.address.as_str(), vector.expected_address, "Taproot address does not match expected value");
+      assert_eq!(taproot_data.public_key.as_str(), vector.expected_tweaked_pubkey, "Tweaked public key does not match");
+    }
+
+    Ok(())
   }
 }
 

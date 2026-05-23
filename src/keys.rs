@@ -9,7 +9,7 @@ use crate::{
 use base32::Alphabet;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use bech32::{Bech32, Hrp, encode, hrp, segwit};
+use bech32::{Bech32, Hrp, encode, segwit};
 use curve25519_dalek::Scalar;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint};
 use ed25519_dalek::SigningKey;
@@ -674,7 +674,7 @@ pub fn generate_secp256k1_address(
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 // Zeroizing
 
-fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPublicKey> {
+pub fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPublicKey> {
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
 
   match key_derivation.as_str() {
@@ -1483,7 +1483,7 @@ fn generate_bitcoin_legacy_address(
   })
 }
 
-fn generate_bitcoin_taproot_address(
+pub fn generate_bitcoin_taproot_address(
   public_key: &CryptoPublicKey,
   coin_index: &Zeroizing<u32>,
   derivation_path: &Zeroizing<String>,
@@ -1497,12 +1497,17 @@ fn generate_bitcoin_taproot_address(
     _ => return Err(AppError::log("Only Secp256k1 supported for Bitcoin Taproot")),
   };
 
+  // 1. Get x-only internal public key (32 bytes)
   let pubkey_bytes = secp_pubkey.serialize_uncompressed();
-  let x_only_pubkey: [u8; 32] = pubkey_bytes[1..33].try_into().map_err(|_| AppError::log("Failed to extract x-only public key"))?;
+  let internal_key: [u8; 32] = pubkey_bytes[1..33].try_into().map_err(|_| AppError::log("Failed to extract x-only internal key"))?;
 
-  let taproot_address = encode_taproot_bech32m(&x_only_pubkey)?;
+  // 2. Compute tweaked key according to BIP 341 (Key-Path only)
+  let tweaked_key = tweak_taproot_key(&internal_key)?;
 
-  let xonly_pubkey_hex = Zeroizing::new(hex::encode(&x_only_pubkey));
+  // 3. Encode as bech32m address
+  let taproot_address = encode_taproot_bech32m(&tweaked_key)?;
+
+  let tweaked_pubkey_hex = Zeroizing::new(hex::encode(&tweaked_key));
   let priv_key_wif: Zeroizing<String> =
     encode_private_key(key_derivation.clone(), wallet_import_format.clone(), hash.clone(), coin_index.clone(), private_key)?;
 
@@ -1510,14 +1515,44 @@ fn generate_bitcoin_taproot_address(
     coin_index: coin_index.clone(),
     path: derivation_path.clone(),
     address: taproot_address,
-    public_key: xonly_pubkey_hex,
+    public_key: tweaked_pubkey_hex, // Usually we show the tweaked key for Taproot
     private_key: priv_key_wif,
   })
 }
 
-fn encode_taproot_bech32m(x_only_pubkey: &[u8; 32]) -> FunctionOutput<Zeroizing<String>> {
-  let address =
-    segwit::encode(hrp::BC, segwit::VERSION_1, x_only_pubkey).map_err(|e| AppError::log(format!("Taproot address encoding failed: {:?}", e)))?;
+fn encode_taproot_bech32m(tweaked_key: &[u8; 32]) -> FunctionOutput<Zeroizing<String>> {
+  let address = segwit::encode(
+    Hrp::parse("bc").map_err(|e| AppError::log(format!("HRP error: {:?}", e)))?,
+    segwit::VERSION_1, // Witness version 1
+    tweaked_key,
+  )
+  .map_err(|e| AppError::log(format!("Bech32m encoding failed: {:?}", e)))?;
 
   Ok(Zeroizing::new(address))
+}
+
+fn tweak_taproot_key(internal_key: &[u8; 32]) -> FunctionOutput<[u8; 32]> {
+  let merkle_root: &[u8] = &[];
+
+  let mut hasher = Sha256::new();
+  hasher.update(b"TapTweak");
+
+  let tag_hash = hasher.finalize_reset();
+
+  let mut hasher = Sha256::new();
+  hasher.update(&tag_hash);
+  hasher.update(&tag_hash);
+  hasher.update(internal_key);
+  hasher.update(merkle_root);
+  let tweak = hasher.finalize();
+
+  let secp = secp256k1::Secp256k1::new();
+  let internal_pubkey =
+    secp256k1::XOnlyPublicKey::from_byte_array(*internal_key).map_err(|e| AppError::log(format!("Invalid x-only public key: {}", e)))?;
+
+  let tweak_scalar = secp256k1::Scalar::from_be_bytes(tweak.into()).map_err(|_| AppError::log("Invalid tweak scalar"))?;
+
+  let tweaked = internal_pubkey.add_tweak(&secp, &tweak_scalar).map_err(|e| AppError::log(format!("Taproot tweak failed: {}", e)))?;
+
+  Ok(tweaked.0.serialize())
 }
