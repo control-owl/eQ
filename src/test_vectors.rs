@@ -86,7 +86,13 @@ mod tests {
     let salt = format!("mnemonic{mnemonic_passphrase}");
     let mut seed = [0u8; 64];
 
-    ring::pbkdf2::derive(ring::pbkdf2::PBKDF2_HMAC_SHA512, std::num::NonZeroU32::new(2048).unwrap(), salt.as_bytes(), mnemonic.as_bytes(), &mut seed);
+    ring::pbkdf2::derive(
+      ring::pbkdf2::PBKDF2_HMAC_SHA512,
+      std::num::NonZeroU32::new(2048).unwrap(),
+      salt.as_bytes(),
+      mnemonic.as_bytes(),
+      &mut seed,
+    );
 
     Ok(seed)
   }
@@ -129,12 +135,13 @@ mod tests {
     ];
 
     for vector in entropy_mnemonic_vectors {
-      let mnemonic = match keys::generate_mnemonic_words(Zeroizing::new(String::from(vector.entropy)), None) {
-        Ok(mnemonic) => mnemonic,
-        Err(_) => {
-          panic!("Error deriving mnemonic words")
-        }
-      };
+      let mnemonic =
+        match keys::generate_mnemonic_words(Zeroizing::new(String::from(vector.entropy)), None) {
+          Ok(mnemonic) => mnemonic,
+          Err(_) => {
+            panic!("Error deriving mnemonic words")
+          }
+        };
       assert_eq!(mnemonic.as_str(), vector.mnemonic);
     }
   }
@@ -229,15 +236,57 @@ mod tests {
       match keys::generate_secp256k1_master_keys(&mut wallet) {
         Ok(_) => {}
         Err(err) => {
-          return Err(crate::AppError::log(format!("Problem with parsing private_header: {}", err)));
+          return Err(crate::AppError::log(format!(
+            "Problem with parsing private_header: {}",
+            err
+          )));
         }
       };
 
-      assert_eq!(wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded, Zeroizing::new(vector.expected_master_xprv.to_string()));
-      assert_eq!(wallet.secret_keys.master_secp256k1_keys.master_public_key_encoded, Zeroizing::new(vector.expected_master_xpub.to_string()));
-      assert_eq!(hex::encode(wallet.secret_keys.master_secp256k1_keys.master_private_key_bytes.clone()), vector.expected_master_private_key);
-      assert_eq!(hex::encode(wallet.secret_keys.master_secp256k1_keys.master_chain_code_bytes.clone()), vector.expected_master_chain_code);
-      assert_eq!(hex::encode(wallet.secret_keys.master_secp256k1_keys.master_public_key_bytes.clone()), vector.expected_master_public_key);
+      assert_eq!(
+        wallet
+          .secret_keys
+          .master_secp256k1_keys
+          .master_private_key_encoded,
+        Zeroizing::new(vector.expected_master_xprv.to_string())
+      );
+      assert_eq!(
+        wallet
+          .secret_keys
+          .master_secp256k1_keys
+          .master_public_key_encoded,
+        Zeroizing::new(vector.expected_master_xpub.to_string())
+      );
+      assert_eq!(
+        hex::encode(
+          wallet
+            .secret_keys
+            .master_secp256k1_keys
+            .master_private_key_bytes
+            .clone()
+        ),
+        vector.expected_master_private_key
+      );
+      assert_eq!(
+        hex::encode(
+          wallet
+            .secret_keys
+            .master_secp256k1_keys
+            .master_chain_code_bytes
+            .clone()
+        ),
+        vector.expected_master_chain_code
+      );
+      assert_eq!(
+        hex::encode(
+          wallet
+            .secret_keys
+            .master_secp256k1_keys
+            .master_public_key_bytes
+            .clone()
+        ),
+        vector.expected_master_public_key
+      );
     }
 
     Ok(())
@@ -321,10 +370,12 @@ mod tests {
     ];
 
     for vector in test_vectors {
-      let master_private_key_bytes: Zeroizing<Vec<u8>> =
-        Zeroizing::new(hex::decode(vector.master_private_key).expect("can not decode master_private_key"));
-      let master_chain_code_bytes: Zeroizing<Vec<u8>> =
-        Zeroizing::new(hex::decode(vector.master_chain_code).expect("can not decode master_chain_code"));
+      let master_private_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(
+        hex::decode(vector.master_private_key).expect("can not decode master_private_key"),
+      );
+      let master_chain_code_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(
+        hex::decode(vector.master_chain_code).expect("can not decode master_chain_code"),
+      );
 
       match keys::derive_secp256k1_child(
         master_private_key_bytes,
@@ -333,9 +384,18 @@ mod tests {
         Zeroizing::new(vector.hardened),
       ) {
         Ok(child_keys) => {
-          assert_eq!(hex::encode(child_keys.child_private_key_bytes.clone()), vector.expected_child_private_key_bytes);
-          assert_eq!(hex::encode(child_keys.child_chain_code_bytes.clone()), vector.expected_child_chain_code_bytes);
-          assert_eq!(hex::encode(child_keys.child_public_key_bytes.clone()), vector.expected_child_public_key_bytes);
+          assert_eq!(
+            hex::encode(child_keys.child_private_key_bytes.clone()),
+            vector.expected_child_private_key_bytes
+          );
+          assert_eq!(
+            hex::encode(child_keys.child_chain_code_bytes.clone()),
+            vector.expected_child_chain_code_bytes
+          );
+          assert_eq!(
+            hex::encode(child_keys.child_public_key_bytes.clone()),
+            vector.expected_child_public_key_bytes
+          );
         }
         _ => panic!("Error deriving keys"),
       }
@@ -583,24 +643,39 @@ mod tests {
       wallet.seed_secret.seed = Zeroizing::new(String::from(vector.seed));
       wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
       wallet.address_components.coin_name = Zeroizing::new(vector.coin_name.to_string());
-      wallet.address_components.public_key_hash = Zeroizing::new(vector.public_key_hash.to_string());
+      wallet.address_components.public_key_hash =
+        Zeroizing::new(vector.public_key_hash.to_string());
       wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
-      wallet.address_components.wallet_import_format = Zeroizing::new(vector.wallet_import_format.to_string());
+      wallet.address_components.wallet_import_format =
+        Zeroizing::new(vector.wallet_import_format.to_string());
       wallet.address_components.hash = Zeroizing::new(vector.hash.to_string());
 
       keys::generate_secp256k1_master_keys(&mut wallet)?;
       keys::generate_secp256k1_child_keys(&mut wallet)?;
 
-      let legacy = *vector.derivation_path.purpose != 86;
+      // let legacy = *vector.derivation_path.purpose != 86;
 
-      keys::generate_secp256k1_address(&mut wallet, legacy)?;
+      keys::generate_secp256k1_address(&mut wallet)?;
 
-      let addresses = wallet.addresses_by_coin.0.get(vector.coin_name).expect("Coin not found");
+      let addresses = wallet
+        .addresses_by_coin
+        .0
+        .get(vector.coin_name)
+        .expect("Coin not found");
       let first = addresses.first().expect("No address stored for this coin");
 
-      assert_eq!(first.address, Zeroizing::new(vector.expected_address.to_string()));
-      assert_eq!(first.public_key, Zeroizing::new(vector.expected_public_key.to_string()));
-      assert_eq!(first.private_key, Zeroizing::new(vector.expected_private_key.to_string()));
+      assert_eq!(
+        first.address,
+        Zeroizing::new(vector.expected_address.to_string())
+      );
+      assert_eq!(
+        first.public_key,
+        Zeroizing::new(vector.expected_public_key.to_string())
+      );
+      assert_eq!(
+        first.private_key,
+        Zeroizing::new(vector.expected_private_key.to_string())
+      );
     }
     Ok(())
   }
@@ -714,28 +789,60 @@ mod tests {
         }
       };
 
-      let (address, _public_key, _private_key) = match *wallet.address_components.derivation_path.coin {
-        501 => {
-          let address = bs58::encode(wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.clone()).into_string();
-          (
-            address,
-            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_public_key_bytes)),
-            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_private_key_bytes)),
-          )
-        }
-        43 => {
-          let pub_key_hash: Zeroizing<String> = Zeroizing::new(vector.public_key_hash.to_string());
-          let pubkey_array: Zeroizing<[u8; 32]> =
-            Zeroizing::new(wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.as_slice().try_into().unwrap());
-          let address = keys::generate_nem_address(pubkey_array, pub_key_hash).unwrap().to_string();
-          (
-            address,
-            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_public_key_bytes)),
-            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_private_key_bytes)),
-          )
-        }
-        _ => panic!("Unsupported ed25519 coin_index"),
-      };
+      let (address, _public_key, _private_key) =
+        match *wallet.address_components.derivation_path.coin {
+          501 => {
+            let address = bs58::encode(
+              wallet
+                .secret_keys
+                .child_ed25519_keys
+                .child_public_key_bytes
+                .clone(),
+            )
+            .into_string();
+            (
+              address,
+              Zeroizing::new(hex::encode(
+                &wallet.secret_keys.child_ed25519_keys.child_public_key_bytes,
+              )),
+              Zeroizing::new(hex::encode(
+                &wallet
+                  .secret_keys
+                  .child_ed25519_keys
+                  .child_private_key_bytes,
+              )),
+            )
+          }
+          43 => {
+            let pub_key_hash: Zeroizing<String> =
+              Zeroizing::new(vector.public_key_hash.to_string());
+            let pubkey_array: Zeroizing<[u8; 32]> = Zeroizing::new(
+              wallet
+                .secret_keys
+                .child_ed25519_keys
+                .child_public_key_bytes
+                .as_slice()
+                .try_into()
+                .unwrap(),
+            );
+            let address = keys::generate_nem_address(pubkey_array, pub_key_hash)
+              .unwrap()
+              .to_string();
+            (
+              address,
+              Zeroizing::new(hex::encode(
+                &wallet.secret_keys.child_ed25519_keys.child_public_key_bytes,
+              )),
+              Zeroizing::new(hex::encode(
+                &wallet
+                  .secret_keys
+                  .child_ed25519_keys
+                  .child_private_key_bytes,
+              )),
+            )
+          }
+          _ => panic!("Unsupported ed25519 coin_index"),
+        };
 
       assert_eq!(address, vector.expected_ed25519_address);
     }
@@ -745,24 +852,36 @@ mod tests {
   fn test_private_key_to_taproot_address() -> FunctionOutput<()> {
     let test_vectors = vec![
       _TaprootTestVector {
-        private_key_hex: "ec001e81736b115fe8f19580a04508e91cc575a63f22d7708c5920c9846e9738".to_string(),
-        expected_tweaked_pubkey: "1b52784dc657018e3d65852e7017f3651759c39ccde83da93edf1b8f9bbc3868".to_string(),
-        expected_address: "bc1prdf8snwx2uqcu0t9s5h8q9lnv5t4nsuueh5rm2f7mudclxau8p5qj53lkg".to_string(),
+        private_key_hex: "ec001e81736b115fe8f19580a04508e91cc575a63f22d7708c5920c9846e9738"
+          .to_string(),
+        expected_tweaked_pubkey: "1b52784dc657018e3d65852e7017f3651759c39ccde83da93edf1b8f9bbc3868"
+          .to_string(),
+        expected_address: "bc1prdf8snwx2uqcu0t9s5h8q9lnv5t4nsuueh5rm2f7mudclxau8p5qj53lkg"
+          .to_string(),
       },
       _TaprootTestVector {
-        private_key_hex: "8895f49af1ea5fb3f11232033631947cfc9569cc3e4847a06270b74a8a85d89f".to_string(),
-        expected_tweaked_pubkey: "153ff536e05521f9dd16838fd8c71fccec1c5692f351146422306d6c60250c91".to_string(),
-        expected_address: "bc1pz5ll2dhq25slnhgksw8a33clenkpc45j7dg3gepzxpkkccp9pjgskj0609".to_string(),
+        private_key_hex: "8895f49af1ea5fb3f11232033631947cfc9569cc3e4847a06270b74a8a85d89f"
+          .to_string(),
+        expected_tweaked_pubkey: "153ff536e05521f9dd16838fd8c71fccec1c5692f351146422306d6c60250c91"
+          .to_string(),
+        expected_address: "bc1pz5ll2dhq25slnhgksw8a33clenkpc45j7dg3gepzxpkkccp9pjgskj0609"
+          .to_string(),
       },
       _TaprootTestVector {
-        private_key_hex: "0000000000000000000000000000000000000000000000000000000000000001".to_string(),
-        expected_tweaked_pubkey: "da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21".to_string(),
-        expected_address: "bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9".to_string(),
+        private_key_hex: "0000000000000000000000000000000000000000000000000000000000000001"
+          .to_string(),
+        expected_tweaked_pubkey: "da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21"
+          .to_string(),
+        expected_address: "bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9"
+          .to_string(),
       },
       _TaprootTestVector {
-        private_key_hex: "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140".to_string(),
-        expected_tweaked_pubkey: "da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21".to_string(),
-        expected_address: "bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9".to_string(),
+        private_key_hex: "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"
+          .to_string(),
+        expected_tweaked_pubkey: "da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21"
+          .to_string(),
+        expected_address: "bc1pmfr3p9j00pfxjh0zmgp99y8zftmd3s5pmedqhyptwy6lm87hf5sspknck9"
+          .to_string(),
       },
     ];
 
@@ -776,24 +895,32 @@ mod tests {
       wallet.address_components.hash = Zeroizing::new("sha256".to_string());
 
       let priv_bytes = hex::decode(&vector.private_key_hex).unwrap();
-      wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes = Zeroizing::new(priv_bytes.clone());
+      wallet
+        .secret_keys
+        .child_secp256k1_keys
+        .child_private_key_bytes = Zeroizing::new(priv_bytes.clone());
 
       let private_key: Zeroizing<[u8; 32]> = Zeroizing::new(priv_bytes.try_into().unwrap());
 
       let public_key = keys::generate_public_key(&mut wallet)?;
 
       let taproot_data = crate::keys::generate_bitcoin_taproot_address(
+        &mut wallet,
         &public_key,
-        &wallet.address_components.derivation_path.coin,
         &Zeroizing::new("m/86'/0'/0'/0/0'".to_string()),
-        &wallet.address_components.hash,
-        &wallet.address_components.key_derivation,
-        &wallet.address_components.wallet_import_format,
         private_key,
       )?;
 
-      assert_eq!(taproot_data.address.as_str(), vector.expected_address, "Taproot address does not match expected value");
-      assert_eq!(taproot_data.public_key.as_str(), vector.expected_tweaked_pubkey, "Tweaked public key does not match");
+      assert_eq!(
+        taproot_data.address.as_str(),
+        vector.expected_address,
+        "Taproot address does not match expected value"
+      );
+      assert_eq!(
+        taproot_data.public_key.as_str(),
+        vector.expected_tweaked_pubkey,
+        "Tweaked public key does not match"
+      );
     }
 
     Ok(())
@@ -808,11 +935,19 @@ fn nem_whitepaper_example_address() {
 
   let pubkey_hex = "c5247738c3a510fb6c11413331d8a47764f6e78ffcdb02b6878d5dd3b77f38ed";
   let pubkey_bytes = hex::decode(pubkey_hex).expect("invalid hex");
-  let pubkey_arr: [u8; 32] = pubkey_bytes.try_into().expect("public key must be 32 bytes");
+  let pubkey_arr: [u8; 32] = pubkey_bytes
+    .try_into()
+    .expect("public key must be 32 bytes");
 
-  let addr = crate::keys::generate_nem_address(Zeroizing::new(pubkey_arr), Zeroizing::new("0x68".to_string()))
-    .expect("failed to generate NEM address")
-    .to_string();
+  let addr = crate::keys::generate_nem_address(
+    Zeroizing::new(pubkey_arr),
+    Zeroizing::new("0x68".to_string()),
+  )
+  .expect("failed to generate NEM address")
+  .to_string();
 
-  assert_eq!(addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6", "Whitepaper example address must match exactly");
+  assert_eq!(
+    addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6",
+    "Whitepaper example address must match exactly"
+  );
 }

@@ -31,7 +31,7 @@ const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const _APP_AUTHOR: Option<&str> = option_env!("CARGO_PKG_AUTHORS");
 const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &["RNG", "QRNG", "File"];
-const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
+// const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
 const TEXT_WRAPPER: f32 = 300.0;
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -64,18 +64,12 @@ impl AppError {
 }
 
 impl std::fmt::Display for AppError {
-  fn fmt(
-    &self,
-    f: &mut std::fmt::Formatter,
-  ) -> std::fmt::Result {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(f, "{}", self.0)
   }
 }
 
-pub fn d3bug(
-  message: &str,
-  msg_type: &str,
-) {
+pub fn d3bug(message: &str, msg_type: &str) {
   let (color_code, prefix) = match msg_type {
     "info" => ("\x1b[34m", "[INFO] "),       // Blue
     "debug" => ("\x1b[32m", "[DEBUG] "),     // Green
@@ -221,6 +215,29 @@ impl Zeroize for Addresses {
   }
 }
 
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+struct ExtraWalletData {
+  unify_evm: bool,
+  unify_master_keys: bool,
+  hardened_address: bool,
+  bitcoin_legacy_addresses: bool,
+  active_bip: u32,
+}
+
+impl ExtraWalletData {
+  fn new() -> Self {
+    ExtraWalletData {
+      unify_evm: false,
+      unify_master_keys: true,
+      hardened_address: true,
+
+      bitcoin_legacy_addresses: false,
+
+      active_bip: 44,
+    }
+  }
+}
+
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone)]
@@ -239,11 +256,6 @@ struct GuiSettings {
   anu_dialog: crypt::ShowAnuDialog,
 
   hide_private_keys: bool,
-  unify_evm: bool,
-  unify_master_keys: bool,
-  hardened_address: bool,
-
-  bitcoin_legacy_addresses: bool,
 }
 
 impl GuiSettings {
@@ -265,11 +277,6 @@ impl GuiSettings {
       anu_dialog: crypt::ShowAnuDialog::new(),
 
       hide_private_keys: true,
-      unify_evm: false,
-      unify_master_keys: true,
-      hardened_address: true,
-
-      bitcoin_legacy_addresses: false,
     }
   }
 }
@@ -282,6 +289,7 @@ struct CryptoWallet {
   secret_keys: Zeroizing<SecretKeyData>,
   address_components: Zeroizing<AddressPublicData>,
   addresses_by_coin: Zeroizing<Addresses>,
+  wallet_data: Zeroizing<ExtraWalletData>,
 }
 
 impl CryptoWallet {
@@ -292,6 +300,7 @@ impl CryptoWallet {
       secret_keys: Zeroizing::new(SecretKeyData::default()),
       address_components: Zeroizing::new(AddressPublicData::default()),
       addresses_by_coin: Zeroizing::new(Addresses(BTreeMap::new())),
+      wallet_data: Zeroizing::new(ExtraWalletData::new()),
     }
   }
 }
@@ -306,7 +315,10 @@ struct EgoQuantum {
 impl EgoQuantum {
   fn new() -> Self {
     // TODO: Get values from local config
-    Self { wallet: Zeroizing::new(CryptoWallet::new()), gui: GuiSettings::new() }
+    Self {
+      wallet: Zeroizing::new(CryptoWallet::new()),
+      gui: GuiSettings::new(),
+    }
   }
 
   fn generate_new_wallet(
@@ -319,33 +331,61 @@ impl EgoQuantum {
     };
 
     let bip: Zeroizing<u32> = match entropy_source.as_str() {
-      "Load wallet" => self.wallet.address_components.derivation_path.purpose.clone(),
+      "Load wallet" => self
+        .wallet
+        .address_components
+        .derivation_path
+        .purpose
+        .clone(),
       _ => self.get_bip(),
     };
 
-    if self.wallet.seed_secret.raw_entropy.is_empty() || self.wallet.seed_secret.full_entropy.is_empty() {
+    if self.wallet.seed_secret.raw_entropy.is_empty()
+      || self.wallet.seed_secret.full_entropy.is_empty()
+    {
       match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!("Problem with generating seed: {}", err)));
+          return Err(AppError::log(format!(
+            "Problem with generating seed: {}",
+            err
+          )));
         }
       };
     };
 
-    if self.wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded.is_empty() {
+    if self
+      .wallet
+      .secret_keys
+      .master_secp256k1_keys
+      .master_private_key_encoded
+      .is_empty()
+    {
       match keys::generate_secp256k1_master_keys(&mut self.wallet) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!("Problem with generating secp256k1 master keys: {}", err)));
+          return Err(AppError::log(format!(
+            "Problem with generating secp256k1 master keys: {}",
+            err
+          )));
         }
       };
     };
 
-    if self.wallet.secret_keys.master_ed25519_keys.master_private_key_encoded.is_empty() {
+    if self
+      .wallet
+      .secret_keys
+      .master_ed25519_keys
+      .master_private_key_encoded
+      .is_empty()
+    {
       match keys::generate_ed25519_master_keys(&mut self.wallet) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!("Problem with generating ed25519 master keys: {}", err)));
+          return Err(AppError::log(format!(
+            "Problem with generating ed25519 master keys: {}",
+            err
+          )));
         }
       };
     };
@@ -371,7 +411,12 @@ impl EgoQuantum {
 
     // ECDB: Extended Coin DataBase
     let resource_path = std::path::Path::new("coin").join("ECDB.csv");
-    let resource_path_str: Zeroizing<String> = Zeroizing::new(resource_path.into_os_string().into_string().unwrap_or_default());
+    let resource_path_str: Zeroizing<String> = Zeroizing::new(
+      resource_path
+        .into_os_string()
+        .into_string()
+        .unwrap_or_default(),
+    );
     let ecdb_file = e_q::get_file_from_resources(resource_path_str);
 
     if let Ok(file) = ecdb_file {
@@ -388,22 +433,42 @@ impl EgoQuantum {
 
             // TODO: Remove hardcoding, add parameters to GUI selection
             self.wallet.address_components.derivation_path.purpose = bip.clone();
-            self.wallet.address_components.derivation_path.coin = Zeroizing::new(columns[1].parse().unwrap_or(0));
-            self.wallet.address_components.derivation_path.purpose_hardened = Zeroizing::new(true);
+            self.wallet.address_components.derivation_path.coin =
+              Zeroizing::new(columns[1].parse().unwrap_or(0));
+            self
+              .wallet
+              .address_components
+              .derivation_path
+              .purpose_hardened = Zeroizing::new(true);
             self.wallet.address_components.derivation_path.coin_hardened = Zeroizing::new(true);
-            self.wallet.address_components.derivation_path.account_hardened = Zeroizing::new(true);
-            self.wallet.address_components.derivation_path.change_hardened = Zeroizing::new(*bip == 32);
-            self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.gui.hardened_address);
+            self
+              .wallet
+              .address_components
+              .derivation_path
+              .account_hardened = Zeroizing::new(true);
+            self
+              .wallet
+              .address_components
+              .derivation_path
+              .change_hardened = Zeroizing::new(*bip == 32);
+            self
+              .wallet
+              .address_components
+              .derivation_path
+              .address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
 
             self.wallet.address_components.coin_name = Zeroizing::new(columns[3].to_string());
             self.wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
             self.wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
             self.wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());
-            self.wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
-            self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
+            self.wallet.address_components.wallet_import_format =
+              Zeroizing::new(columns[10].to_string());
+            self.wallet.address_components.evm =
+              Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
             for address_index in start_index..end_index {
-              self.wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
+              self.wallet.address_components.derivation_path.address =
+                Zeroizing::new(address_index);
 
               match self.wallet.address_components.key_derivation.as_str() {
                 "secp256k1" => {
@@ -414,11 +479,13 @@ impl EgoQuantum {
                     }
                   };
 
-                  // match keys::generate_secp256k1_address(&mut self.wallet, Some(self.wallet.address_components.evm)) {
-                  match keys::generate_secp256k1_address(&mut self.wallet, self.gui.bitcoin_legacy_addresses) {
+                  match keys::generate_secp256k1_address(&mut self.wallet) {
                     Ok(_) => {}
                     Err(err) => {
-                      return Err(AppError::log(format!("Can not derive secp256k1 address: {}", err)));
+                      return Err(AppError::log(format!(
+                        "Can not derive secp256k1 address: {}",
+                        err
+                      )));
                     }
                   };
                 }
@@ -433,12 +500,18 @@ impl EgoQuantum {
                   match keys::generate_ed25519_address(&mut self.wallet) {
                     Ok(_) => {}
                     Err(err) => {
-                      return Err(AppError::log(format!("Can not derive ed25519 address: {}", err)));
+                      return Err(AppError::log(format!(
+                        "Can not derive ed25519 address: {}",
+                        err
+                      )));
                     }
                   };
                 }
                 _ => {
-                  return Err(AppError::log(format!("Unsupported key derivation: {:?}", self.wallet.address_components.key_derivation)));
+                  return Err(AppError::log(format!(
+                    "Unsupported key derivation: {:?}",
+                    self.wallet.address_components.key_derivation
+                  )));
                 }
               }
             }
@@ -456,10 +529,7 @@ impl EgoQuantum {
     Ok(())
   }
 
-  fn render_entropy_dropdown(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
+  fn render_entropy_dropdown(&mut self, ui: &mut egui::Ui) {
     Frame::group(ui.style()).show(ui, |ui| {
       let descriptions = [
         "Uses your device's built-in random number generator (CPU).",
@@ -507,67 +577,57 @@ impl EgoQuantum {
     });
   }
 
-  fn render_derivation_dropdown(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
-    Frame::group(ui.style()).show(ui, |ui| {
-      let descriptions = ["Classic hierarchical wallet derivation.", "Structured derivation path used for multi-coin wallets."];
-
-      if *self.wallet.address_components.derivation_path.purpose == 0 {
-        self.wallet.address_components.derivation_path.purpose = Zeroizing::new(44);
-      }
-
-      ComboBox::from_label("Derivation Path").selected_text(self.wallet.address_components.derivation_path.purpose.to_string()).show_ui(ui, |ui| {
-        ui.selectable_value(
-          &mut *self.wallet.address_components.derivation_path.purpose,
-          VALID_BIP_DERIVATIONS[0],
-          VALID_BIP_DERIVATIONS[0].to_string(),
-        )
-        .on_hover_text_at_pointer(descriptions[0]);
-
-        ui.selectable_value(
-          &mut *self.wallet.address_components.derivation_path.purpose,
-          VALID_BIP_DERIVATIONS[1],
-          VALID_BIP_DERIVATIONS[1].to_string(),
-        )
-        .on_hover_text_at_pointer(descriptions[1]);
-      });
-    });
-  }
-
-  fn render_mnemonic_options(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
+  fn render_mnemonic_options(&mut self, ui: &mut egui::Ui) {
     Frame::group(ui.style()).show(ui, |ui| {
       let sources = ["RNG", "Custom", "Off"];
-      let descriptions = ["Randomize mnemonic passphrase with built-in RNG.", "Input your own mnemonic passphrase.", "Disable mnemonic passphrase."];
+      let descriptions = [
+        "Randomize mnemonic passphrase with built-in RNG.",
+        "Input your own mnemonic passphrase.",
+        "Disable mnemonic passphrase.",
+      ];
 
-      if self.wallet.seed_secret.mnemonic_passphrase_source.is_empty() {
-        self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(String::from(sources[0]));
+      if self
+        .wallet
+        .seed_secret
+        .mnemonic_passphrase_source
+        .is_empty()
+      {
+        self.wallet.seed_secret.mnemonic_passphrase_source =
+          Zeroizing::new(String::from(sources[0]));
       }
 
       let current = &*self.wallet.seed_secret.mnemonic_passphrase_source;
 
-      ComboBox::from_label("Mnemonic passphrase").selected_text(current).show_ui(ui, |ui| {
-        ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[0]), sources[0])
+      ComboBox::from_label("Mnemonic passphrase")
+        .selected_text(current)
+        .show_ui(ui, |ui| {
+          ui.selectable_value(
+            &mut *self.wallet.seed_secret.mnemonic_passphrase_source,
+            String::from(sources[0]),
+            sources[0],
+          )
           .on_hover_text_at_pointer(descriptions[0]);
 
-        ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[1]), sources[1])
+          #[cfg(feature = "dev")]
+          ui.selectable_value(
+            &mut *self.wallet.seed_secret.mnemonic_passphrase_source,
+            String::from(sources[1]),
+            sources[1],
+          )
           .on_hover_text_at_pointer(descriptions[1]);
 
-        #[cfg(feature = "dev")]
-        ui.selectable_value(&mut *self.wallet.seed_secret.mnemonic_passphrase_source, String::from(sources[2]), sources[2])
+          #[cfg(feature = "dev")]
+          ui.selectable_value(
+            &mut *self.wallet.seed_secret.mnemonic_passphrase_source,
+            String::from(sources[2]),
+            sources[2],
+          )
           .on_hover_text_at_pointer(descriptions[2]);
-      });
+        });
     });
   }
 
-  fn render_wallet_header(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
+  fn render_wallet_header(&mut self, ui: &mut egui::Ui) {
     let devel = String::from("Still in development");
     let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
@@ -726,7 +786,7 @@ impl EgoQuantum {
           "Show addresses exactly as derived for each chain, preserving native formatting and reducing cross-chain linkability for greater privacy.",
         ];
 
-        let evm_resp: egui::Response = ui.add_enabled(false,egui::Checkbox::new(&mut self.gui.unify_evm, "Standardize EVM Addresses"));
+        let evm_resp: egui::Response = ui.add_enabled(false,egui::Checkbox::new(&mut self.wallet.wallet_data.unify_evm, "Standardize EVM Addresses"));
         evm_resp.on_hover_text(evm_label.join("\n")).on_disabled_hover_text(&devel);
 
         let master_label = ["When enabled:",
@@ -736,7 +796,7 @@ impl EgoQuantum {
           "If coin has its own Master Private Key headers then they will be used.",
         ];
 
-        let master_resp: egui::Response = ui.add_enabled(false, egui::Checkbox::new(&mut self.gui.unify_master_keys, "Unify Master Keys"));
+        let master_resp: egui::Response = ui.add_enabled(false, egui::Checkbox::new(&mut self.wallet.wallet_data.unify_master_keys, "Unify Master Keys"));
         master_resp.on_hover_text(master_label.join("\n")).on_disabled_hover_text(&devel);
 
         let hardened_address_label = ["When enabled:",
@@ -748,7 +808,7 @@ impl EgoQuantum {
 
         let hardened_address_resp = ui.add_enabled(
             true,
-            egui::Checkbox::new(&mut self.gui.hardened_address, "Hardened Addresses")
+            egui::Checkbox::new(&mut self.wallet.wallet_data.hardened_address, "Hardened Addresses")
         );
 
         if hardened_address_resp.changed() && has_addresses {
@@ -757,6 +817,35 @@ impl EgoQuantum {
 
         hardened_address_resp
             .on_hover_text(hardened_address_label.join("\n"))
+            .on_disabled_hover_text(&devel);
+
+        // BIP32 Derivation path
+        let mut is_bip32 = self.wallet.wallet_data.active_bip == 32;
+
+        let bip_32_label = ["When enabled:",
+          "Wallet will follow BIP32 derivation path",
+          "\n",
+          "When disabled:",
+          "Wallet will follow BIP44 derivation path",
+        ];
+
+        let bip_32_response = ui.add(egui::Checkbox::new(
+            &mut is_bip32,
+            "Use BIP32 Derivation path"
+        ));
+
+        if bip_32_response.changed() {
+            self.wallet.wallet_data.active_bip = if is_bip32 { 32 } else { 44 };
+            self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
+
+            if has_addresses {
+                let _ = self.generate_new_addresses();
+            }
+
+        }
+
+        bip_32_response
+            .on_hover_text(bip_32_label.join("\n"))
             .on_disabled_hover_text(&devel);
 
         ui.separator();
@@ -797,7 +886,7 @@ impl EgoQuantum {
             "Generates only Taproot addresses",
           ];
 
-          let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.gui.bitcoin_legacy_addresses, "Generate legacy addresses"));
+          let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
           bitcoin_legacy_resp.on_hover_text(bitcoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
         });
       });
@@ -825,7 +914,7 @@ impl EgoQuantum {
       ui.vertical(|ui| {
         ui.vertical_centered_justified(|ui| {
           self.render_entropy_dropdown(ui);
-          self.render_derivation_dropdown(ui);
+          // self.render_derivation_dropdown(ui);
           self.render_mnemonic_options(ui);
         });
       });
@@ -833,22 +922,27 @@ impl EgoQuantum {
       ui.vertical_centered_justified(|ui| {
         ui.horizontal_wrapped(|ui| {
           self.render_entropy_dropdown(ui);
-          self.render_derivation_dropdown(ui);
+          // self.render_derivation_dropdown(ui);
           self.render_mnemonic_options(ui);
         });
       });
     }
   }
 
-  fn render_wallet_table(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
+  fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
     let available_height = ui.available_height();
     let font = egui::FontId::monospace(12.0);
     let row_height = font.size + GUI_MARGIN;
 
-    let column_names = ["Index", "Icon", "Coin", "Path", "Address", "Public key", "Private Key"];
+    let column_names = [
+      "Index",
+      "Icon",
+      "Coin",
+      "Path",
+      "Address",
+      "Public key",
+      "Private Key",
+    ];
 
     let active_columns = if cfg!(feature = "dev") { 7 } else { 6 };
 
@@ -860,7 +954,12 @@ impl EgoQuantum {
       .min_scrolled_height(0.0)
       .max_scroll_height(available_height)
       .animate_scrolling(true)
-      .columns(Column::remainder().auto_size_this_frame(true).resizable(true), active_columns)
+      .columns(
+        Column::remainder()
+          .auto_size_this_frame(true)
+          .resizable(true),
+        active_columns,
+      )
       .header(row_height, |mut header| {
         #[cfg(feature = "dev")]
         header.col(|ui| {
@@ -903,8 +1002,11 @@ impl EgoQuantum {
               });
 
               row.col(|ui| {
-                let icon_path = std::path::Path::new("coin").join("logo").join(format!("{}.svg", *first.coin_index));
-                let icon_path_str: Zeroizing<String> = Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
+                let icon_path = std::path::Path::new("coin")
+                  .join("logo")
+                  .join(format!("{}.svg", *first.coin_index));
+                let icon_path_str: Zeroizing<String> =
+                  Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
 
                 match e_q::get_file_from_resources(icon_path_str) {
                   Ok(file) => {
@@ -921,10 +1023,11 @@ impl EgoQuantum {
               });
 
               row.col(|ui| {
-                let collapsing_resp = egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
-                  .id_salt(format!("coin_group:{}", coin))
-                  .default_open(false)
-                  .show(ui, |_ui| {});
+                let collapsing_resp =
+                  egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
+                    .id_salt(format!("coin_group:{}", coin))
+                    .default_open(false)
+                    .show(ui, |_ui| {});
 
                 group_expanded = collapsing_resp.body_returned.is_some();
               });
@@ -1015,7 +1118,8 @@ impl EgoQuantum {
                         ui.ctx().copy_text(addr.private_key.to_string());
                       }
 
-                      let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
+                      let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys
+                      {
                         &addr.private_key
                       } else {
                         "••••••••••••••••"
@@ -1031,10 +1135,7 @@ impl EgoQuantum {
       });
   }
 
-  fn render_wallet_footer(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) -> FunctionOutput<()> {
+  fn render_wallet_footer(&mut self, ui: &mut egui::Ui) -> FunctionOutput<()> {
     let total_width = ui.available_width();
 
     ui.horizontal(|ui| {
@@ -1044,11 +1145,15 @@ impl EgoQuantum {
 
       ui.add_space(GUI_MARGIN);
 
-      let button_length = e_q::calculate_max_text_width(ui, &button_descriptions, font_id.clone(), color);
+      let button_length =
+        e_q::calculate_max_text_width(ui, &button_descriptions, font_id.clone(), color);
       ui.add_space((total_width / 2.0) - button_length - (4.0 * GUI_MARGIN / 2.0));
 
-      let button_label =
-        if self.wallet.addresses_by_coin.0.is_empty() { button_descriptions[0] } else { &format!("+{} more addresses", self.gui.address_count) };
+      let button_label = if self.wallet.addresses_by_coin.0.is_empty() {
+        button_descriptions[0]
+      } else {
+        &format!("+{} more addresses", self.gui.address_count)
+      };
 
       if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
         if ui.button(button_label).clicked() {
@@ -1079,7 +1184,7 @@ impl EgoQuantum {
   }
 
   fn get_bip(&mut self) -> Zeroizing<u32> {
-    self.wallet.address_components.derivation_path.purpose.clone()
+    Zeroizing::new(self.wallet.wallet_data.active_bip.clone())
   }
 
   fn generate_new_addresses(&mut self) -> FunctionOutput<()> {
@@ -1093,11 +1198,7 @@ impl EgoQuantum {
 }
 
 impl eframe::App for EgoQuantum {
-  fn ui(
-    &mut self,
-    ui: &mut egui::Ui,
-    _frame: &mut eframe::Frame,
-  ) {
+  fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
     let ctx = ui.ctx().clone();
 
     match self.gui.theme.as_str() {
@@ -1122,10 +1223,14 @@ impl eframe::App for EgoQuantum {
     });
 
     egui::CentralPanel::default().show_inside(ui, |ui| {
-      egui::ScrollArea::horizontal().scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded).show(ui, |ui| {
-        ui.take_available_height();
-        self.render_wallet_table(ui);
-      });
+      egui::ScrollArea::horizontal()
+        .scroll_bar_visibility(
+          egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+        )
+        .show(ui, |ui| {
+          ui.take_available_height();
+          self.render_wallet_table(ui);
+        });
     });
 
     self.gui.save_dialog.show(ui.ctx());
@@ -1133,7 +1238,10 @@ impl eframe::App for EgoQuantum {
     self.gui.secrets_dialog.show(ui.ctx());
     self.gui.anu_dialog.show(ui.ctx());
 
-    if let Some(loaded_wallet) = ui.ctx().data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet"))) {
+    if let Some(loaded_wallet) = ui
+      .ctx()
+      .data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("loaded_wallet")))
+    {
       self.wallet = loaded_wallet;
 
       if let Err(err) = self.generate_new_wallet(Some(Zeroizing::new(String::from("SVG")))) {
@@ -1147,19 +1255,26 @@ impl eframe::App for EgoQuantum {
 
 fn set_app_icon() -> FunctionOutput<egui::IconData> {
   let resource_path = std::path::Path::new("logo").join("logo.png");
-  let resource_path_str: Zeroizing<String> = Zeroizing::new(resource_path.to_str().unwrap_or_default().to_string());
+  let resource_path_str: Zeroizing<String> =
+    Zeroizing::new(resource_path.to_str().unwrap_or_default().to_string());
 
   let icon_file = match e_q::get_file_from_resources(resource_path_str) {
     Ok(file) => file,
     Err(err) => {
-      return Err(AppError::log(format!("Problem with finding app logo file: {}", err)));
+      return Err(AppError::log(format!(
+        "Problem with finding app logo file: {}",
+        err
+      )));
     }
   };
 
   let app_icon = match eframe::icon_data::from_png_bytes(icon_file.contents()) {
     Ok(icon) => icon,
     Err(err) => {
-      return Err(AppError::log(format!("Problem with reading app logo icon: {}", err)));
+      return Err(AppError::log(format!(
+        "Problem with reading app logo icon: {}",
+        err
+      )));
     }
   };
 
@@ -1169,7 +1284,13 @@ fn set_app_icon() -> FunctionOutput<egui::IconData> {
 fn set_app_title() -> FunctionOutput<String> {
   let feature = e_q::get_active_app_feature();
 
-  let title = format!("{} - {} {} ({})", APP_NAME.unwrap_or("eQ"), APP_DESCRIPTION.unwrap_or_default(), APP_VERSION.unwrap_or_default(), feature);
+  let title = format!(
+    "{} - {} {} ({})",
+    APP_NAME.unwrap_or("eQ"),
+    APP_DESCRIPTION.unwrap_or_default(),
+    APP_VERSION.unwrap_or_default(),
+    feature
+  );
 
   Ok(title)
 }
@@ -1178,14 +1299,20 @@ fn main() -> FunctionOutput<()> {
   let app_icon = match set_app_icon() {
     Ok(icon) => icon,
     Err(err) => {
-      return Err(AppError::log(format!("Problem with setting app logo icon: {}", err)));
+      return Err(AppError::log(format!(
+        "Problem with setting app logo icon: {}",
+        err
+      )));
     }
   };
 
   let app_title = match set_app_title() {
     Ok(title) => title,
     Err(err) => {
-      return Err(AppError::log(format!("Problem with setting app title: {}", err)));
+      return Err(AppError::log(format!(
+        "Problem with setting app title: {}",
+        err
+      )));
     }
   };
 
@@ -1237,12 +1364,22 @@ pub fn export_addresses_csv(
   if include_private {
     match writeln!(file, "coin,coin_index,path,address,public_key,private_key") {
       Ok(_) => {}
-      Err(err) => return Err(AppError::log(format!("Can not create private header in CSV: {}", err))),
+      Err(err) => {
+        return Err(AppError::log(format!(
+          "Can not create private header in CSV: {}",
+          err
+        )));
+      }
     };
   } else {
     match writeln!(file, "coin,coin_index,path,address,public_key") {
       Ok(_) => {}
-      Err(err) => return Err(AppError::log(format!("Can not create public header in CSV: {}", err))),
+      Err(err) => {
+        return Err(AppError::log(format!(
+          "Can not create public header in CSV: {}",
+          err
+        )));
+      }
     };
   }
 
@@ -1275,7 +1412,12 @@ pub fn export_addresses_csv(
 
       match writeln!(file, "{}", fields.join(",")) {
         Ok(_) => {}
-        Err(err) => return Err(AppError::log(format!("Can not export content to CSV: {}", err))),
+        Err(err) => {
+          return Err(AppError::log(format!(
+            "Can not export content to CSV: {}",
+            err
+          )));
+        }
       };
     }
   }

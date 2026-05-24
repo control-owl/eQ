@@ -28,7 +28,7 @@ pub fn get_free_memory_size() -> usize {
   } else {
     // TODO: get total active coins number from ECDB
     // Minimum fallback
-    270
+    300
   }
 }
 
@@ -38,12 +38,23 @@ pub fn calculate_max_text_width(
   font_id: egui::FontId,
   color: egui::Color32,
 ) -> f32 {
-  ui.fonts_mut(|font| texts.iter().map(|text| font.layout_no_wrap(text.to_string(), font_id.clone(), color).size().x).fold(0.0, f32::max))
+  ui.fonts_mut(|font| {
+    texts
+      .iter()
+      .map(|text| {
+        font
+          .layout_no_wrap(text.to_string(), font_id.clone(), color)
+          .size()
+          .x
+      })
+      .fold(0.0, f32::max)
+  })
 }
 
 pub fn calculate_checksum_for_entropy(entropy: Zeroizing<String>) -> Zeroizing<String> {
   let entropy_binary: Zeroizing<Vec<u8>> = convert_string_to_binary(entropy.clone());
-  let hash_raw_binary: Zeroizing<String> = convert_binary_to_string(Zeroizing::new(Sha256::digest(&entropy_binary).to_vec()));
+  let hash_raw_binary: Zeroizing<String> =
+    convert_binary_to_string(Zeroizing::new(Sha256::digest(&entropy_binary).to_vec()));
 
   let checksum_length: Zeroizing<usize> = match entropy.len() {
     128 => Zeroizing::new(4),
@@ -62,12 +73,26 @@ pub fn calculate_checksum_for_entropy(entropy: Zeroizing<String>) -> Zeroizing<S
 
 pub fn convert_string_to_binary(input_value: Zeroizing<String>) -> Zeroizing<Vec<u8>> {
   Zeroizing::new(
-    input_value.chars().collect::<Vec<char>>().chunks(8).map(|chunk| chunk.iter().fold(0, |acc, &bit| (acc << 1) | (bit as u8 - b'0'))).collect(),
+    input_value
+      .chars()
+      .collect::<Vec<char>>()
+      .chunks(8)
+      .map(|chunk| {
+        chunk
+          .iter()
+          .fold(0, |acc, &bit| (acc << 1) | (bit as u8 - b'0'))
+      })
+      .collect(),
   )
 }
 
 pub fn convert_binary_to_string(input_value: Zeroizing<Vec<u8>>) -> Zeroizing<String> {
-  Zeroizing::new(input_value.iter().flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1).to_string())).collect())
+  Zeroizing::new(
+    input_value
+      .iter()
+      .flat_map(|byte| (0..8).rev().map(move |i| ((byte >> i) & 1).to_string()))
+      .collect(),
+  )
 }
 
 pub fn get_text_from_resources(file_name: Zeroizing<String>) -> Zeroizing<String> {
@@ -86,8 +111,12 @@ pub fn get_text_from_resources(file_name: Zeroizing<String>) -> Zeroizing<String
   }
 }
 
-pub fn get_file_from_resources(file_name: Zeroizing<String>) -> Result<&'static include_dir::File<'static>, String> {
-  RES_DIR.get_file(file_name.as_str()).ok_or_else(|| format!("File '{:?}' not found in resources", file_name))
+pub fn get_file_from_resources(
+  file_name: Zeroizing<String>,
+) -> Result<&'static include_dir::File<'static>, String> {
+  RES_DIR
+    .get_file(file_name.as_str())
+    .ok_or_else(|| format!("File '{:?}' not found in resources", file_name))
 }
 
 pub fn calculate_double_sha256_hash(input: Zeroizing<Vec<u8>>) -> Zeroizing<Vec<u8>> {
@@ -137,7 +166,11 @@ pub fn calculate_hmac_sha512_hash(
     padded_key
   };
 
-  assert_eq!(padded_key.len(), BLOCK_SIZE, "Critical error. Padded key length mismatch in calculate_hmac_sha512_hash");
+  assert_eq!(
+    padded_key.len(),
+    BLOCK_SIZE,
+    "Critical error. Padded key length mismatch in calculate_hmac_sha512_hash"
+  );
 
   let mut inner_pad: Zeroizing<Vec<u8>> = Zeroizing::new(vec![0x36; BLOCK_SIZE]);
   let mut outer_pad: Zeroizing<Vec<u8>> = Zeroizing::new(vec![0x5c; BLOCK_SIZE]);
@@ -157,7 +190,11 @@ pub fn calculate_hmac_sha512_hash(
 
   let final_hash: Zeroizing<Vec<u8>> = Zeroizing::new(hasher.finalize().to_vec());
 
-  assert_eq!(final_hash.len(), HASH_SIZE, "Critical error. Final hash length mismatch in calculate_hmac_sha512_hash");
+  assert_eq!(
+    final_hash.len(),
+    HASH_SIZE,
+    "Critical error. Final hash length mismatch in calculate_hmac_sha512_hash"
+  );
 
   final_hash
 }
@@ -193,16 +230,10 @@ pub fn get_active_app_feature() -> &'static str {
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-pub fn write_u32_le(
-  buf: &mut Vec<u8>,
-  v: u32,
-) {
+pub fn write_u32_le(buf: &mut Vec<u8>, v: u32) {
   buf.extend_from_slice(&v.to_le_bytes());
 }
 
-pub fn write_u16_le(
-  buf: &mut Vec<u8>,
-  v: u16,
-) {
+pub fn write_u16_le(buf: &mut Vec<u8>, v: u16) {
   buf.extend_from_slice(&v.to_le_bytes());
 }
