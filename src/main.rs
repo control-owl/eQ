@@ -64,12 +64,18 @@ impl AppError {
 }
 
 impl std::fmt::Display for AppError {
-  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+  fn fmt(
+    &self,
+    f: &mut std::fmt::Formatter,
+  ) -> std::fmt::Result {
     write!(f, "{}", self.0)
   }
 }
 
-pub fn d3bug(message: &str, msg_type: &str) {
+pub fn d3bug(
+  message: &str,
+  msg_type: &str,
+) {
   let (color_code, prefix) = match msg_type {
     "info" => ("\x1b[34m", "[INFO] "),       // Blue
     "debug" => ("\x1b[32m", "[DEBUG] "),     // Green
@@ -529,7 +535,10 @@ impl EgoQuantum {
     Ok(())
   }
 
-  fn render_entropy_dropdown(&mut self, ui: &mut egui::Ui) {
+  fn render_entropy_dropdown(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) {
     Frame::group(ui.style()).show(ui, |ui| {
       let descriptions = [
         "Uses your device's built-in random number generator (CPU).",
@@ -577,7 +586,10 @@ impl EgoQuantum {
     });
   }
 
-  fn render_mnemonic_options(&mut self, ui: &mut egui::Ui) {
+  fn render_mnemonic_options(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) {
     Frame::group(ui.style()).show(ui, |ui| {
       let sources = ["RNG", "Custom", "Off"];
       let descriptions = [
@@ -627,7 +639,10 @@ impl EgoQuantum {
     });
   }
 
-  fn render_wallet_header(&mut self, ui: &mut egui::Ui) {
+  fn render_wallet_header(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) {
     let devel = String::from("Still in development");
     let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
@@ -887,6 +902,23 @@ impl EgoQuantum {
           ];
 
           let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
+
+          if bitcoin_legacy_resp.changed() {
+            self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
+            self.wallet.address_components.derivation_path.address = Zeroizing::new(0);
+            let derivation_path: Zeroizing<String> = keys::get_derivation_path("sha256k1", &mut self.wallet).unwrap();
+
+            if !self.wallet.wallet_data.bitcoin_legacy_addresses {
+              self.wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
+            } else {
+              self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
+            }
+
+
+            println!("derivation_path: {:?}", derivation_path);
+          }
+
+
           bitcoin_legacy_resp.on_hover_text(bitcoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
         });
       });
@@ -929,7 +961,10 @@ impl EgoQuantum {
     }
   }
 
-  fn render_wallet_table(&mut self, ui: &mut egui::Ui) {
+  fn render_wallet_table(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) {
     let available_height = ui.available_height();
     let font = egui::FontId::monospace(12.0);
     let row_height = font.size + GUI_MARGIN;
@@ -1135,7 +1170,10 @@ impl EgoQuantum {
       });
   }
 
-  fn render_wallet_footer(&mut self, ui: &mut egui::Ui) -> FunctionOutput<()> {
+  fn render_wallet_footer(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) -> FunctionOutput<()> {
     let total_width = ui.available_width();
 
     ui.horizontal(|ui| {
@@ -1184,7 +1222,7 @@ impl EgoQuantum {
   }
 
   fn get_bip(&mut self) -> Zeroizing<u32> {
-    Zeroizing::new(self.wallet.wallet_data.active_bip.clone())
+    Zeroizing::new(self.wallet.wallet_data.active_bip)
   }
 
   fn generate_new_addresses(&mut self) -> FunctionOutput<()> {
@@ -1198,7 +1236,11 @@ impl EgoQuantum {
 }
 
 impl eframe::App for EgoQuantum {
-  fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+  fn ui(
+    &mut self,
+    ui: &mut egui::Ui,
+    _frame: &mut eframe::Frame,
+  ) {
     let ctx = ui.ctx().clone();
 
     match self.gui.theme.as_str() {

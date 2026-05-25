@@ -112,7 +112,7 @@ pub fn get_text_from_resources(file_name: Zeroizing<String>) -> Zeroizing<String
 }
 
 pub fn get_file_from_resources(
-  file_name: Zeroizing<String>,
+  file_name: Zeroizing<String>
 ) -> Result<&'static include_dir::File<'static>, String> {
   RES_DIR
     .get_file(file_name.as_str())
@@ -230,10 +230,16 @@ pub fn get_active_app_feature() -> &'static str {
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-pub fn write_u32_le(buf: &mut Vec<u8>, v: u32) {
+pub fn write_u32_le(
+  buf: &mut Vec<u8>,
+  v: u32,
+) {
   buf.extend_from_slice(&v.to_le_bytes());
 }
 
-pub fn write_u16_le(buf: &mut Vec<u8>, v: u16) {
+pub fn write_u16_le(
+  buf: &mut Vec<u8>,
+  v: u16,
+) {
   buf.extend_from_slice(&v.to_le_bytes());
 }
