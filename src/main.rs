@@ -906,7 +906,6 @@ impl EgoQuantum {
           if bitcoin_legacy_resp.changed() {
             self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
             self.wallet.address_components.derivation_path.address = Zeroizing::new(0);
-            let derivation_path: Zeroizing<String> = keys::get_derivation_path("sha256k1", &mut self.wallet).unwrap();
 
             if !self.wallet.wallet_data.bitcoin_legacy_addresses {
               self.wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
@@ -914,8 +913,9 @@ impl EgoQuantum {
               self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
             }
 
-
-            println!("derivation_path: {:?}", derivation_path);
+            // TODO: Improve with removing only Bitcoin addresses
+            let _ = self.generate_new_addresses();
+            
           }
 
 

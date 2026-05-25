@@ -629,7 +629,9 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
     // Bitcoin: Legacy + Taproot addresses
     0 => {
       if !wallet.wallet_data.bitcoin_legacy_addresses {
-        wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
+        if wallet.wallet_data.active_bip != 32 {
+          wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
+        }
 
         return generate_bitcoin_taproot_address(
           wallet,
@@ -976,7 +978,7 @@ fn encode_public_key(
   }
 }
 
-fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Zeroizing<Vec<u8>>> {
+pub fn get_public_key(public_key: &CryptoPublicKey) -> FunctionOutput<Zeroizing<Vec<u8>>> {
   let public_key_bytes: Zeroizing<Vec<u8>> = match public_key {
     CryptoPublicKey::Secp256k1(key) => Zeroizing::new(key.serialize().to_vec()),
     CryptoPublicKey::Ed25519(key) => Zeroizing::new(key.to_bytes().to_vec()),
@@ -1908,8 +1910,10 @@ pub fn generate_bitcoin_legacy_address(
   let wallet_import_format: Zeroizing<String> =
     wallet.address_components.wallet_import_format.clone();
 
-  // if let Some(entries) = wallet.addresses_by_coin.0.get_mut(&*coin_name) {
-  //   entries.retain(|addr| *addr.coin_index != 0);
+  // if let Some(entries) = wallet.addresses_by_coin.0.get_mut("Bitcoin") {
+  //   // entries.pop_if(|addr| addr.path.starts_with("m/86"));
+  //   entries.retain(|addr| addr.path.starts_with("m/86"));
+  //   // entries.pop();
   // }
 
   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
@@ -1972,7 +1976,8 @@ pub fn generate_bitcoin_taproot_address(
     wallet.address_components.wallet_import_format.clone();
 
   // if let Some(entries) = wallet.addresses_by_coin.0.get_mut(&*coin_name) {
-  //   entries.retain(|addr| *addr.coin_index != 0);
+  //   entries.pop_if(|addr| addr.path.starts_with("m/44"));
+  //   // entries.pop();
   // }
 
   let secp_pubkey = match public_key {
