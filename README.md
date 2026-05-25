@@ -103,6 +103,8 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 - Wallet saved as **AES_256_GCM encrypted SVG image**
 - Optional [Shamir's secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing) for secure wallet splitting
 - Optional On-Screen keyboard
+- Bitcoin taproot address support BIP86
+
 
 ---
 

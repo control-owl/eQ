@@ -1917,13 +1917,16 @@ pub fn generate_bitcoin_taproot_address(
     }
   };
 
+  let compressed_pubkey: Zeroizing<Vec<u8>> = Zeroizing::new(secp_pubkey.serialize().to_vec());
+  let public_key_encoded: Zeroizing<String> = Zeroizing::new(hex::encode(&compressed_pubkey));
+
   let pubkey_bytes = secp_pubkey.serialize_uncompressed();
   let internal_key: [u8; 32] = pubkey_bytes[1..33]
     .try_into()
     .map_err(|_| AppError::log("Failed to extract x-only internal key"))?;
+
   let tweaked_key = tweak_taproot_key(&internal_key)?;
   let taproot_address = encode_taproot_bech32m(&tweaked_key)?;
-  let tweaked_pubkey_hex = Zeroizing::new(hex::encode(internal_key));
 
   let priv_key_wif: Zeroizing<String> = encode_private_key(
     key_derivation.clone(),
@@ -1937,7 +1940,7 @@ pub fn generate_bitcoin_taproot_address(
     coin_index: coin_index.clone(),
     path: derivation_path.clone(),
     address: taproot_address,
-    public_key: tweaked_pubkey_hex,
+    public_key: public_key_encoded,
     private_key: priv_key_wif,
   })
 }
