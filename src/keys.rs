@@ -1852,144 +1852,18 @@ fn generate_open_assets_address(
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-// fn generate_bitcoin_addresses(
-//   wallet: &mut CryptoWallet,
-//   public_key: &CryptoPublicKey,
-//   derivation_path: &Zeroizing<String>,
-//   private_key: Zeroizing<[u8; 32]>,
-// ) -> FunctionOutput<()> {
-//   let coin_name = wallet.address_components.coin_name.clone();
-//
-//   let taproot_data =
-//     generate_bitcoin_taproot_address(wallet, &public_key, derivation_path, private_key.clone())?;
-//
-//   let legacy_data =
-//     generate_bitcoin_legacy_address(wallet, public_key, derivation_path, private_key)?;
-//
-//   let entries = wallet
-//     .addresses_by_coin
-//     .0
-//     .entry(coin_name.to_string())
-//     .or_default();
-//
-//   if wallet.wallet_data.bitcoin_legacy_addresses == true {
-//     entries.push(legacy_data);
-//   }
-//
-//   entries.push(taproot_data);
-//
-//   Ok(())
-// }
-//
-// pub fn generate_bitcoin_legacy_address(
-//   wallet: &mut CryptoWallet,
-//   public_key: &CryptoPublicKey,
-//   derivation_path: &Zeroizing<String>,
-//   private_key: Zeroizing<[u8; 32]>,
-// ) -> FunctionOutput<AddressPrivateData> {
-//   let coin_index = wallet.address_components.derivation_path.coin.clone();
-//   let public_key_hash = wallet.address_components.public_key_hash.clone();
-//   let hash = wallet.address_components.hash.clone();
-//   let key_derivation = wallet.address_components.key_derivation.clone();
-//   let wallet_import_format = wallet.address_components.wallet_import_format.clone();
-//
-//   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
-//     let trimmed: Zeroizing<String> =
-//       Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
-//     let hex: Zeroizing<Vec<u8>> = match hex::decode(trimmed) {
-//       Ok(hex) => Zeroizing::new(hex),
-//       Err(err) => return Err(AppError::log(format!("Invalid public_key_hash: {:?}", err))),
-//     };
-//     hex
-//   };
-//
-//   let public_key_encoded: Zeroizing<String> =
-//     encode_public_key(hash.clone(), coin_index.clone(), public_key)?;
-//   let address: Zeroizing<String> = generate_address_internal(
-//     hash.clone(),
-//     coin_index.clone(),
-//     public_key,
-//     public_key_hash_vec,
-//   )?;
-//   let priv_key_wif: Zeroizing<String> = encode_private_key(
-//     key_derivation.clone(),
-//     wallet_import_format.clone(),
-//     hash.clone(),
-//     coin_index.clone(),
-//     private_key,
-//   )?;
-//
-//   Ok(AddressPrivateData {
-//     coin_index: coin_index.clone(),
-//     path: derivation_path.clone(),
-//     address,
-//     public_key: public_key_encoded,
-//     private_key: priv_key_wif,
-//   })
-// }
-//
-// pub fn generate_bitcoin_taproot_address(
-//   wallet: &mut CryptoWallet,
-//   public_key: &CryptoPublicKey,
-//   derivation_path: &Zeroizing<String>,
-//   private_key: Zeroizing<[u8; 32]>,
-// ) -> FunctionOutput<AddressPrivateData> {
-//   let coin_index = wallet.address_components.derivation_path.coin.clone();
-//   let hash = wallet.address_components.hash.clone();
-//   let key_derivation = wallet.address_components.key_derivation.clone();
-//   let wallet_import_format = wallet.address_components.wallet_import_format.clone();
-//
-//   let secp_pubkey = match public_key {
-//     CryptoPublicKey::Secp256k1(pk) => pk,
-//     _ => {
-//       return Err(AppError::log(
-//         "Only Secp256k1 supported for Bitcoin Taproot",
-//       ));
-//     }
-//   };
-//
-//   let compressed_pubkey: Zeroizing<Vec<u8>> = Zeroizing::new(secp_pubkey.serialize().to_vec());
-//   let public_key_encoded: Zeroizing<String> = Zeroizing::new(hex::encode(&compressed_pubkey));
-//
-//   let pubkey_bytes = secp_pubkey.serialize_uncompressed();
-//   let internal_key: [u8; 32] = pubkey_bytes[1..33]
-//     .try_into()
-//     .map_err(|_| AppError::log("Failed to extract x-only internal key"))?;
-//
-//   let tweaked_key = tweak_taproot_key(&internal_key)?;
-//   let taproot_address = encode_taproot_bech32m(&tweaked_key)?;
-//
-//   let priv_key_wif: Zeroizing<String> = encode_private_key(
-//     key_derivation.clone(),
-//     wallet_import_format.clone(),
-//     hash.clone(),
-//     coin_index.clone(),
-//     private_key,
-//   )?;
-//
-//   Ok(AddressPrivateData {
-//     coin_index: coin_index.clone(),
-//     path: derivation_path.clone(),
-//     address: taproot_address,
-//     public_key: public_key_encoded,
-//     private_key: priv_key_wif,
-//   })
-// }
-
-// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
-
-fn encode_taproot_bech32m(tweaked_key: &[u8; 32]) -> FunctionOutput<Zeroizing<String>> {
+fn encode_taproot_bech32m(tweaked_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<String>> {
   let address = segwit::encode(
     Hrp::parse("bc").map_err(|e| AppError::log(format!("HRP error: {:?}", e)))?,
     segwit::VERSION_1,
-    tweaked_key,
+    &*tweaked_key,
   )
   .map_err(|e| AppError::log(format!("Bech32m encoding failed: {:?}", e)))?;
 
   Ok(Zeroizing::new(address))
 }
 
-fn tweak_taproot_key(internal_key: &[u8; 32]) -> FunctionOutput<[u8; 32]> {
+fn tweak_taproot_key(internal_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<[u8; 32]>> {
   let merkle_root: &[u8] = &[];
 
   let mut hasher = Sha256::new();
@@ -2000,7 +1874,7 @@ fn tweak_taproot_key(internal_key: &[u8; 32]) -> FunctionOutput<[u8; 32]> {
   let mut hasher = Sha256::new();
   hasher.update(tag_hash);
   hasher.update(tag_hash);
-  hasher.update(internal_key);
+  hasher.update(internal_key.clone());
   hasher.update(merkle_root);
   let tweak = hasher.finalize();
 
@@ -2015,7 +1889,9 @@ fn tweak_taproot_key(internal_key: &[u8; 32]) -> FunctionOutput<[u8; 32]> {
     .add_tweak(&secp, &tweak_scalar)
     .map_err(|e| AppError::log(format!("Taproot tweak failed: {}", e)))?;
 
-  Ok(tweaked.0.serialize())
+  let serialized: Zeroizing<[u8; 32]> = Zeroizing::new(tweaked.0.serialize());
+
+  Ok(serialized)
 }
 
 pub fn generate_bitcoin_legacy_address(
@@ -2024,13 +1900,13 @@ pub fn generate_bitcoin_legacy_address(
   derivation_path: &Zeroizing<String>,
   private_key: Zeroizing<[u8; 32]>,
 ) -> FunctionOutput<()> {
-  let coin_index = wallet.address_components.derivation_path.coin.clone();
-  let coin_name = wallet.address_components.coin_name.clone();
-
-  let public_key_hash = wallet.address_components.public_key_hash.clone();
-  let hash = wallet.address_components.hash.clone();
-  let key_derivation = wallet.address_components.key_derivation.clone();
-  let wallet_import_format = wallet.address_components.wallet_import_format.clone();
+  let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+  let coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
+  let public_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
+  let hash: Zeroizing<String> = wallet.address_components.hash.clone();
+  let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
+  let wallet_import_format: Zeroizing<String> =
+    wallet.address_components.wallet_import_format.clone();
 
   // if let Some(entries) = wallet.addresses_by_coin.0.get_mut(&*coin_name) {
   //   entries.retain(|addr| *addr.coin_index != 0);
@@ -2088,12 +1964,12 @@ pub fn generate_bitcoin_taproot_address(
   derivation_path: &Zeroizing<String>,
   private_key: Zeroizing<[u8; 32]>,
 ) -> FunctionOutput<()> {
-  let coin_index = wallet.address_components.derivation_path.coin.clone();
-  let coin_name = wallet.address_components.coin_name.clone();
-
-  let hash = wallet.address_components.hash.clone();
-  let key_derivation = wallet.address_components.key_derivation.clone();
-  let wallet_import_format = wallet.address_components.wallet_import_format.clone();
+  let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+  let coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
+  let hash: Zeroizing<String> = wallet.address_components.hash.clone();
+  let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
+  let wallet_import_format: Zeroizing<String> =
+    wallet.address_components.wallet_import_format.clone();
 
   // if let Some(entries) = wallet.addresses_by_coin.0.get_mut(&*coin_name) {
   //   entries.retain(|addr| *addr.coin_index != 0);
@@ -2110,14 +1986,15 @@ pub fn generate_bitcoin_taproot_address(
 
   let compressed_pubkey: Zeroizing<Vec<u8>> = Zeroizing::new(secp_pubkey.serialize().to_vec());
   let public_key_encoded: Zeroizing<String> = Zeroizing::new(hex::encode(&compressed_pubkey));
+  let pubkey_bytes: Zeroizing<[u8; 65]> = Zeroizing::new(secp_pubkey.serialize_uncompressed());
 
-  let pubkey_bytes = secp_pubkey.serialize_uncompressed();
-  let internal_key: [u8; 32] = pubkey_bytes[1..33]
-    .try_into()
-    .map_err(|_| AppError::log("Failed to extract x-only internal key"))?;
+  let internal_key: Zeroizing<[u8; 32]> = Zeroizing::new(
+    <[u8; 32]>::try_from(&pubkey_bytes[1..33])
+      .map_err(|_| AppError::log("Failed to extract x-only internal key"))?,
+  );
 
-  let tweaked_key = tweak_taproot_key(&internal_key)?;
-  let taproot_address = encode_taproot_bech32m(&tweaked_key)?;
+  let tweaked_key: Zeroizing<[u8; 32]> = tweak_taproot_key(internal_key)?;
+  let taproot_address: Zeroizing<String> = encode_taproot_bech32m(tweaked_key)?;
 
   let priv_key_wif: Zeroizing<String> = encode_private_key(
     key_derivation.clone(),
@@ -2127,7 +2004,7 @@ pub fn generate_bitcoin_taproot_address(
     private_key,
   )?;
 
-  let new_address = AddressPrivateData {
+  let new_address: AddressPrivateData = AddressPrivateData {
     coin_index: coin_index.clone(),
     path: derivation_path.clone(),
     address: taproot_address,
