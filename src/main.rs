@@ -827,7 +827,7 @@ impl EgoQuantum {
         );
 
         if hardened_address_resp.changed() && has_addresses {
-            let _ = self.generate_new_addresses();
+            let _ = self.regenerate_addresses();
         }
 
         hardened_address_resp
@@ -854,7 +854,7 @@ impl EgoQuantum {
             self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
 
             if has_addresses {
-                let _ = self.generate_new_addresses();
+                let _ = self.regenerate_addresses();
             }
 
         }
@@ -904,18 +904,15 @@ impl EgoQuantum {
           let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
 
           if bitcoin_legacy_resp.changed() {
-            self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
-            self.wallet.address_components.derivation_path.address = Zeroizing::new(0);
-
             if !self.wallet.wallet_data.bitcoin_legacy_addresses {
               self.wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
             } else {
               self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
             }
-
-            // TODO: Improve with removing only Bitcoin addresses
-            let _ = self.generate_new_addresses();
             
+            // TODO: Improve with replacing only Bitcoin addresses
+            let _ = self.generate_new_address(String::from("Bitcoin"));
+
           }
 
 
@@ -1225,12 +1222,124 @@ impl EgoQuantum {
     Zeroizing::new(self.wallet.wallet_data.active_bip)
   }
 
-  fn generate_new_addresses(&mut self) -> FunctionOutput<()> {
-    self.wallet.addresses_by_coin.0.clear();
+  fn regenerate_addresses(&mut self) -> FunctionOutput<()> {
+    // self.wallet.addresses_by_coin.0.clear();
     self.wallet.address_components.derivation_path.last_index = Zeroizing::new(0);
+    let entropy: Zeroizing<String> = self.wallet.seed_secret.entropy_source.clone();
 
+    println!("entropy: {:?}",entropy);
+    
     // TODO: Improve
-    let _ = self.generate_new_wallet(None);
+    let _ = self.generate_new_wallet(Some(entropy));
+
+    Ok(())
+  }
+
+  fn generate_new_address(
+    &mut self,
+    coin_name: String,
+  ) -> FunctionOutput<()> {
+    let purpose: Zeroizing<u32> = self
+      .wallet
+      .address_components
+      .derivation_path
+      .purpose
+      .clone();
+
+    println!("purpose: {:?}", purpose);
+
+    if let Some(entries) = self.wallet.addresses_by_coin.0.get_mut(&*coin_name) {
+      entries.retain(|addr| addr.path.starts_with(&format!("m/{}", *purpose)));
+    }
+
+    self.wallet.address_components.coin_name = Zeroizing::new(coin_name);
+    self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
+    self.wallet.address_components.derivation_path.address = Zeroizing::new(0);
+    self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
+    self.wallet.address_components.derivation_path.last_index = Zeroizing::new(0);
+    
+    self.wallet.address_components.evm = Zeroizing::new(false);
+    self.wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
+    self.wallet.address_components.hash = Zeroizing::new(String::from("sha256"));
+    self.wallet.address_components.public_key_hash = Zeroizing::new(String::from("0x00"));
+    self.wallet.address_components.wallet_import_format = Zeroizing::new(String::from("0x80"));
+
+    let derivation_path: Zeroizing<String> =
+      match keys::get_derivation_path("secp256k1", &mut self.wallet) {
+        Ok(path) => path,
+        Err(err) => {
+          return Err(AppError::log(format!(
+            "Can not parse derivation path: {:?}",
+            err
+          )));
+        }
+      };
+    println!("derivation_path: {:?}", derivation_path);
+
+    
+    let child_private_key_bytes: Zeroizing<Vec<u8>> = self
+      .wallet
+      .secret_keys
+      .child_secp256k1_keys
+      .child_private_key_bytes
+      .clone();
+
+    println!("child_private_key_bytes: {:?}", child_private_key_bytes);
+    
+    let private_key: Zeroizing<[u8; 32]> = Zeroizing::new(
+      child_private_key_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|err| {
+          AppError::log(format!(
+            "Slice error: Invalid private key length (expected 32 bytes): {:?}",
+            err
+          ))
+        })
+        .unwrap(),
+    );
+    println!("private_key: {:?}", private_key);
+    
+    let public_key: CryptoPublicKey = keys::generate_public_key(&mut self.wallet).unwrap();
+    println!("public_key: {:?}", public_key);
+
+
+    match *self.wallet.address_components.derivation_path.purpose {
+      86 => {
+        match keys::generate_bitcoin_taproot_address(
+          &mut self.wallet,
+          &public_key,
+          &derivation_path,
+          private_key,
+        ) {
+          Ok(_) => {},
+          Err(err) => {
+            return Err(AppError::log(format!(
+              "Problem with generating taproot addresses: {:?}",
+              err
+            )));
+          }
+        };
+      }
+      _ => {
+        match keys::generate_bitcoin_legacy_address(
+          &mut self.wallet,
+          &public_key,
+          &derivation_path,
+          private_key,
+        ) {
+          Ok(_) => {},
+          Err(err) => {
+            return Err(AppError::log(format!(
+              "Problem with generating legacy addresses: {:?}",
+              err
+            )));
+          }
+        };
+      }
+    };
+    
+
     Ok(())
   }
 }
