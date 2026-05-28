@@ -1175,7 +1175,6 @@ impl EgoQuantum {
 
               self.wallet.address_components.derivation_path.address = Zeroizing::new(x);
 
-              let _ = keys::generate_secp256k1_child_keys(&mut self.wallet);
               let _ = self.generate_new_address(String::from("Bitcoin"));
                 
             }
@@ -1515,18 +1514,24 @@ impl EgoQuantum {
 
     println!("purpose: {:?}", purpose);
 
-    if let Some(entries) = self.wallet.addresses_by_coin.0.get_mut(&*coin_name) {
-      entries.retain(|addr| addr.path.starts_with(&format!("m/{}", *purpose)));
+    match coin_name.as_str() {
+      "Bitcoin" => {
+        self.wallet.address_components.coin_name = Zeroizing::new(coin_name.clone());
+        self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
+        self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
+        self.wallet.address_components.evm = Zeroizing::new(false);
+        self.wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
+        self.wallet.address_components.hash = Zeroizing::new(String::from("sha256"));
+        self.wallet.address_components.public_key_hash = Zeroizing::new(String::from("0x00"));
+        self.wallet.address_components.wallet_import_format = Zeroizing::new(String::from("0x80"));
+
+
+
+      }
+      _ => {}
     }
 
-    self.wallet.address_components.coin_name = Zeroizing::new(coin_name);
-    self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
-    self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
-    self.wallet.address_components.evm = Zeroizing::new(false);
-    self.wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
-    self.wallet.address_components.hash = Zeroizing::new(String::from("sha256"));
-    self.wallet.address_components.public_key_hash = Zeroizing::new(String::from("0x00"));
-    self.wallet.address_components.wallet_import_format = Zeroizing::new(String::from("0x80"));
+    let _ = keys::generate_secp256k1_child_keys(&mut self.wallet);
 
     let derivation_path: Zeroizing<String> =
       match keys::get_derivation_path("secp256k1", &mut self.wallet) {
@@ -1603,6 +1608,10 @@ impl EgoQuantum {
       }
     };
     
+
+    if let Some(entries) = self.wallet.addresses_by_coin.0.get_mut(&*coin_name) {
+      entries.retain(|addr| addr.path.starts_with(&format!("m/{}", *purpose)));
+    }
 
     Ok(())
   }
