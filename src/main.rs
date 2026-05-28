@@ -327,25 +327,32 @@ impl EgoQuantum {
     }
   }
 
+
   fn generate_new_wallet(
     &mut self,
     entropy_source: Option<Zeroizing<String>>,
   ) -> FunctionOutput<()> {
-    let entropy_source: Zeroizing<String> = match entropy_source {
-      Some(source) => source,
-      None => self.get_entropy_source(),
-    };
 
-    let bip: Zeroizing<u32> = match entropy_source.as_str() {
-      "Load wallet" => self
-        .wallet
-        .address_components
-        .derivation_path
-        .purpose
-        .clone(),
-      _ => self.get_bip(),
-    };
+    let entropy_source = entropy_source.unwrap_or_else(|| self.get_entropy_source());
+    let bip = self.get_bip();
 
+    // 1. Seed
+    self.generate_seed_if_missing(entropy_source.clone())?;
+
+    // 2. Master keys
+    self.generate_master_keys_if_missing()?;
+
+    // 3. Address generation
+    let last_index = *self.wallet.address_components.derivation_path.last_index;
+    let address_count = 10;
+
+    self.generate_addresses_for_all_coins()?;
+
+    Ok(())
+  }
+
+
+  fn generate_seed_if_missing(&mut self, entropy_source: Zeroizing<String>) -> FunctionOutput<()> {
     if self.wallet.seed_secret.raw_entropy.is_empty()
       || self.wallet.seed_secret.full_entropy.is_empty()
     {
@@ -360,6 +367,10 @@ impl EgoQuantum {
       };
     };
 
+    Ok(())
+  }
+
+  fn generate_master_keys_if_missing(&mut self) -> FunctionOutput<()> {
     if self
       .wallet
       .secret_keys
@@ -396,22 +407,37 @@ impl EgoQuantum {
       };
     };
 
-    let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
+    Ok(())
+  }
+
+  fn generate_addresses_for_all_coins(
+    &mut self,
+) -> FunctionOutput<()> {
+  let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
 
     // TODO: Add address_count as GUI parameters
     let address_count = 10;
     let last_index = *self.wallet.address_components.derivation_path.last_index;
 
+    let entropy_source: Zeroizing<String> = self.wallet.seed_secret.entropy_source.clone();
+
+    let bip: Zeroizing<u32> = match entropy_source.as_str() {
+      "Load wallet" => self
+        .wallet
+        .address_components
+        .derivation_path
+        .purpose
+        .clone(),
+      _ => self.get_bip(),
+    };
+
     let (start_index, end_index) = if entropy_source.as_str() == "SVG" {
       if self.wallet.addresses_by_coin.0.is_empty() {
-        // Bootstrap SVG mode
-        (0, last_index)
+          (0, last_index)
       } else {
-        // Continue paging
-        (last_index, last_index.saturating_add(address_count))
+          (last_index, last_index.saturating_add(address_count))
       }
     } else {
-      // Normal mode
       (last_index, last_index.saturating_add(address_count))
     };
 
@@ -534,6 +560,235 @@ impl EgoQuantum {
 
     Ok(())
   }
+
+
+  fn read_coin_metadata(&mut self, columns: &[&str], bip: Zeroizing<u32>) {
+    self.wallet.address_components.derivation_path.purpose = bip;
+    self.wallet.address_components.derivation_path.coin = Zeroizing::new(columns[1].parse().unwrap_or(0));
+    self.wallet.address_components.derivation_path.purpose_hardened = Zeroizing::new(true);
+    self.wallet.address_components.derivation_path.coin_hardened = Zeroizing::new(true);
+    self.wallet.address_components.derivation_path.account_hardened = Zeroizing::new(true);
+    self.wallet.address_components.derivation_path.change_hardened = Zeroizing::new(*self.wallet.address_components.derivation_path.purpose == 32);
+    self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
+
+    self.wallet.address_components.coin_name = Zeroizing::new(columns[3].to_string());
+    self.wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
+    self.wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
+    self.wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());
+    self.wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
+    self.wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
+  }
+
+
+
+
+//   fn generate_new_wallet(
+//     &mut self,
+//     entropy_source: Option<Zeroizing<String>>,
+//   ) -> FunctionOutput<()> {
+//     // let entropy_source: Zeroizing<String> = match entropy_source {
+//     //   Some(source) => source,
+//     //   None => self.get_entropy_source(),
+//     // };
+// 
+//     let bip: Zeroizing<u32> = match entropy_source.as_str() {
+//       "Load wallet" => self
+//         .wallet
+//         .address_components
+//         .derivation_path
+//         .purpose
+//         .clone(),
+//       _ => self.get_bip(),
+//     };
+// 
+//     // if self.wallet.seed_secret.raw_entropy.is_empty()
+//     //   || self.wallet.seed_secret.full_entropy.is_empty()
+//     // {
+//     //   match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
+//     //     Ok(_) => {}
+//     //     Err(err) => {
+//     //       return Err(AppError::log(format!(
+//     //         "Problem with generating seed: {}",
+//     //         err
+//     //       )));
+//     //     }
+//     //   };
+//     // };
+// 
+// //     if self
+// //       .wallet
+// //       .secret_keys
+// //       .master_secp256k1_keys
+// //       .master_private_key_encoded
+// //       .is_empty()
+// //     {
+// //       match keys::generate_secp256k1_master_keys(&mut self.wallet) {
+// //         Ok(_) => {}
+// //         Err(err) => {
+// //           return Err(AppError::log(format!(
+// //             "Problem with generating secp256k1 master keys: {}",
+// //             err
+// //           )));
+// //         }
+// //       };
+// //     };
+// // 
+// //     if self
+// //       .wallet
+// //       .secret_keys
+// //       .master_ed25519_keys
+// //       .master_private_key_encoded
+// //       .is_empty()
+// //     {
+// //       match keys::generate_ed25519_master_keys(&mut self.wallet) {
+// //         Ok(_) => {}
+// //         Err(err) => {
+// //           return Err(AppError::log(format!(
+// //             "Problem with generating ed25519 master keys: {}",
+// //             err
+// //           )));
+// //         }
+// //       };
+// //     };
+// 
+//     let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
+// 
+//     // TODO: Add address_count as GUI parameters
+//     let address_count = 10;
+//     let last_index = *self.wallet.address_components.derivation_path.last_index;
+// 
+//     let (start_index, end_index) = if entropy_source.as_str() == "SVG" {
+//       if self.wallet.addresses_by_coin.0.is_empty() {
+//         // Bootstrap SVG mode
+//         (0, last_index)
+//       } else {
+//         // Continue paging
+//         (last_index, last_index.saturating_add(address_count))
+//       }
+//     } else {
+//       // Normal mode
+//       (last_index, last_index.saturating_add(address_count))
+//     };
+// 
+//     // ECDB: Extended Coin DataBase
+//     let resource_path = std::path::Path::new("coin").join("ECDB.csv");
+//     let resource_path_str: Zeroizing<String> = Zeroizing::new(
+//       resource_path
+//         .into_os_string()
+//         .into_string()
+//         .unwrap_or_default(),
+//     );
+//     let ecdb_file = e_q::get_file_from_resources(resource_path_str);
+// 
+//     if let Ok(file) = ecdb_file {
+//       let reader = std::io::BufReader::new(file.contents());
+// 
+//       for line_result in reader.lines() {
+//         match line_result {
+//           Ok(line) => {
+//             let columns: Vec<&str> = line.split(',').collect();
+//             let inactive_coin = columns.first().unwrap_or(&"0");
+//             if *inactive_coin != active_coins.to_string() {
+//               continue;
+//             }
+// 
+//             // TODO: Remove hardcoding, add parameters to GUI selection
+//             self.wallet.address_components.derivation_path.purpose = bip.clone();
+//             self.wallet.address_components.derivation_path.coin =
+//               Zeroizing::new(columns[1].parse().unwrap_or(0));
+//             self
+//               .wallet
+//               .address_components
+//               .derivation_path
+//               .purpose_hardened = Zeroizing::new(true);
+//             self.wallet.address_components.derivation_path.coin_hardened = Zeroizing::new(true);
+//             self
+//               .wallet
+//               .address_components
+//               .derivation_path
+//               .account_hardened = Zeroizing::new(true);
+//             self
+//               .wallet
+//               .address_components
+//               .derivation_path
+//               .change_hardened = Zeroizing::new(*bip == 32);
+//             self
+//               .wallet
+//               .address_components
+//               .derivation_path
+//               .address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
+// 
+//             self.wallet.address_components.coin_name = Zeroizing::new(columns[3].to_string());
+//             self.wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
+//             self.wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
+//             self.wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());
+//             self.wallet.address_components.wallet_import_format =
+//               Zeroizing::new(columns[10].to_string());
+//             self.wallet.address_components.evm =
+//               Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
+// 
+//             for address_index in start_index..end_index {
+//               self.wallet.address_components.derivation_path.address =
+//                 Zeroizing::new(address_index);
+// 
+//               match self.wallet.address_components.key_derivation.as_str() {
+//                 "secp256k1" => {
+//                   match keys::generate_secp256k1_child_keys(&mut self.wallet) {
+//                     Ok(_) => {}
+//                     Err(err) => {
+//                       return Err(AppError::log(format!("Can not derive child keys: {}", err)));
+//                     }
+//                   };
+// 
+//                   match keys::generate_secp256k1_address(&mut self.wallet) {
+//                     Ok(_) => {}
+//                     Err(err) => {
+//                       return Err(AppError::log(format!(
+//                         "Can not derive secp256k1 address: {}",
+//                         err
+//                       )));
+//                     }
+//                   };
+//                 }
+//                 "ed25519" => {
+//                   match keys::generate_ed25519_child_keys(&mut self.wallet) {
+//                     Ok(_) => {}
+//                     Err(err) => {
+//                       return Err(AppError::log(format!("Can not derive child keys: {}", err)));
+//                     }
+//                   };
+// 
+//                   match keys::generate_ed25519_address(&mut self.wallet) {
+//                     Ok(_) => {}
+//                     Err(err) => {
+//                       return Err(AppError::log(format!(
+//                         "Can not derive ed25519 address: {}",
+//                         err
+//                       )));
+//                     }
+//                   };
+//                 }
+//                 _ => {
+//                   return Err(AppError::log(format!(
+//                     "Unsupported key derivation: {:?}",
+//                     self.wallet.address_components.key_derivation
+//                   )));
+//                 }
+//               }
+//             }
+//           }
+//           Err(err) => {
+//             eprintln!("ECDB file error: Skipping invalid line: {}", err);
+//             continue;
+//           }
+//         }
+//       }
+// 
+//       *self.wallet.address_components.derivation_path.last_index = end_index;
+//     }
+// 
+//     Ok(())
+//   }
 
   fn render_entropy_dropdown(
     &mut self,
@@ -827,7 +1082,9 @@ impl EgoQuantum {
         );
 
         if hardened_address_resp.changed() && has_addresses {
-            let _ = self.regenerate_addresses();
+          self.wallet.addresses_by_coin.0.clear();
+          self.wallet.address_components.derivation_path.last_index = Zeroizing::new(0);
+          let _ = self.generate_addresses_for_all_coins();
         }
 
         hardened_address_resp
@@ -854,7 +1111,9 @@ impl EgoQuantum {
             self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
 
             if has_addresses {
-                let _ = self.regenerate_addresses();
+              self.wallet.addresses_by_coin.0.clear();
+              self.wallet.address_components.derivation_path.last_index = Zeroizing::new(0);
+              let _ = self.generate_addresses_for_all_coins();
             }
 
         }
@@ -911,7 +1170,15 @@ impl EgoQuantum {
             }
             
             // TODO: Improve with replacing only Bitcoin addresses
-            let _ = self.generate_new_address(String::from("Bitcoin"));
+            // JUMP: BUG
+            for x in 0..*self.wallet.address_components.derivation_path.last_index {
+
+              self.wallet.address_components.derivation_path.address = Zeroizing::new(x);
+
+              let _ = keys::generate_secp256k1_child_keys(&mut self.wallet);
+              let _ = self.generate_new_address(String::from("Bitcoin"));
+                
+            }
 
           }
 
@@ -1254,10 +1521,7 @@ impl EgoQuantum {
 
     self.wallet.address_components.coin_name = Zeroizing::new(coin_name);
     self.wallet.address_components.derivation_path.coin = Zeroizing::new(0);
-    self.wallet.address_components.derivation_path.address = Zeroizing::new(0);
     self.wallet.address_components.derivation_path.address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
-    self.wallet.address_components.derivation_path.last_index = Zeroizing::new(0);
-    
     self.wallet.address_components.evm = Zeroizing::new(false);
     self.wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
     self.wallet.address_components.hash = Zeroizing::new(String::from("sha256"));
