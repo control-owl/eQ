@@ -629,7 +629,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
     // Bitcoin: Legacy + Taproot addresses
     0 => {
       if !wallet.wallet_data.bitcoin_legacy_addresses {
-        if wallet.wallet_data.active_bip != 32 {
+        if wallet.wallet_data.active_bip != 32 && !wallet.wallet_data.bitcoin_legacy_addresses {
           wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
         }
 
@@ -1634,7 +1634,7 @@ pub fn get_derivation_path(
       )),
       _ => Zeroizing::new(format!(
         "m/{}{}/{}{}/{}{}/{}{}/{}{}",
-        *path.purpose,
+        wallet.wallet_data.active_bip,
         if *path.purpose_hardened || extra_hard {
           "'"
         } else {
@@ -2022,4 +2022,19 @@ pub fn generate_bitcoin_taproot_address(
     .push(new_address);
 
   Ok(())
+}
+
+#[derive(PartialEq)]
+pub enum AddressType {
+  Taproot, // bc1p...
+  Legacy,  // 1...
+  Other,
+}
+
+pub fn get_address_type(address: &str) -> AddressType {
+  match address.chars().next() {
+    Some('1') => AddressType::Legacy,
+    Some('b') | Some('B') => AddressType::Taproot,
+    _ => AddressType::Other,
+  }
 }

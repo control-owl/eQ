@@ -35,7 +35,11 @@
     },
     "JUMP": {
       "icon": "arrow-right",
-      "type": "text"
+      "type": "whole-line",
+      "fontWeight": "800",
+      "gutterIcon": true,
+      "foreground": "#00ff15",
+      "background": "#000000"
     },
     "FEATURE": {
       "icon": "beaker",
