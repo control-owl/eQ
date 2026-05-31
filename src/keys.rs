@@ -83,7 +83,9 @@ pub fn generate_seed(
         Err(err) => return Err(AppError::log(format!("Error: {:?}", err))),
       };
     }
-    "Custom" => {}
+    "Custom" => {
+      println!("pass: {:?}", wallet.seed_secret.mnemonic_passphrase);
+    }
     _ => {}
   }
 
@@ -1910,10 +1912,6 @@ pub fn generate_bitcoin_legacy_address(
   let wallet_import_format: Zeroizing<String> =
     wallet.address_components.wallet_import_format.clone();
 
-  // if let Some(entries) = wallet.addresses_by_coin.0.get_mut("Bitcoin") {
-  //   entries.retain(|addr| addr.path.starts_with("m/86"));
-  // }
-
   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
     let trimmed: Zeroizing<String> =
       Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
@@ -1973,10 +1971,6 @@ pub fn generate_bitcoin_taproot_address(
   let wallet_import_format: Zeroizing<String> =
     wallet.address_components.wallet_import_format.clone();
 
-  // if let Some(entries) = wallet.addresses_by_coin.0.get_mut(&*coin_name) {
-  //   entries.pop_if(|addr| addr.path.starts_with("m/44"));
-  // }
-
   let secp_pubkey = match public_key {
     CryptoPublicKey::Secp256k1(pk) => pk,
     _ => {
@@ -2023,3 +2017,5 @@ pub fn generate_bitcoin_taproot_address(
 
   Ok(())
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..

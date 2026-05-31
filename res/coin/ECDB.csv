@@ -1124,7 +1124,6 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,8080,DSRV,DSRV,,,,,,,,,
 1,8181,BOC,BeOne Chain,secp256k1,keccak256,,,,,,TRUE,
 0,8192,PAC,pacprotocol,,,,,,,,,
-1,8217,KLAY,Klaytn,secp256k1,keccak256,,,,,,,4256
 1,8217,KAIA,KAIA,secp256k1,keccak256,,,,,,TRUE,32880
 0,8339,BTQ,BitcoinQuark,,,,,,,,,
 0,8444,XCH,Chia,,,,,,,,,

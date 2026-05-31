@@ -5,7 +5,7 @@
 
 [package]
 name = "eQ"
-description = "Crypto key generator"
+description = "High-Performance Cryptographic Key Generator"
 version = "1.4.0"
 authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
@@ -19,20 +19,20 @@ build = "build.rs"
 [dependencies]
 
 # GUI
-egui = "0.34.2"
-eframe = "0.34.2"
-egui_extras = { version = "0.34.2", features = ["svg", "image", "all_loaders"] }
+egui = "0.34.3"
+eframe = "0.34.3"
+egui_extras = { version = "0.34.3", features = ["svg", "image", "all_loaders"] }
 rfd = "0.17.2"
 svg = "0.18.0"
 
 # System and environment
-sysinfo = "0.39.0"
+sysinfo = "0.39.3"
 getrandom = "0.4.2"
 include_dir = "0.7.4"
 
 # Crypto primitives and hashing
 sha2 = "0.11.0"
-sha3 = "0.11.0"
+sha3 = "0.12.0"
 tiny-keccak = { version = "2.0.2", features = ["sha3", "keccak"] }
 ripemd = "0.2.0"
 ring = "0.17.14"
@@ -57,7 +57,7 @@ zeroize = { version = "1.8.2", features = ["derive"] }
 # ANU
 ureq = "3.3.0"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 
 # eQ-OS
 egui_keyboard = { version = "0.6.0", optional = true }
@@ -68,6 +68,7 @@ egui_keyboard = { version = "0.6.0", optional = true }
 default = []
 dev = []
 osk = ["egui_keyboard"]
+eq-os = ["egui_keyboard"]
 
 # -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 

@@ -147,6 +147,7 @@ pub struct SaveWalletDialog {
   pub wallet_name: String,
   pub password: String,
   pub password_confirm: String,
+  pub show_passwords: bool,
 
   pub use_advance: bool,
   pub use_sss: bool,
@@ -181,6 +182,7 @@ impl SaveWalletDialog {
       wallet_name: String::new(),
       password: String::new(),
       password_confirm: String::new(),
+      show_passwords: false,
 
       use_advance: false,
       use_sss: false,
@@ -379,15 +381,19 @@ impl SaveWalletDialog {
             ui.add(
               egui::TextEdit::singleline(&mut self.password)
                 .desired_width(ui.available_width())
-                .password(true),
+                .password(!self.show_passwords),
             );
 
             ui.label("Confirm password");
             ui.add(
               egui::TextEdit::singleline(&mut self.password_confirm)
                 .desired_width(ui.available_width())
-                .password(true),
+                .password(!self.show_passwords),
             );
+
+            ui.add_space(GUI_MARGIN);
+
+            ui.checkbox(&mut self.show_passwords, "Show password");
           });
 
           ui.add_space(GUI_MARGIN);
@@ -591,6 +597,7 @@ impl eframe::App for SaveWalletDialog {
 pub struct OpenWalletDialog {
   pub open: bool,
   pub password: String,
+  pub show_password: bool,
 
   pub selected_svgs: Vec<String>,
   decoded_shares: Zeroizing<Vec<Vec<u8>>>,
@@ -746,11 +753,14 @@ impl OpenWalletDialog {
         ui.group(|ui| {
           ui.horizontal(|ui| {
             ui.label("Password");
-            ui.add(
-              egui::TextEdit::singleline(&mut self.password)
-                .desired_width(ui.available_width())
-                .password(true),
-            );
+
+            ui.add(egui::TextEdit::singleline(&mut self.password).password(!self.show_password));
+
+            let icon = if self.show_password { "Hide" } else { "Show" };
+
+            if ui.button(icon).clicked() {
+              self.show_password = !self.show_password;
+            }
 
             #[cfg(feature = "osk")]
             self.keyboard.0.show(ui.ctx());

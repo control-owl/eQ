@@ -8,7 +8,6 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use eframe::egui;
-use egui::{ComboBox, Frame};
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeMap;
 use std::io::BufRead;
@@ -28,12 +27,15 @@ mod dev;
 const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
 const APP_DESCRIPTION: Option<&str> = option_env!("CARGO_PKG_DESCRIPTION");
 const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
-const _APP_AUTHOR: Option<&str> = option_env!("CARGO_PKG_AUTHORS");
+const APP_AUTHOR: Option<&str> = option_env!("CARGO_PKG_AUTHORS");
+const APP_LICENSE: Option<&str> = option_env!("CARGO_PKG_LICENSE");
+const LICENSE_TEXT: &str = include_str!("../LICENSE");
 const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &["RNG", "QRNG", "File"];
+const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
 // const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
 const TEXT_WRAPPER: f32 = 300.0;
-
+const PROJECT_MOTO: &str = "Your entropy, your crypto, your control";
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug)]
@@ -261,6 +263,9 @@ struct GuiSettings {
   secrets_dialog: crypt::ShowSecretsDialog,
   anu_dialog: crypt::ShowAnuDialog,
 
+  version_dialog: ShowVersionWindow,
+  mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
+
   hide_private_keys: bool,
 }
 
@@ -281,6 +286,9 @@ impl GuiSettings {
       open_dialog: crypt::OpenWalletDialog::default(),
       secrets_dialog: crypt::ShowSecretsDialog::new(),
       anu_dialog: crypt::ShowAnuDialog::new(),
+
+      version_dialog: ShowVersionWindow::default(),
+      mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
 
       hide_private_keys: true,
     }
@@ -540,318 +548,6 @@ impl EgoQuantum {
     Ok(())
   }
 
-  //   fn generate_new_wallet(
-  //     &mut self,
-  //     entropy_source: Option<Zeroizing<String>>,
-  //   ) -> FunctionOutput<()> {
-  //     // let entropy_source: Zeroizing<String> = match entropy_source {
-  //     //   Some(source) => source,
-  //     //   None => self.get_entropy_source(),
-  //     // };
-  //
-  //     let bip: Zeroizing<u32> = match entropy_source.as_str() {
-  //       "Load wallet" => self
-  //         .wallet
-  //         .address_components
-  //         .derivation_path
-  //         .purpose
-  //         .clone(),
-  //       _ => self.get_bip(),
-  //     };
-  //
-  //     // if self.wallet.seed_secret.raw_entropy.is_empty()
-  //     //   || self.wallet.seed_secret.full_entropy.is_empty()
-  //     // {
-  //     //   match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
-  //     //     Ok(_) => {}
-  //     //     Err(err) => {
-  //     //       return Err(AppError::log(format!(
-  //     //         "Problem with generating seed: {}",
-  //     //         err
-  //     //       )));
-  //     //     }
-  //     //   };
-  //     // };
-  //
-  // //     if self
-  // //       .wallet
-  // //       .secret_keys
-  // //       .master_secp256k1_keys
-  // //       .master_private_key_encoded
-  // //       .is_empty()
-  // //     {
-  // //       match keys::generate_secp256k1_master_keys(&mut self.wallet) {
-  // //         Ok(_) => {}
-  // //         Err(err) => {
-  // //           return Err(AppError::log(format!(
-  // //             "Problem with generating secp256k1 master keys: {}",
-  // //             err
-  // //           )));
-  // //         }
-  // //       };
-  // //     };
-  // //
-  // //     if self
-  // //       .wallet
-  // //       .secret_keys
-  // //       .master_ed25519_keys
-  // //       .master_private_key_encoded
-  // //       .is_empty()
-  // //     {
-  // //       match keys::generate_ed25519_master_keys(&mut self.wallet) {
-  // //         Ok(_) => {}
-  // //         Err(err) => {
-  // //           return Err(AppError::log(format!(
-  // //             "Problem with generating ed25519 master keys: {}",
-  // //             err
-  // //           )));
-  // //         }
-  // //       };
-  // //     };
-  //
-  //     let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
-  //
-  //     // TODO: Add address_count as GUI parameters
-  //     let address_count = 10;
-  //     let last_index = *self.wallet.address_components.derivation_path.last_index;
-  //
-  //     let (start_index, end_index) = if entropy_source.as_str() == "SVG" {
-  //       if self.wallet.addresses_by_coin.0.is_empty() {
-  //         // Bootstrap SVG mode
-  //         (0, last_index)
-  //       } else {
-  //         // Continue paging
-  //         (last_index, last_index.saturating_add(address_count))
-  //       }
-  //     } else {
-  //       // Normal mode
-  //       (last_index, last_index.saturating_add(address_count))
-  //     };
-  //
-  //     // ECDB: Extended Coin DataBase
-  //     let resource_path = std::path::Path::new("coin").join("ECDB.csv");
-  //     let resource_path_str: Zeroizing<String> = Zeroizing::new(
-  //       resource_path
-  //         .into_os_string()
-  //         .into_string()
-  //         .unwrap_or_default(),
-  //     );
-  //     let ecdb_file = e_q::get_file_from_resources(resource_path_str);
-  //
-  //     if let Ok(file) = ecdb_file {
-  //       let reader = std::io::BufReader::new(file.contents());
-  //
-  //       for line_result in reader.lines() {
-  //         match line_result {
-  //           Ok(line) => {
-  //             let columns: Vec<&str> = line.split(',').collect();
-  //             let inactive_coin = columns.first().unwrap_or(&"0");
-  //             if *inactive_coin != active_coins.to_string() {
-  //               continue;
-  //             }
-  //
-  //             // TODO: Remove hardcoding, add parameters to GUI selection
-  //             self.wallet.address_components.derivation_path.purpose = bip.clone();
-  //             self.wallet.address_components.derivation_path.coin =
-  //               Zeroizing::new(columns[1].parse().unwrap_or(0));
-  //             self
-  //               .wallet
-  //               .address_components
-  //               .derivation_path
-  //               .purpose_hardened = Zeroizing::new(true);
-  //             self.wallet.address_components.derivation_path.coin_hardened = Zeroizing::new(true);
-  //             self
-  //               .wallet
-  //               .address_components
-  //               .derivation_path
-  //               .account_hardened = Zeroizing::new(true);
-  //             self
-  //               .wallet
-  //               .address_components
-  //               .derivation_path
-  //               .change_hardened = Zeroizing::new(*bip == 32);
-  //             self
-  //               .wallet
-  //               .address_components
-  //               .derivation_path
-  //               .address_hardened = Zeroizing::new(self.wallet.wallet_data.hardened_address);
-  //
-  //             self.wallet.address_components.coin_name = Zeroizing::new(columns[3].to_string());
-  //             self.wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
-  //             self.wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
-  //             self.wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());
-  //             self.wallet.address_components.wallet_import_format =
-  //               Zeroizing::new(columns[10].to_string());
-  //             self.wallet.address_components.evm =
-  //               Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
-  //
-  //             for address_index in start_index..end_index {
-  //               self.wallet.address_components.derivation_path.address =
-  //                 Zeroizing::new(address_index);
-  //
-  //               match self.wallet.address_components.key_derivation.as_str() {
-  //                 "secp256k1" => {
-  //                   match keys::generate_secp256k1_child_keys(&mut self.wallet) {
-  //                     Ok(_) => {}
-  //                     Err(err) => {
-  //                       return Err(AppError::log(format!("Can not derive child keys: {}", err)));
-  //                     }
-  //                   };
-  //
-  //                   match keys::generate_secp256k1_address(&mut self.wallet) {
-  //                     Ok(_) => {}
-  //                     Err(err) => {
-  //                       return Err(AppError::log(format!(
-  //                         "Can not derive secp256k1 address: {}",
-  //                         err
-  //                       )));
-  //                     }
-  //                   };
-  //                 }
-  //                 "ed25519" => {
-  //                   match keys::generate_ed25519_child_keys(&mut self.wallet) {
-  //                     Ok(_) => {}
-  //                     Err(err) => {
-  //                       return Err(AppError::log(format!("Can not derive child keys: {}", err)));
-  //                     }
-  //                   };
-  //
-  //                   match keys::generate_ed25519_address(&mut self.wallet) {
-  //                     Ok(_) => {}
-  //                     Err(err) => {
-  //                       return Err(AppError::log(format!(
-  //                         "Can not derive ed25519 address: {}",
-  //                         err
-  //                       )));
-  //                     }
-  //                   };
-  //                 }
-  //                 _ => {
-  //                   return Err(AppError::log(format!(
-  //                     "Unsupported key derivation: {:?}",
-  //                     self.wallet.address_components.key_derivation
-  //                   )));
-  //                 }
-  //               }
-  //             }
-  //           }
-  //           Err(err) => {
-  //             eprintln!("ECDB file error: Skipping invalid line: {}", err);
-  //             continue;
-  //           }
-  //         }
-  //       }
-  //
-  //       *self.wallet.address_components.derivation_path.last_index = end_index;
-  //     }
-  //
-  //     Ok(())
-  //   }
-
-  fn render_entropy_dropdown(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
-    Frame::group(ui.style()).show(ui, |ui| {
-      let descriptions = [
-        "Uses your device's built-in random number generator (CPU).",
-        "Uses quantum processes to create highly unpredictable numbers (ANU).",
-        #[cfg(feature = "dev")]
-        "Uses the content of a file you provide as a source of randomness.",
-      ];
-
-      ComboBox::from_label("Entropy Source")
-        .selected_text(if self.wallet.seed_secret.entropy_source.is_empty() {
-          VALID_ENTROPY_SOURCES[0]
-        } else {
-          &self.wallet.seed_secret.entropy_source
-        })
-        .show_ui(ui, |ui| {
-          // RNG
-          ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string()),
-            VALID_ENTROPY_SOURCES[0],
-          )
-          .on_hover_text_at_pointer(descriptions[0]);
-
-          let resp = ui
-            .selectable_value(
-              &mut self.wallet.seed_secret.entropy_source,
-              Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string()),
-              VALID_ENTROPY_SOURCES[1],
-            )
-            .on_hover_text_at_pointer(descriptions[1]);
-
-          if resp.clicked() {
-            self.gui.anu_dialog.open = true;
-          }
-
-          // FILE
-          #[cfg(feature = "dev")]
-          ui.selectable_value(
-            &mut self.wallet.seed_secret.entropy_source,
-            Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string()),
-            VALID_ENTROPY_SOURCES[2],
-          )
-          .on_hover_text_at_pointer(descriptions[2]);
-        });
-    });
-  }
-
-  fn render_mnemonic_options(
-    &mut self,
-    ui: &mut egui::Ui,
-  ) {
-    Frame::group(ui.style()).show(ui, |ui| {
-      let sources = ["RNG", "Custom", "Off"];
-      let descriptions = [
-        "Randomize mnemonic passphrase with built-in RNG.",
-        "Input your own mnemonic passphrase.",
-        "Disable mnemonic passphrase.",
-      ];
-
-      if self
-        .wallet
-        .seed_secret
-        .mnemonic_passphrase_source
-        .is_empty()
-      {
-        self.wallet.seed_secret.mnemonic_passphrase_source =
-          Zeroizing::new(String::from(sources[0]));
-      }
-
-      let current = &*self.wallet.seed_secret.mnemonic_passphrase_source;
-
-      ComboBox::from_label("Mnemonic passphrase")
-        .selected_text(current)
-        .show_ui(ui, |ui| {
-          ui.selectable_value(
-            &mut *self.wallet.seed_secret.mnemonic_passphrase_source,
-            String::from(sources[0]),
-            sources[0],
-          )
-          .on_hover_text_at_pointer(descriptions[0]);
-
-          #[cfg(feature = "dev")]
-          ui.selectable_value(
-            &mut *self.wallet.seed_secret.mnemonic_passphrase_source,
-            String::from(sources[1]),
-            sources[1],
-          )
-          .on_hover_text_at_pointer(descriptions[1]);
-
-          #[cfg(feature = "dev")]
-          ui.selectable_value(
-            &mut *self.wallet.seed_secret.mnemonic_passphrase_source,
-            String::from(sources[2]),
-            sources[2],
-          )
-          .on_hover_text_at_pointer(descriptions[2]);
-        });
-    });
-  }
-
   fn render_wallet_header(
     &mut self,
     ui: &mut egui::Ui,
@@ -985,13 +681,175 @@ impl EgoQuantum {
         if ui.button("Dark").clicked() {
           self.gui.theme = "Dark".to_string();
         }
+      });
 
-        // ui.separator();
+      ui.menu_button("Security", |ui| {
+        // JUMP: ENTROPY SOURCE CHANGE
+        ui.menu_button("Entropy source", |ui| {
 
-        // Why the fuck there is no system detection in egui? 
-        // if ui.button("System").clicked() {
-        //   self.gui.theme = "System".to_string();
-        // }
+          // RNG SOURCE
+          ui.menu_button(VALID_ENTROPY_SOURCES[0], |ui| {
+            ui.vertical_centered(|ui| {
+              ui.heading("CPU Hardware RNG");
+              ui.add_space(GUI_MARGIN);
+              ui.label("Entropy from local CPU instructions.");
+              ui.label("Fast, offline, strong cryptographic randomness.");
+
+              ui.add_space(GUI_MARGIN);
+
+              let disabled = has_addresses;
+              let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
+
+              ui.add_enabled_ui(!disabled, |ui| {
+                if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
+                  self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
+                }
+              });
+
+              if disabled {
+                ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
+              }
+            });
+          });
+
+          // QRNG SOURCE
+          #[cfg(not(feature = "eq-os"))]
+          ui.menu_button(VALID_ENTROPY_SOURCES[1], |ui| {
+            ui.vertical_centered(|ui| {
+              ui.heading("Quantum RNG");
+              ui.add_space(GUI_MARGIN);
+              ui.label("Entropy from quantum vacuum fluctuations.");
+              ui.label("Online only.");
+
+              ui.add_space(GUI_MARGIN);
+
+              let disabled = has_addresses;
+              let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
+
+              ui.add_enabled_ui(!disabled, |ui| {
+                if ui.checkbox(&mut selected, "Use Quantum RNG").clicked() && selected {
+                  self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
+                  self.gui.anu_dialog.open = true;
+                }
+              });
+
+              if disabled {
+                ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
+              }
+            });
+          });
+
+          // FILE SOURCE
+          #[cfg(all(not(feature = "eq-os"), feature = "dev"))]
+          ui.menu_button(VALID_ENTROPY_SOURCES[2], |ui| {
+            ui.vertical_centered(|ui| {
+              ui.heading("Entropy From File");
+              ui.add_space(GUI_MARGIN);
+              ui.label("Load entropy from an external file.");
+              ui.label("Useful for offline or pre-generated entropy.");
+
+              ui.add_space(GUI_MARGIN);
+
+              let disabled = has_addresses;
+              let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
+
+              ui.add_enabled_ui(!disabled, |ui| {
+                if ui.checkbox(&mut selected, "Use File Entropy").clicked() {
+                  if selected {
+                    self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
+                  }
+                }
+              });
+
+              if disabled {
+                ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
+              }
+            });
+          });
+        });
+
+        // JUMP: MNEMONIC PASS CHANGE
+        ui.menu_button("Mnemonic passphrase", |ui| {
+
+          // RNG
+          ui.menu_button(VALID_MNEMONIC_SOURCES[0], |ui| {
+            ui.vertical_centered(|ui| {
+              ui.heading("CPU Hardware RNG");
+              ui.add_space(GUI_MARGIN);
+              ui.label("Mnemonic passphrase from local CPU instructions.");
+              ui.label("128 random characters");
+
+              ui.add_space(GUI_MARGIN);
+
+              let disabled = has_addresses;
+              let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
+
+              ui.add_enabled_ui(!disabled, |ui| {
+                if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
+                  self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
+                }
+              });
+
+              if disabled {
+                ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
+              }
+            });
+          });
+
+          // CUSTOM
+          ui.menu_button(VALID_MNEMONIC_SOURCES[1], |ui| {
+            ui.vertical_centered(|ui| {
+              ui.heading("Custom mnemonic passphrase");
+              ui.add_space(GUI_MARGIN);
+              ui.label("Input your own mnemonic passphrase.");
+
+              ui.add_space(GUI_MARGIN);
+
+              let disabled = has_addresses;
+              let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
+
+              ui.add_enabled_ui(!disabled, |ui| {
+                if ui.checkbox(&mut selected, "Custom mnemonic passphrase").clicked() {
+                  if selected {
+                    self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
+                    self.gui.mnemonic_passphrase_dialog.open = true;
+                  }
+                }
+              });
+
+              if disabled {
+                ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
+              }
+            });
+          });
+
+          // OFF
+          ui.menu_button(VALID_MNEMONIC_SOURCES[2], |ui| {
+            ui.vertical_centered(|ui| {
+              ui.heading("Disable mnemonic passphrase");
+              ui.add_space(GUI_MARGIN);
+              ui.label("Not recommended !!!");
+              ui.label("This will lower your total entropy.");
+
+              ui.add_space(GUI_MARGIN);
+
+              let disabled = has_addresses;
+              let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
+
+              ui.add_enabled_ui(!disabled, |ui| {
+                if ui.checkbox(&mut selected, "Disable mnemonic passphrase").clicked() {
+                  if selected {
+                    self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
+                  }
+                }
+              });
+
+              if disabled {
+                ui.label("⚠ Cannot disable mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
+              }
+            });
+          });
+        });
       });
 
       ui.menu_button("Privacy", |ui| {
@@ -1138,37 +996,15 @@ impl EgoQuantum {
           // TODO: Create about window
         }
 
-        if ui.add_enabled(false, egui::Button::new("Version")).on_disabled_hover_text(&devel).on_hover_text("Check for latest version").clicked() {
-          // TODO: Create version window
+        if ui.add_enabled(true, egui::Button::new("Version")).on_disabled_hover_text(&devel).on_hover_text("Check for latest version").clicked() {
+          self.gui.version_dialog.open = true;
         }
       });
     });
 
-    if ui.available_width() > TEXT_WRAPPER {
-      ui.vertical_centered_justified(|ui| {
-        ui.heading("Your entropy, your crypto, your control");
-      });
-
-      ui.add_space(GUI_MARGIN);
-    }
-
-    if ui.available_width() < TEXT_WRAPPER * 2.0 {
-      ui.vertical(|ui| {
-        ui.vertical_centered_justified(|ui| {
-          self.render_entropy_dropdown(ui);
-          // self.render_derivation_dropdown(ui);
-          self.render_mnemonic_options(ui);
-        });
-      });
-    } else {
-      ui.vertical_centered_justified(|ui| {
-        ui.horizontal_wrapped(|ui| {
-          self.render_entropy_dropdown(ui);
-          // self.render_derivation_dropdown(ui);
-          self.render_mnemonic_options(ui);
-        });
-      });
-    }
+    ui.vertical_centered_justified(|ui| {
+      ui.heading(PROJECT_MOTO);
+    });
   }
 
   fn render_wallet_table(
@@ -1232,6 +1068,7 @@ impl EgoQuantum {
         });
 
         header.col(|ui| {
+          // ui.take_available_width();
           ui.strong(column_names[6]);
         });
       })
@@ -1476,6 +1313,8 @@ impl eframe::App for EgoQuantum {
     self.gui.open_dialog.show(ui.ctx());
     self.gui.secrets_dialog.show(ui.ctx());
     self.gui.anu_dialog.show(ui.ctx());
+    self.gui.version_dialog.show(ui.ctx());
+    self.gui.mnemonic_passphrase_dialog.show(ui.ctx());
 
     if let Some(loaded_wallet) = ui
       .ctx()
@@ -1484,6 +1323,18 @@ impl eframe::App for EgoQuantum {
       self.wallet = loaded_wallet;
 
       if let Err(err) = self.generate_new_wallet(Some(Zeroizing::new(String::from("SVG")))) {
+        AppError::log(format!("Problem with generating new wallet: {err:?}"));
+      }
+    }
+
+    if let Some(loaded_mnemonic_passphrase) = ui
+      .ctx()
+      .data_mut(|d| d.remove_temp::<Zeroizing<String>>(egui::Id::new("loaded_mnemonic_passphrase")))
+    {
+      self.wallet.seed_secret.mnemonic_passphrase = loaded_mnemonic_passphrase;
+      self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(String::from("Custom"));
+
+      if let Err(err) = self.generate_new_wallet(None) {
         AppError::log(format!("Problem with generating new wallet: {err:?}"));
       }
     }
@@ -1557,7 +1408,7 @@ fn main() -> FunctionOutput<()> {
 
   let options = eframe::NativeOptions {
     viewport: egui::ViewportBuilder::default()
-      .with_inner_size([1200.0, 800.0])
+      // .with_inner_size([1200.0, 800.0])
       .with_min_inner_size([TEXT_WRAPPER, TEXT_WRAPPER])
       .with_icon(app_icon)
       .with_app_id("eQ"),
@@ -1667,4 +1518,231 @@ pub fn export_addresses_csv(
   };
 
   Ok(())
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct ShowVersionWindow {
+  pub open: bool,
+  show_license: bool,
+}
+
+impl ShowVersionWindow {
+  pub fn new() -> Self {
+    Self {
+      open: false,
+      show_license: false,
+    }
+  }
+
+  pub fn show(
+    &mut self,
+    ctx: &egui::Context,
+  ) {
+    if !self.open {
+      return;
+    }
+
+    let mut open = self.open;
+
+    egui::Window::new("Version")
+      .open(&mut open)
+      .resizable(true)
+      .show(ctx, |ui| {
+        let _ = self.ui_content(ui);
+      });
+
+    if !open {
+      self.close_and_clear();
+    }
+  }
+
+  fn close_and_clear(&mut self) {
+    self.zeroize();
+
+    *self = ShowVersionWindow::new();
+  }
+
+  fn ui_content(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) -> FunctionOutput<()> {
+    ui.add_space(GUI_MARGIN);
+
+    ui.vertical_centered(|ui| {
+      let logo_bytes: &[u8] = include_bytes!("../res/logo/logo.png");
+      let logo = egui::Image::from_bytes("logo", logo_bytes).max_height(128.0);
+
+      ui.add(logo);
+
+      ui.add_space(GUI_MARGIN);
+
+      ui.heading(APP_NAME.unwrap_or_default());
+      ui.heading(APP_DESCRIPTION.unwrap_or_default());
+
+      ui.add_space(GUI_MARGIN);
+
+      ui.group(|ui| {
+        ui.vertical_centered(|ui| {
+          ui.heading("Version Information");
+
+          ui.add_space(GUI_MARGIN);
+
+          ui.label(format!("Version: {}", APP_VERSION.unwrap_or_default()));
+          ui.label(format!("Feature: {}", e_q::get_active_app_feature()));
+
+          ui.add_space(GUI_MARGIN);
+
+          if ui.link(APP_LICENSE.unwrap_or("License")).clicked() {
+            self.show_license = true;
+          }
+
+          ui.add_space(GUI_MARGIN);
+
+          #[cfg(not(feature = "eq-os"))]
+          {
+            let post = concat!("eQ", "@", "r-o0-t", ".", "wtf");
+            ui.hyperlink_to("Contact author", format!("mailto:{post}"));
+          }
+        });
+
+        #[cfg(not(feature = "eq-os"))]
+        {
+          ui.add_space(GUI_MARGIN);
+
+          ui.hyperlink_to(
+            "Open GitHub Releases",
+            "https://github.com/control-owl/eQ/releases",
+          );
+        }
+      });
+    });
+
+    if self.show_license {
+      egui::Window::new("Project License")
+        .open(&mut self.show_license)
+        .show(ui.ctx(), |ui| {
+          egui::ScrollArea::both().show(ui, |ui| {
+            ui.code(LICENSE_TEXT);
+          });
+        });
+    }
+
+    Ok(())
+  }
+}
+
+impl eframe::App for ShowVersionWindow {
+  fn ui(
+    &mut self,
+    ui: &mut egui::Ui,
+    _frame: &mut eframe::Frame,
+  ) {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+      ui.heading("Version");
+      self.show(ui.ctx());
+    });
+  }
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct ShowCustomMnemonicWindow {
+  pub open: bool,
+  passphrase: Zeroizing<String>,
+  show_passphrase: bool,
+}
+
+impl ShowCustomMnemonicWindow {
+  pub fn new() -> Self {
+    Self {
+      open: false,
+      passphrase: Zeroizing::new(String::new()),
+      show_passphrase: false,
+    }
+  }
+
+  pub fn show(
+    &mut self,
+    ctx: &egui::Context,
+  ) {
+    if !self.open {
+      return;
+    }
+
+    let mut open = self.open;
+
+    egui::Window::new("Mnemonic Passphrase")
+      .open(&mut open)
+      .resizable(true)
+      .show(ctx, |ui| {
+        let _ = self.ui_content(ui);
+      });
+
+    if !open {
+      self.close_and_clear();
+    }
+  }
+
+  fn close_and_clear(&mut self) {
+    self.zeroize();
+
+    *self = ShowCustomMnemonicWindow::new();
+  }
+
+  fn ui_content(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) -> FunctionOutput<()> {
+    ui.add_space(GUI_MARGIN);
+
+    ui.vertical_centered(|ui| {
+      ui.add_space(GUI_MARGIN);
+
+      ui.add(
+        egui::TextEdit::singleline(&mut *self.passphrase)
+          .desired_width(ui.available_width())
+          .password(!self.show_passphrase),
+      );
+
+      ui.add_space(GUI_MARGIN);
+
+      ui.checkbox(&mut self.show_passphrase, "Show mnemonic passphrase");
+
+      ui.add_space(GUI_MARGIN);
+
+      if ui.button("Save").clicked() {
+        let mut wallet = CryptoWallet::new();
+        wallet.seed_secret.mnemonic_passphrase = self.passphrase.clone();
+
+        ui.ctx().data_mut(|d| {
+          d.insert_temp(
+            egui::Id::new("loaded_mnemonic_passphrase"),
+            Zeroizing::new(wallet.seed_secret.mnemonic_passphrase.to_string()),
+          );
+        });
+
+        self.close_and_clear();
+      }
+    });
+
+    ui.add_space(GUI_MARGIN);
+
+    Ok(())
+  }
+}
+
+impl eframe::App for ShowCustomMnemonicWindow {
+  fn ui(
+    &mut self,
+    ui: &mut egui::Ui,
+    _frame: &mut eframe::Frame,
+  ) {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+      ui.heading("Mnemonic Passphrase");
+      self.show(ui.ctx());
+    });
+  }
 }
