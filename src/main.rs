@@ -8,6 +8,7 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use eframe::egui;
+use egui::Color32;
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeMap;
 use std::io::BufRead;
@@ -557,8 +558,8 @@ impl EgoQuantum {
 
     egui::MenuBar::new().ui(ui, |ui| {
       ui.menu_button("File", |ui| {
-        if ui.add_enabled(false, egui::Button::new("New")).on_disabled_hover_text(&devel).on_hover_text("Create new wallet window").clicked() {
-          // TODO: Create new wallet window
+        if ui.add_enabled(has_addresses, egui::Button::new("New")).on_hover_text("Create new wallet").clicked() {
+          *self = Self::new();
         }
 
         if ui.add_enabled(true, egui::Button::new("Open")).on_disabled_hover_text(&devel).on_hover_text("Open wallet from file").clicked() {
@@ -1030,8 +1031,8 @@ impl EgoQuantum {
       });
 
       ui.menu_button("Help", |ui| {
-        if ui.add_enabled(false, egui::Button::new("Help")).on_disabled_hover_text(&devel).on_hover_text("About this app").clicked() {
-          // TODO: Create about window
+        if ui.add_enabled(false, egui::Button::new("Help")).on_disabled_hover_text(&devel).on_hover_text("Everything about this app").clicked() {
+          // TODO: Create help window
         }
 
         if ui.add_enabled(true, egui::Button::new("About")).on_disabled_hover_text(&devel).on_hover_text("Check for latest version").clicked() {
@@ -1260,34 +1261,36 @@ impl EgoQuantum {
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
     ui.horizontal(|ui| {
-      ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-        if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
-          let label = if self.wallet.addresses_by_coin.0.is_empty() {
-            "Generate Wallet"
-          } else {
-            &format!("+{} more addresses", self.gui.address_count)
-          };
-
-          if ui.button(label).clicked() {
-            let source = self.get_entropy_source();
-            if self.gui.anu_dialog.save_entropy {
-              self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
-            }
-            let _ = self.generate_new_wallet(Some(source));
-          }
-        } else {
-          ui.label(egui::RichText::new("Memory limit reached"));
-        }
-
-        ui.add_space(GUI_MARGIN);
-
-        if ui.button(egui::RichText::new("Delete Wallet")).clicked() {
-          *self = Self::new();
-        }
-      });
+      //       ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+      //         if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
+      //           let label = if self.wallet.addresses_by_coin.0.is_empty() {
+      //             "Generate Wallet"
+      //           } else {
+      //             &format!("+{} more addresses", self.gui.address_count)
+      //           };
+      //
+      //           if ui.button(label).clicked() {
+      //             let source = self.get_entropy_source();
+      //             if self.gui.anu_dialog.save_entropy {
+      //               self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
+      //             }
+      //             let _ = self.generate_new_wallet(Some(source));
+      //           }
+      //         } else {
+      //           ui.label(egui::RichText::new("Memory limit reached"));
+      //         }
+      //
+      //         ui.add_space(GUI_MARGIN);
+      //
+      //         if ui.button(egui::RichText::new("Delete Wallet")).clicked() {
+      //           *self = Self::new();
+      //         }
+      //       });
 
       // JUMP: STATUS BAR
       ui.horizontal(|ui| {
+        let active_text_color = self.get_text_color();
+
         ui.set_height(GUI_MARGIN);
         ui.label(
           egui::RichText::new("Entropy")
@@ -1308,11 +1311,6 @@ impl EgoQuantum {
         }
 
         ui.add_space(GUI_MARGIN);
-
-        let active_font_color = match self.gui.theme.as_str() {
-          "Light" => egui::Color32::BLUE,
-          _ => egui::Color32::GREEN,
-        };
 
         // Mnemonic Words Length toggle
         let current_entropy = *self.wallet.seed_secret.entropy_length;
@@ -1340,7 +1338,7 @@ impl EgoQuantum {
           _ => egui::RichText::new("Words: 24")
             .strong()
             .monospace()
-            .color(active_font_color),
+            .color(active_text_color),
         };
 
         if ui.button(words_text).clicked() {
@@ -1370,7 +1368,7 @@ impl EgoQuantum {
           egui::RichText::new("BIP 44")
             .strong()
             .monospace()
-            .color(active_font_color)
+            .color(active_text_color)
         } else {
           egui::RichText::new("BIP 32")
             .monospace()
@@ -1392,7 +1390,7 @@ impl EgoQuantum {
           egui::RichText::new("Hardened")
             .strong()
             .monospace()
-            .color(active_font_color)
+            .color(active_text_color)
         } else {
           egui::RichText::new("Non-hard")
             .monospace()
@@ -1420,6 +1418,13 @@ impl EgoQuantum {
 
   fn get_entropy_source(&mut self) -> Zeroizing<String> {
     self.wallet.seed_secret.entropy_source.clone()
+  }
+
+  fn get_text_color(&mut self) -> Color32 {
+    match self.gui.theme.as_str() {
+      "Light" => egui::Color32::BLUE,
+      _ => egui::Color32::GREEN,
+    }
   }
 }
 
@@ -1452,16 +1457,48 @@ impl eframe::App for EgoQuantum {
       ui.add_space(GUI_MARGIN);
     });
 
-    egui::CentralPanel::default().show_inside(ui, |ui| {
-      egui::ScrollArea::horizontal()
-        .scroll_bar_visibility(
-          egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
-        )
-        .show(ui, |ui| {
-          ui.take_available_height();
-          self.render_wallet_table(ui);
-        });
-    });
+    let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
+
+    if has_addresses {
+      egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::ScrollArea::horizontal()
+          .scroll_bar_visibility(
+            egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
+          )
+          .show(ui, |ui| {
+            // ui.take_available_height();
+            self.render_wallet_table(ui);
+          });
+      });
+    } else {
+      egui::CentralPanel::default().show_inside(ui, |ui| {
+        ui.vertical_centered(|ui| {
+          ui.vertical_centered(|ui| {
+            ui.add_space(GUI_MARGIN);
+
+            let text = egui::RichText::new("Generate New Wallet")
+              .raised()
+              .strong()
+              .monospace()
+              .color(self.get_text_color());
+
+            if ui.button(text).clicked() {
+              let source = self.get_entropy_source();
+              if self.gui.anu_dialog.save_entropy {
+                self.wallet.seed_secret.raw_entropy =
+                  self.gui.anu_dialog.randomized_entropy.clone();
+              }
+              let _ = self.generate_new_wallet(Some(source));
+            }
+          });
+
+          let logo_bytes: &[u8] = include_bytes!("../res/logo/logo.png");
+          let logo = egui::Image::from_bytes("logo", logo_bytes).max_height(512.0);
+
+          ui.add(logo);
+        })
+      });
+    }
 
     self.gui.save_dialog.show(ui.ctx());
     self.gui.open_dialog.show(ui.ctx());
