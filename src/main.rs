@@ -1019,11 +1019,9 @@ impl EgoQuantum {
           let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
 
           // JUMP: LEGACY CHANGE
-          if bitcoin_legacy_resp.changed() {
-            if has_addresses {
-              self.wallet.addresses_by_coin.0.clear();
-              let _ = self.generate_addresses_for_all_coins();
-            }
+          if bitcoin_legacy_resp.changed() && has_addresses {
+            self.wallet.addresses_by_coin.0.clear();
+            let _ = self.generate_addresses_for_all_coins();
           }
 
 
