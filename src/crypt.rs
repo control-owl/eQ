@@ -3,7 +3,8 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use crate::{
-  AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, SeedSecretData, Zeroize, ZeroizeOnDrop,
+  AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, MnemonicLanguage, SeedSecretData, Zeroize,
+  ZeroizeOnDrop,
 };
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -1224,7 +1225,12 @@ pub fn create_payload(wallet: &CryptoWallet) -> FunctionOutput<Zeroizing<Vec<u8>
   payload.extend_from_slice(entropy_bytes);
 
   // 3 Mnemonic dictionary (length u16 LE + bytes)
-  let dict_bytes = wallet.seed_secret.mnemonic_dictionary.as_bytes();
+  let dict_bytes = wallet
+    .seed_secret
+    .mnemonic_dictionary
+    .display_name()
+    .as_bytes();
+
   let dict_len = dict_bytes.len();
   let dict_len_u16: u16 = dict_len
     .try_into()
@@ -1355,8 +1361,8 @@ fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
     }
   };
 
-  let mnemonic_dictionary = match String::from_utf8(dict_bytes) {
-    Ok(dict) => Zeroizing::new(dict),
+  let mnemonic_dictionary: Zeroizing<MnemonicLanguage> = match String::from_utf8(dict_bytes) {
+    Ok(dict) => Zeroizing::new(MnemonicLanguage::get_dictionary(&dict)),
     Err(err) => {
       return Err(AppError::log(format!(
         "reading dict_bytes failed: {:?}",
@@ -1365,6 +1371,7 @@ fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
     }
   };
 
+  println!("dict: {}", mnemonic_dictionary.display_name());
   // 4 Mnemonic passphrase
   let pass_len_bytes = match take(&plain, &mut off, 2) {
     Ok(length) => length,

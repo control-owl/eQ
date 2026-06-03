@@ -27,12 +27,12 @@ mod dev;
 const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
 const APP_DESCRIPTION: Option<&str> = option_env!("CARGO_PKG_DESCRIPTION");
 const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
-const APP_AUTHOR: Option<&str> = option_env!("CARGO_PKG_AUTHORS");
 const APP_LICENSE: Option<&str> = option_env!("CARGO_PKG_LICENSE");
 const LICENSE_TEXT: &str = include_str!("../LICENSE");
 const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &["RNG", "QRNG", "File"];
 const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
+const VALID_MNEMONIC_LENGTHS: &[usize] = &[24, 21, 18, 15, 12];
 // const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
 const TEXT_WRAPPER: f32 = 300.0;
 const PROJECT_MOTO: &str = "Your entropy, your crypto, your control";
@@ -110,7 +110,7 @@ struct SeedSecretData {
   mnemonic_words: Zeroizing<String>,
   mnemonic_passphrase: Zeroizing<String>,
   mnemonic_passphrase_source: Zeroizing<String>,
-  mnemonic_dictionary: Zeroizing<String>,
+  mnemonic_dictionary: Zeroizing<MnemonicLanguage>,
   seed: Zeroizing<String>,
 }
 
@@ -119,7 +119,7 @@ impl SeedSecretData {
     // TODO: Get values from local config
     Self {
       entropy_source: Zeroizing::new(String::from("RNG")),
-      mnemonic_dictionary: Zeroizing::new(String::from("English")),
+      mnemonic_dictionary: Zeroizing::new(MnemonicLanguage::English),
       entropy_length: Zeroizing::new(256),
       mnemonic_passphrase: Zeroizing::new(String::new()),
       mnemonic_passphrase_source: Zeroizing::new(String::from("RNG")),
@@ -263,7 +263,7 @@ struct GuiSettings {
   secrets_dialog: crypt::ShowSecretsDialog,
   anu_dialog: crypt::ShowAnuDialog,
 
-  version_dialog: ShowVersionWindow,
+  version_dialog: ShowAboutWindow,
   mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
 
   hide_private_keys: bool,
@@ -287,7 +287,7 @@ impl GuiSettings {
       secrets_dialog: crypt::ShowSecretsDialog::new(),
       anu_dialog: crypt::ShowAnuDialog::new(),
 
-      version_dialog: ShowVersionWindow::default(),
+      version_dialog: ShowAboutWindow::default(),
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
 
       hide_private_keys: true,
@@ -413,7 +413,7 @@ impl EgoQuantum {
 
     // TODO: Add address_count as GUI parameters
     let address_count = if *self.wallet.address_components.derivation_path.last_index == 0 {
-      10
+      self.gui.address_count
     } else {
       *self.wallet.address_components.derivation_path.last_index
     };
@@ -768,6 +768,8 @@ impl EgoQuantum {
           });
         });
 
+        ui.separator();
+
         // JUMP: MNEMONIC PASS CHANGE
         ui.menu_button("Mnemonic passphrase", |ui| {
 
@@ -809,11 +811,9 @@ impl EgoQuantum {
               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
 
               ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Custom mnemonic passphrase").clicked() {
-                  if selected {
-                    self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
-                    self.gui.mnemonic_passphrase_dialog.open = true;
-                  }
+                if ui.checkbox(&mut selected, "Custom mnemonic passphrase").clicked() && selected {
+                  self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
+                  self.gui.mnemonic_passphrase_dialog.open = true;
                 }
               });
 
@@ -837,10 +837,8 @@ impl EgoQuantum {
               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
 
               ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Disable mnemonic passphrase").clicked() {
-                  if selected {
-                    self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
-                  }
+                if ui.checkbox(&mut selected, "Disable mnemonic passphrase").clicked() && selected {
+                  self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
                 }
               });
 
@@ -850,6 +848,46 @@ impl EgoQuantum {
             });
           });
         });
+
+        // JUMP: DICTIONARY CHANGE
+        ui.menu_button("Mnemonic dictionary", |ui| {
+          let current_dict = self.wallet.seed_secret.mnemonic_dictionary.clone();
+
+          for lang in MnemonicLanguage::ALL.iter() {
+            let languages = lang.clone();
+            let display = languages.display_name();
+            let is_selected = current_dict.display_name() == display;
+
+            if ui.radio(is_selected, display).clicked() {
+              self.wallet.seed_secret.mnemonic_dictionary = Zeroizing::new(languages);
+            }
+          }
+      });
+
+        // JUMP: MNEMONIC LENGTH CHANGE
+        ui.menu_button("Mnemonic length", |ui| {
+          let current_entropy = *self.wallet.seed_secret.entropy_length;
+
+          for words in VALID_MNEMONIC_LENGTHS {
+            let target_entropy = match words {
+              12 => 128,
+              15 => 160,
+              18 => 192,
+              21 => 224,
+              24 => 256,
+              _  => continue,
+            };
+
+            let is_selected = current_entropy == target_entropy;
+
+            if ui.radio(is_selected, words.to_string()).clicked() {
+              self.wallet.seed_secret.entropy_length =
+                Zeroizing::new(target_entropy);
+            }
+          }
+        });
+
+
       });
 
       ui.menu_button("Privacy", |ui| {
@@ -978,12 +1016,14 @@ impl EgoQuantum {
             "Generates only Taproot addresses",
           ];
 
-          let bitcoin_legacy_resp: egui::Response = ui.add_enabled(has_addresses,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
+          let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
 
           // JUMP: LEGACY CHANGE
           if bitcoin_legacy_resp.changed() {
-            self.wallet.addresses_by_coin.0.clear();
-            let _ = self.generate_addresses_for_all_coins();
+            if has_addresses {
+              self.wallet.addresses_by_coin.0.clear();
+              let _ = self.generate_addresses_for_all_coins();
+            }
           }
 
 
@@ -992,11 +1032,11 @@ impl EgoQuantum {
       });
 
       ui.menu_button("Help", |ui| {
-        if ui.add_enabled(false, egui::Button::new("About")).on_disabled_hover_text(&devel).on_hover_text("About this app").clicked() {
+        if ui.add_enabled(false, egui::Button::new("Help")).on_disabled_hover_text(&devel).on_hover_text("About this app").clicked() {
           // TODO: Create about window
         }
 
-        if ui.add_enabled(true, egui::Button::new("Version")).on_disabled_hover_text(&devel).on_hover_text("Check for latest version").clicked() {
+        if ui.add_enabled(true, egui::Button::new("About")).on_disabled_hover_text(&devel).on_hover_text("Check for latest version").clicked() {
           self.gui.version_dialog.open = true;
         }
       });
@@ -1068,7 +1108,7 @@ impl EgoQuantum {
         });
 
         header.col(|ui| {
-          // ui.take_available_width();
+          ui.take_available_width();
           ui.strong(column_names[6]);
         });
       })
@@ -1221,44 +1261,160 @@ impl EgoQuantum {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
-    let total_width = ui.available_width();
-
     ui.horizontal(|ui| {
-      let font_id = ui.style().text_styles[&egui::TextStyle::Body].clone();
-      let color = ui.style().visuals.text_color();
-      let button_descriptions = ["Generate Wallet", "Delete Wallet"];
+      ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
+          let label = if self.wallet.addresses_by_coin.0.is_empty() {
+            "Generate Wallet"
+          } else {
+            &format!("+{} more addresses", self.gui.address_count)
+          };
 
-      ui.add_space(GUI_MARGIN);
-
-      let button_length =
-        e_q::calculate_max_text_width(ui, &button_descriptions, font_id.clone(), color);
-      ui.add_space((total_width / 2.0) - button_length - (4.0 * GUI_MARGIN / 2.0));
-
-      let button_label = if self.wallet.addresses_by_coin.0.is_empty() {
-        button_descriptions[0]
-      } else {
-        &format!("+{} more addresses", self.gui.address_count)
-      };
-
-      if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
-        if ui.button(button_label).clicked() {
-          let source = self.get_entropy_source();
-
-          if self.gui.anu_dialog.save_entropy {
-            self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
+          if ui.button(label).clicked() {
+            let source = self.get_entropy_source();
+            if self.gui.anu_dialog.save_entropy {
+              self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
+            }
+            let _ = self.generate_new_wallet(Some(source));
           }
-
-          let _ = self.generate_new_wallet(Some(source));
+        } else {
+          ui.label(egui::RichText::new("Memory limit reached"));
         }
-      } else {
-        ui.label("Memory limit reached—cannot generate more addresses.");
-      }
 
-      ui.add_space(GUI_MARGIN);
+        ui.add_space(GUI_MARGIN);
 
-      if ui.button(button_descriptions[1]).clicked() {
-        *self = Self::new()
-      }
+        if ui.button(egui::RichText::new("Delete Wallet")).clicked() {
+          *self = Self::new();
+        }
+      });
+
+      // JUMP: STATUS BAR
+      ui.horizontal(|ui| {
+        ui.set_height(GUI_MARGIN);
+        ui.label(
+          egui::RichText::new("Entropy")
+            .strong()
+            .color(ui.visuals().weak_text_color()),
+        );
+        ui.separator();
+
+        if ui
+          .button(egui::RichText::new(format!(
+            "Source: {}",
+            *self.wallet.seed_secret.entropy_source
+          )))
+          .clicked()
+        {
+          // TODO: Open Entropy Source menu / dialog
+          // self.gui.show_entropy_source_menu = true;
+        }
+
+        ui.add_space(GUI_MARGIN);
+
+        let active_font_color = match self.gui.theme.as_str() {
+          "Light" => egui::Color32::BLUE,
+          _ => egui::Color32::GREEN,
+        };
+
+        // Mnemonic Words Length toggle
+        let current_entropy = *self.wallet.seed_secret.entropy_length;
+        let current_words = match current_entropy {
+          128 => 12,
+          160 => 15,
+          192 => 18,
+          224 => 21,
+          _ => 24,
+        };
+
+        let words_text = match *self.wallet.seed_secret.entropy_length {
+          128 => egui::RichText::new("Words: 12")
+            .monospace()
+            .color(ui.visuals().weak_text_color()),
+          160 => egui::RichText::new("Words: 15")
+            .monospace()
+            .color(ui.visuals().weak_text_color()),
+          192 => egui::RichText::new("Words: 18")
+            .monospace()
+            .color(ui.visuals().weak_text_color()),
+          224 => egui::RichText::new("Words: 21")
+            .monospace()
+            .color(ui.visuals().weak_text_color()),
+          _ => egui::RichText::new("Words: 24")
+            .strong()
+            .monospace()
+            .color(active_font_color),
+        };
+
+        if ui.button(words_text).clicked() {
+          let idx = VALID_MNEMONIC_LENGTHS
+            .iter()
+            .position(|&w| w == current_words)
+            .unwrap_or(0);
+
+          let next_idx = (idx + 1) % VALID_MNEMONIC_LENGTHS.len();
+          let next_words = VALID_MNEMONIC_LENGTHS[next_idx];
+
+          let next_entropy = match next_words {
+            12 => 128,
+            15 => 160,
+            18 => 192,
+            21 => 224,
+            _ => 256,
+          };
+
+          self.wallet.seed_secret.entropy_length = Zeroizing::new(next_entropy);
+        }
+
+        ui.add_space(GUI_MARGIN);
+
+        // BIP Version toggle
+        let bip_text = if self.wallet.wallet_data.active_bip == 44 {
+          egui::RichText::new("BIP 44")
+            .strong()
+            .monospace()
+            .color(active_font_color)
+        } else {
+          egui::RichText::new("BIP 32")
+            .monospace()
+            .color(ui.visuals().weak_text_color())
+        };
+
+        if ui.button(bip_text).clicked() {
+          self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 {
+            32
+          } else {
+            44
+          }
+        }
+
+        ui.add_space(GUI_MARGIN);
+
+        // Hardened Toggle
+        let hardened_text = if self.wallet.wallet_data.hardened_address {
+          egui::RichText::new("Hardened")
+            .strong()
+            .monospace()
+            .color(active_font_color)
+        } else {
+          egui::RichText::new("Non-hard")
+            .monospace()
+            .color(ui.visuals().weak_text_color())
+        };
+
+        if ui.button(hardened_text).clicked() {
+          self.wallet.wallet_data.hardened_address = !self.wallet.wallet_data.hardened_address;
+        }
+      });
+
+      ui.horizontal(|ui| {
+        let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
+
+        if has_addresses {
+          ui.separator();
+
+          ui.label(format!("Coins: {}", self.wallet.addresses_by_coin.0.len()));
+        }
+      });
     });
 
     Ok(())
@@ -1523,12 +1679,12 @@ pub fn export_addresses_csv(
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
-pub struct ShowVersionWindow {
+pub struct ShowAboutWindow {
   pub open: bool,
   show_license: bool,
 }
 
-impl ShowVersionWindow {
+impl ShowAboutWindow {
   pub fn new() -> Self {
     Self {
       open: false,
@@ -1546,7 +1702,7 @@ impl ShowVersionWindow {
 
     let mut open = self.open;
 
-    egui::Window::new("Version")
+    egui::Window::new("About")
       .open(&mut open)
       .resizable(true)
       .show(ctx, |ui| {
@@ -1561,7 +1717,7 @@ impl ShowVersionWindow {
   fn close_and_clear(&mut self) {
     self.zeroize();
 
-    *self = ShowVersionWindow::new();
+    *self = ShowAboutWindow::new();
   }
 
   fn ui_content(
@@ -1633,14 +1789,14 @@ impl ShowVersionWindow {
   }
 }
 
-impl eframe::App for ShowVersionWindow {
+impl eframe::App for ShowAboutWindow {
   fn ui(
     &mut self,
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
     egui::CentralPanel::default().show_inside(ui, |ui| {
-      ui.heading("Version");
+      ui.heading("About");
       self.show(ui.ctx());
     });
   }
@@ -1744,5 +1900,83 @@ impl eframe::App for ShowCustomMnemonicWindow {
       ui.heading("Mnemonic Passphrase");
       self.show(ui.ctx());
     });
+  }
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[derive(Debug, Clone, Default, Zeroize, ZeroizeOnDrop)]
+pub enum MnemonicLanguage {
+  #[default]
+  English,
+
+  Czech,
+  French,
+  Italian,
+  Portuguese,
+  Spanish,
+  ChineseSimplified,
+  ChineseTraditional,
+  Japanese,
+  Korean,
+}
+
+impl MnemonicLanguage {
+  pub const ALL: [Self; 10] = [
+    Self::English,
+    Self::Czech,
+    Self::French,
+    Self::Italian,
+    Self::Portuguese,
+    Self::Spanish,
+    Self::ChineseSimplified,
+    Self::ChineseTraditional,
+    Self::Japanese,
+    Self::Korean,
+  ];
+
+  pub const fn display_name(&self) -> &'static str {
+    match self {
+      Self::English => "English",
+      Self::Czech => "Czech",
+      Self::French => "French",
+      Self::Italian => "Italian",
+      Self::Portuguese => "Portuguese",
+      Self::Spanish => "Spanish",
+      Self::ChineseSimplified => "Chinese Simplified",
+      Self::ChineseTraditional => "Chinese Traditional",
+      Self::Japanese => "Japanese",
+      Self::Korean => "Korean",
+    }
+  }
+
+  pub const fn filename(&self) -> &'static str {
+    match self {
+      Self::English => "english.txt",
+      Self::Czech => "czech.txt",
+      Self::French => "french.txt",
+      Self::Italian => "italian.txt",
+      Self::Portuguese => "portuguese.txt",
+      Self::Spanish => "spanish.txt",
+      Self::ChineseSimplified => "chinese_simplified.txt",
+      Self::ChineseTraditional => "chinese_traditional.txt",
+      Self::Japanese => "japanese.txt",
+      Self::Korean => "korean.txt",
+    }
+  }
+
+  pub fn get_dictionary(language: &str) -> Self {
+    match language {
+      "Czech" => MnemonicLanguage::Czech,
+      "French" => MnemonicLanguage::French,
+      "Italian" => MnemonicLanguage::Italian,
+      "Portuguese" => MnemonicLanguage::Portuguese,
+      "Spanish" => MnemonicLanguage::Spanish,
+      "Chinese Simplified" => MnemonicLanguage::ChineseSimplified,
+      "Chinese Traditional" => MnemonicLanguage::ChineseTraditional,
+      "Japanese" => MnemonicLanguage::Japanese,
+      "Korean" => MnemonicLanguage::Korean,
+      _ => MnemonicLanguage::English,
+    }
   }
 }

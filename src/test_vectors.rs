@@ -135,13 +135,15 @@ mod tests {
     ];
 
     for vector in entropy_mnemonic_vectors {
-      let mnemonic =
-        match keys::generate_mnemonic_words(Zeroizing::new(String::from(vector.entropy)), None) {
-          Ok(mnemonic) => mnemonic,
-          Err(_) => {
-            panic!("Error deriving mnemonic words")
-          }
-        };
+      let mnemonic = match keys::generate_mnemonic_words(
+        Zeroizing::new(String::from(vector.entropy)),
+        Zeroizing::new(crate::MnemonicLanguage::English),
+      ) {
+        Ok(mnemonic) => mnemonic,
+        Err(_) => {
+          panic!("Error deriving mnemonic words")
+        }
+      };
       assert_eq!(mnemonic.as_str(), vector.mnemonic);
     }
   }

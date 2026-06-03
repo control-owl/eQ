@@ -5,7 +5,7 @@
 
 use crate::{
   AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData,
-  CryptoPublicKey, CryptoWallet, FunctionOutput, Zeroizing,
+  CryptoPublicKey, CryptoWallet, FunctionOutput, MnemonicLanguage, Zeroizing,
 };
 use base32::Alphabet;
 use base64::Engine;
@@ -32,7 +32,7 @@ pub fn generate_seed(
   entropy_source: Zeroizing<String>,
 ) -> FunctionOutput<()> {
   let full_entropy: Zeroizing<String>;
-  let mnemonic_dictionary: Zeroizing<String>;
+  let mnemonic_dictionary: Zeroizing<MnemonicLanguage>;
 
   match entropy_source.as_str() {
     "SVG" => {
@@ -90,7 +90,7 @@ pub fn generate_seed(
   }
 
   let mnemonic_words: Zeroizing<String> =
-    match generate_mnemonic_words(full_entropy.clone(), Some(mnemonic_dictionary)) {
+    match generate_mnemonic_words(full_entropy.clone(), mnemonic_dictionary) {
       Ok(words) => words,
       Err(err) => {
         return Err(AppError::log(format!(
@@ -204,7 +204,7 @@ fn generate_raw_mnemonic_passphrase(length: usize) -> FunctionOutput<Zeroizing<S
 
 pub fn generate_mnemonic_words(
   final_entropy_binary: Zeroizing<String>,
-  dictionary: Option<Zeroizing<String>>,
+  dictionary: Zeroizing<MnemonicLanguage>,
 ) -> FunctionOutput<Zeroizing<String>> {
   let chunks: Zeroizing<Vec<String>> = Zeroizing::new(
     final_entropy_binary
@@ -222,18 +222,7 @@ pub fn generate_mnemonic_words(
       .collect(),
   );
 
-  let dictionary_file = match dictionary.unwrap_or_default().as_str() {
-    "Czech" => "czech.txt",
-    "French" => "french.txt",
-    "Italian" => "italian.txt",
-    "Portuguese" => "portuguese.txt",
-    "Spanish" => "spanish.txt",
-    "Chinese simplified" => "chinese_simplified.txt",
-    "Chinese traditional" => "chinese_traditional.txt",
-    "Japanese" => "japanese.txt",
-    "Korean" => "korean.txt",
-    _ => "english.txt",
-  };
+  let dictionary_file = dictionary.filename();
 
   let wordlist_path = std::path::Path::new("wordlists").join(dictionary_file);
   let wordlist_location: Zeroizing<String> = match wordlist_path.to_str() {
