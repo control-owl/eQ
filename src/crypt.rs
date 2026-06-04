@@ -33,7 +33,7 @@ const NONCE_LEN: usize = 12;
 const TAG_LEN: usize = 16;
 const SVG_BOX_SIZE: usize = 16;
 const ANU_COOLDOWN: u32 = 60 * 2;
-const QRNG_RAW_ENTROPY_LENGTH: usize = 256;
+// const QRNG_RAW_ENTROPY_LENGTH: usize = 256;
 
 pub type SharedWallet = Rc<RefCell<Zeroizing<CryptoWallet>>>;
 
@@ -1124,7 +1124,7 @@ fn create_svg(
   let grid = possible_grids
     .into_iter()
     .find(|&g| g * g >= min_cells_needed)
-    .expect("Payload too large even for 48×48 grid – split into multiple images");
+    .expect("Payload too large even for 48x48 grid - split into multiple images");
 
   let size = (grid * SVG_BOX_SIZE) as f32;
 
@@ -1808,6 +1808,7 @@ pub struct ShowAnuDialog {
   raw_values: Zeroizing<Vec<String>>,
 
   entropy_mode: Zeroizing<EntropyMode>,
+  pub entropy_length: Zeroizing<usize>,
 
   pub save_entropy: bool,
 }
@@ -1834,6 +1835,7 @@ impl ShowAnuDialog {
       raw_values: Zeroizing::new(Vec::new()),
 
       entropy_mode: Zeroizing::new(EntropyMode::default()),
+      entropy_length: Zeroizing::new(256),
 
       save_entropy: false,
     }
@@ -1920,7 +1922,7 @@ impl ShowAnuDialog {
       self.open = false;
     }
 
-    ui.label("Generated 256-bit entropy:");
+    ui.label(format!("Generated {}-bit entropy:", *self.entropy_length));
     let mut entropy_str = self.randomized_entropy.to_string();
 
     ui.add(
@@ -2226,7 +2228,7 @@ impl ShowAnuDialog {
 
       let mut collected_bits = String::new();
 
-      while collected_bits.len() < QRNG_RAW_ENTROPY_LENGTH {
+      while collected_bits.len() < *self.entropy_length {
         let idx = loop {
           rng.fill(&mut buf).expect("SystemRandom failed");
           let v = u32::from_le_bytes(buf) as u64;
@@ -2243,7 +2245,7 @@ impl ShowAnuDialog {
         }
       }
 
-      if collected_bits.len() < QRNG_RAW_ENTROPY_LENGTH {
+      if collected_bits.len() < *self.entropy_length {
         self.randomized_entropy = Zeroizing::new("Not enough entropy".to_string());
         self.selected_value_indices.clear();
         return;
@@ -2251,7 +2253,7 @@ impl ShowAnuDialog {
 
       let entropy = collected_bits
         .chars()
-        .take(QRNG_RAW_ENTROPY_LENGTH)
+        .take(*self.entropy_length)
         .collect::<String>();
       self.randomized_entropy = Zeroizing::new(entropy);
       return;
@@ -2261,12 +2263,12 @@ impl ShowAnuDialog {
     if *self.entropy_mode == EntropyMode::SequentialSlice {
       let full_bitstring = per_value_bits.join("");
 
-      if full_bitstring.len() < QRNG_RAW_ENTROPY_LENGTH {
+      if full_bitstring.len() < *self.entropy_length {
         self.randomized_entropy = Zeroizing::new("Not enough entropy".to_string());
         return;
       }
 
-      let max_offset = full_bitstring.len() - QRNG_RAW_ENTROPY_LENGTH;
+      let max_offset = full_bitstring.len() - *self.entropy_length;
 
       let mut buf = [0u8; 4];
       rng.fill(&mut buf).expect("SystemRandom failed");
@@ -2274,7 +2276,7 @@ impl ShowAnuDialog {
 
       let offset = rand32 % max_offset;
 
-      let entropy = full_bitstring[offset..offset + QRNG_RAW_ENTROPY_LENGTH].to_string();
+      let entropy = full_bitstring[offset..offset + *self.entropy_length].to_string();
       self.randomized_entropy = Zeroizing::new(entropy);
 
       self.selected_value_indices.clear();
@@ -2284,7 +2286,7 @@ impl ShowAnuDialog {
         let start = bit_count;
         let end = bit_count + bits.len();
 
-        if offset < end && offset + QRNG_RAW_ENTROPY_LENGTH > start {
+        if offset < end && offset + *self.entropy_length > start {
           self.selected_value_indices.push(i);
         }
 

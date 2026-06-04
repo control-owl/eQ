@@ -31,12 +31,19 @@ const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const APP_LICENSE: Option<&str> = option_env!("CARGO_PKG_LICENSE");
 const LICENSE_TEXT: &str = include_str!("../LICENSE");
 const GUI_MARGIN: f32 = 10.0;
-const VALID_ENTROPY_SOURCES: &[&str] = &["RNG", "QRNG", "File"];
+const VALID_ENTROPY_SOURCES: &[&str] = &[
+  "RNG",
+  "QRNG",
+  #[cfg(feature = "dev")]
+  "File",
+];
 const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
 const VALID_MNEMONIC_LENGTHS: &[usize] = &[24, 21, 18, 15, 12];
 // const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
-const TEXT_WRAPPER: f32 = 300.0;
+const TEXT_WRAPPER: f32 = 350.0;
 const PROJECT_MOTO: &str = "Your entropy, your crypto, your control";
+const STATUS_BAR_BACKGROUND_COLOR: Color32 = egui::Color32::from_rgb(7, 4, 16);
+
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Debug)]
@@ -305,6 +312,7 @@ struct CryptoWallet {
   address_components: Zeroizing<AddressPublicData>,
   addresses_by_coin: Zeroizing<Addresses>,
   wallet_data: Zeroizing<ExtraWalletData>,
+  pending_wallet_generation: Zeroizing<bool>,
 }
 
 impl CryptoWallet {
@@ -316,6 +324,7 @@ impl CryptoWallet {
       address_components: Zeroizing::new(AddressPublicData::default()),
       addresses_by_coin: Zeroizing::new(Addresses(BTreeMap::new())),
       wallet_data: Zeroizing::new(ExtraWalletData::new()),
+      pending_wallet_generation: Zeroizing::new(false),
     }
   }
 }
@@ -1108,6 +1117,7 @@ impl EgoQuantum {
 
         header.col(|ui| {
           ui.take_available_width();
+          // ui.set_min_width(500.0);
           ui.strong(column_names[6]);
         });
       })
@@ -1186,7 +1196,7 @@ impl EgoQuantum {
                   let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
                     &first.private_key
                   } else {
-                    "••••••••••••••••"
+                    "••••••••••••••"
                   };
                   ui.label(display_text);
                 });
@@ -1260,157 +1270,140 @@ impl EgoQuantum {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
-    ui.horizontal(|ui| {
-      //       ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-      //         if self.wallet.addresses_by_coin.0.len() < self.gui.max_rows {
-      //           let label = if self.wallet.addresses_by_coin.0.is_empty() {
-      //             "Generate Wallet"
-      //           } else {
-      //             &format!("+{} more addresses", self.gui.address_count)
-      //           };
-      //
-      //           if ui.button(label).clicked() {
-      //             let source = self.get_entropy_source();
-      //             if self.gui.anu_dialog.save_entropy {
-      //               self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
-      //             }
-      //             let _ = self.generate_new_wallet(Some(source));
-      //           }
-      //         } else {
-      //           ui.label(egui::RichText::new("Memory limit reached"));
-      //         }
-      //
-      //         ui.add_space(GUI_MARGIN);
-      //
-      //         if ui.button(egui::RichText::new("Delete Wallet")).clicked() {
-      //           *self = Self::new();
-      //         }
-      //       });
+    let visuals = ui.visuals_mut();
+    visuals.widgets.inactive.bg_fill = egui::Color32::TRANSPARENT;
+    visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
+
+    ui.horizontal_wrapped(|ui| {
+      ui.add_space(GUI_MARGIN);
 
       // JUMP: STATUS BAR
-      ui.horizontal(|ui| {
-        let active_text_color = self.get_text_color();
+      let active_text_color = self.get_text_color();
+      let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
-        ui.set_height(GUI_MARGIN);
-        ui.label(
-          egui::RichText::new("Entropy")
-            .strong()
-            .color(ui.visuals().weak_text_color()),
-        );
-        ui.separator();
+      let source: Zeroizing<String> = self.wallet.seed_secret.entropy_source.clone();
 
-        if ui
-          .button(egui::RichText::new(format!(
-            "Source: {}",
-            *self.wallet.seed_secret.entropy_source
-          )))
-          .clicked()
-        {
-          // TODO: Open Entropy Source menu / dialog
-          // self.gui.show_entropy_source_menu = true;
-        }
+      let source_text = match self.wallet.seed_secret.entropy_source.as_str() {
+        "File" => egui::RichText::new(source.as_str())
+          .monospace()
+          .color(ui.visuals().weak_text_color()),
+        _ => egui::RichText::new(source.as_str())
+          .strong()
+          .monospace()
+          .color(active_text_color),
+      };
 
-        ui.add_space(GUI_MARGIN);
-
-        // Mnemonic Words Length toggle
-        let current_entropy = *self.wallet.seed_secret.entropy_length;
-        let current_words = match current_entropy {
-          128 => 12,
-          160 => 15,
-          192 => 18,
-          224 => 21,
-          _ => 24,
-        };
-
-        let words_text = match *self.wallet.seed_secret.entropy_length {
-          128 => egui::RichText::new("Words: 12")
-            .monospace()
-            .color(ui.visuals().weak_text_color()),
-          160 => egui::RichText::new("Words: 15")
-            .monospace()
-            .color(ui.visuals().weak_text_color()),
-          192 => egui::RichText::new("Words: 18")
-            .monospace()
-            .color(ui.visuals().weak_text_color()),
-          224 => egui::RichText::new("Words: 21")
-            .monospace()
-            .color(ui.visuals().weak_text_color()),
-          _ => egui::RichText::new("Words: 24")
-            .strong()
-            .monospace()
-            .color(active_text_color),
-        };
-
-        if ui.button(words_text).clicked() {
-          let idx = VALID_MNEMONIC_LENGTHS
+      ui.add_enabled_ui(!has_addresses, |ui| {
+        if ui.button(source_text).clicked() {
+          let idx = VALID_ENTROPY_SOURCES
             .iter()
-            .position(|&w| w == current_words)
+            .position(|&s| s == *source)
             .unwrap_or(0);
 
-          let next_idx = (idx + 1) % VALID_MNEMONIC_LENGTHS.len();
-          let next_words = VALID_MNEMONIC_LENGTHS[next_idx];
+          let next_idx = (idx + 1) % VALID_ENTROPY_SOURCES.len();
 
-          let next_entropy = match next_words {
-            12 => 128,
-            15 => 160,
-            18 => 192,
-            21 => 224,
-            _ => 256,
-          };
-
-          self.wallet.seed_secret.entropy_length = Zeroizing::new(next_entropy);
-        }
-
-        ui.add_space(GUI_MARGIN);
-
-        // BIP Version toggle
-        let bip_text = if self.wallet.wallet_data.active_bip == 44 {
-          egui::RichText::new("BIP 44")
-            .strong()
-            .monospace()
-            .color(active_text_color)
-        } else {
-          egui::RichText::new("BIP 32")
-            .monospace()
-            .color(ui.visuals().weak_text_color())
-        };
-
-        if ui.button(bip_text).clicked() {
-          self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 {
-            32
-          } else {
-            44
-          }
-        }
-
-        ui.add_space(GUI_MARGIN);
-
-        // Hardened Toggle
-        let hardened_text = if self.wallet.wallet_data.hardened_address {
-          egui::RichText::new("Hardened")
-            .strong()
-            .monospace()
-            .color(active_text_color)
-        } else {
-          egui::RichText::new("Non-hard")
-            .monospace()
-            .color(ui.visuals().weak_text_color())
-        };
-
-        if ui.button(hardened_text).clicked() {
-          self.wallet.wallet_data.hardened_address = !self.wallet.wallet_data.hardened_address;
+          self.wallet.seed_secret.entropy_source =
+            Zeroizing::new(VALID_ENTROPY_SOURCES[next_idx].to_string());
         }
       });
 
-      ui.horizontal(|ui| {
-        let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
+      ui.add_space(GUI_MARGIN);
 
-        if has_addresses {
-          ui.separator();
+      // Mnemonic Words Length toggle
+      let current_entropy = *self.wallet.seed_secret.entropy_length;
+      let current_words = match current_entropy {
+        128 => 12,
+        160 => 15,
+        192 => 18,
+        224 => 21,
+        _ => 24,
+      };
 
-          ui.label(format!("Coins: {}", self.wallet.addresses_by_coin.0.len()));
+      let words_text = match *self.wallet.seed_secret.entropy_length {
+        128 => egui::RichText::new("Words: 12")
+          .monospace()
+          .color(ui.visuals().weak_text_color()),
+        160 => egui::RichText::new("Words: 15")
+          .monospace()
+          .color(ui.visuals().weak_text_color()),
+        192 => egui::RichText::new("Words: 18")
+          .monospace()
+          .color(ui.visuals().weak_text_color()),
+        224 => egui::RichText::new("Words: 21")
+          .monospace()
+          .color(ui.visuals().weak_text_color()),
+        _ => egui::RichText::new("Words: 24")
+          .strong()
+          .monospace()
+          .color(active_text_color),
+      };
+
+      if ui.button(words_text).clicked() {
+        let idx = VALID_MNEMONIC_LENGTHS
+          .iter()
+          .position(|&w| w == current_words)
+          .unwrap_or(0);
+
+        let next_idx = (idx + 1) % VALID_MNEMONIC_LENGTHS.len();
+        let next_words = VALID_MNEMONIC_LENGTHS[next_idx];
+
+        let next_entropy = match next_words {
+          12 => 128,
+          15 => 160,
+          18 => 192,
+          21 => 224,
+          _ => 256,
+        };
+
+        self.wallet.seed_secret.entropy_length = Zeroizing::new(next_entropy);
+      }
+
+      ui.add_space(GUI_MARGIN);
+
+      // BIP Version toggle
+      let bip_text = if self.wallet.wallet_data.active_bip == 44 {
+        egui::RichText::new("BIP 44")
+          .strong()
+          .monospace()
+          .color(active_text_color)
+      } else {
+        egui::RichText::new("BIP 32")
+          .monospace()
+          .color(ui.visuals().weak_text_color())
+      };
+
+      if ui.button(bip_text).clicked() {
+        self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 {
+          32
+        } else {
+          44
         }
-      });
+      }
+
+      ui.add_space(GUI_MARGIN);
+
+      // Hardened Toggle
+      let hardened_text = if self.wallet.wallet_data.hardened_address {
+        egui::RichText::new("Hardened")
+          .strong()
+          .monospace()
+          .color(active_text_color)
+      } else {
+        egui::RichText::new("Non-hard")
+          .monospace()
+          .color(ui.visuals().weak_text_color())
+      };
+
+      if ui.button(hardened_text).clicked() {
+        self.wallet.wallet_data.hardened_address = !self.wallet.wallet_data.hardened_address;
+      }
+
+      if has_addresses {
+        ui.separator();
+
+        ui.label(format!("Coins: {}", self.wallet.addresses_by_coin.0.len()));
+      }
     });
 
     Ok(())
@@ -1451,11 +1444,17 @@ impl eframe::App for EgoQuantum {
       ui.add_space(GUI_MARGIN);
     });
 
-    egui::Panel::bottom("footer").show_inside(ui, |ui| {
-      ui.add_space(GUI_MARGIN);
-      let _ = self.render_wallet_footer(ui);
-      ui.add_space(GUI_MARGIN);
-    });
+    egui::Panel::bottom("footer")
+      .exact_size(21.0)
+      .frame(
+        egui::Frame::new()
+          .fill(STATUS_BAR_BACKGROUND_COLOR)
+          .inner_margin(2.0)
+          .outer_margin(0.0),
+      )
+      .show_inside(ui, |ui| {
+        let _ = self.render_wallet_footer(ui);
+      });
 
     let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
@@ -1484,10 +1483,35 @@ impl eframe::App for EgoQuantum {
 
             if ui.button(text).clicked() {
               let source = self.get_entropy_source();
-              if self.gui.anu_dialog.save_entropy {
+
+              match source.as_str() {
+                "QRNG" => {
+                  self.gui.anu_dialog.open = true;
+                  self.gui.anu_dialog.entropy_length =
+                    self.wallet.seed_secret.entropy_length.clone();
+                  self.wallet.pending_wallet_generation = Zeroizing::new(true);
+                }
+                _ => {
+                  let _ = self.generate_new_wallet(Some(source));
+                }
+              }
+            }
+
+            if *self.wallet.pending_wallet_generation
+              && !self.gui.anu_dialog.open
+              && self.gui.anu_dialog.save_entropy
+            {
+              self.wallet.pending_wallet_generation = Zeroizing::new(false);
+              self.gui.anu_dialog.save_entropy = false;
+
+              // Copy entropy
+              if !self.gui.anu_dialog.randomized_entropy.is_empty() {
                 self.wallet.seed_secret.raw_entropy =
                   self.gui.anu_dialog.randomized_entropy.clone();
               }
+
+              // Generate wallet
+              let source = self.get_entropy_source();
               let _ = self.generate_new_wallet(Some(source));
             }
           });
