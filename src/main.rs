@@ -1728,6 +1728,7 @@ impl eframe::App for EgoQuantum {
               .monospace()
               .color(self.get_text_color());
 
+            // TODO: Improve when QRNG and Custom passphrase
             if ui.button(text).clicked() {
               let source = self.get_entropy_source();
 
@@ -1736,28 +1737,34 @@ impl eframe::App for EgoQuantum {
                   self.gui.anu_dialog.open = true;
                   self.gui.anu_dialog.entropy_length =
                     self.wallet.seed_secret.entropy_length.clone();
-                  self.wallet.pending_wallet_generation = Zeroizing::new(true);
                 }
-                _ => {
-                  let _ = self.generate_new_wallet(Some(source));
-                }
+                _ => {}
               }
+
+              match self.wallet.seed_secret.mnemonic_passphrase_source.as_str() {
+                "Custom" => {
+                  self.gui.mnemonic_passphrase_dialog.open = true;
+                }
+                _ => {}
+              }
+
+              self.wallet.pending_wallet_generation = Zeroizing::new(true);
             }
 
             if *self.wallet.pending_wallet_generation
               && !self.gui.anu_dialog.open
+              && !self.gui.mnemonic_passphrase_dialog.open
               && self.gui.anu_dialog.save_entropy
+              && self.gui.mnemonic_passphrase_dialog.save_mnemonic
             {
               self.wallet.pending_wallet_generation = Zeroizing::new(false);
               self.gui.anu_dialog.save_entropy = false;
 
-              // Copy entropy
               if !self.gui.anu_dialog.randomized_entropy.is_empty() {
                 self.wallet.seed_secret.raw_entropy =
                   self.gui.anu_dialog.randomized_entropy.clone();
               }
 
-              // Generate wallet
               let source = self.get_entropy_source();
               let _ = self.generate_new_wallet(Some(source));
             }
@@ -2114,6 +2121,7 @@ pub struct ShowCustomMnemonicWindow {
   pub open: bool,
   passphrase: Zeroizing<String>,
   show_passphrase: bool,
+  pub save_mnemonic: bool,
 }
 
 impl ShowCustomMnemonicWindow {
@@ -2122,6 +2130,7 @@ impl ShowCustomMnemonicWindow {
       open: false,
       passphrase: Zeroizing::new(String::new()),
       show_passphrase: false,
+      save_mnemonic: false,
     }
   }
 
