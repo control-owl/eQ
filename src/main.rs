@@ -40,6 +40,7 @@ const VALID_ENTROPY_SOURCES: &[&str] = &[
 const VALID_LANG_CODES: &[&str] = &[
   "EN", "CS", "FR", "IT", "PT", "ES", "ZH-CN", "ZH-TW", "JA", "KO",
 ];
+const ADD_ADDRESS_COUNT: &[u32] = &[1, 5, 10, 20, 50, 100];
 const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
 const VALID_MNEMONIC_LENGTHS: &[usize] = &[24, 21, 18, 15, 12];
 // const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
@@ -267,7 +268,7 @@ struct GuiSettings {
   zoom_factor: f32,
 
   max_rows: usize,
-  address_count: u32,
+  pub address_count: u32,
 
   save_dialog: crypt::SaveWalletDialog,
   open_dialog: crypt::OpenWalletDialog,
@@ -436,7 +437,10 @@ impl EgoQuantum {
       if self.wallet.addresses_by_coin.0.is_empty() {
         (0, address_count)
       } else {
-        (last_index, last_index.saturating_add(address_count))
+        (
+          last_index,
+          last_index.saturating_add(self.gui.address_count),
+        )
       }
     };
 
@@ -1257,12 +1261,12 @@ impl EgoQuantum {
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
-        if ui
+        let response = ui
           .button(source_text)
           .on_hover_text("Entropy source")
-          .on_disabled_hover_text("Entropy source\nCannot modify: wallet already initialized.")
-          .clicked()
-        {
+          .on_disabled_hover_text("Entropy source\nCannot modify: wallet already initialized.");
+
+        if response.clicked() {
           let idx = VALID_ENTROPY_SOURCES
             .iter()
             .position(|&s| s == *source)
@@ -1272,6 +1276,22 @@ impl EgoQuantum {
 
           self.wallet.seed_secret.entropy_source =
             Zeroizing::new(VALID_ENTROPY_SOURCES[next_idx].to_string());
+        }
+
+        if response.secondary_clicked() {
+          let idx = VALID_ENTROPY_SOURCES
+            .iter()
+            .position(|&s| s == *source)
+            .unwrap_or(0);
+
+          let prev_idx = if idx == 0 {
+            VALID_ENTROPY_SOURCES.len() - 1
+          } else {
+            idx - 1
+          };
+
+          self.wallet.seed_secret.entropy_source =
+            Zeroizing::new(VALID_ENTROPY_SOURCES[prev_idx].to_string());
         }
       });
 
@@ -1309,14 +1329,14 @@ impl EgoQuantum {
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
-        if ui
+        let response = ui
           .button(words_text)
           .on_hover_text("Mnemonic word length")
           .on_disabled_hover_text(
             "Mnemonic word length\nCannot modify: wallet already initialized.",
-          )
-          .clicked()
-        {
+          );
+
+        if response.clicked() {
           let idx = VALID_MNEMONIC_LENGTHS
             .iter()
             .position(|&w| w == current_words)
@@ -1334,6 +1354,31 @@ impl EgoQuantum {
           };
 
           self.wallet.seed_secret.entropy_length = Zeroizing::new(next_entropy);
+        }
+
+        if response.secondary_clicked() {
+          let idx = VALID_MNEMONIC_LENGTHS
+            .iter()
+            .position(|&w| w == current_words)
+            .unwrap_or(0);
+
+          let prev_idx = if idx == 0 {
+            VALID_MNEMONIC_LENGTHS.len() - 1
+          } else {
+            idx - 1
+          };
+
+          let prev_words = VALID_MNEMONIC_LENGTHS[prev_idx];
+
+          let prev_entropy = match prev_words {
+            12 => 128,
+            15 => 160,
+            18 => 192,
+            21 => 224,
+            _ => 256,
+          };
+
+          self.wallet.seed_secret.entropy_length = Zeroizing::new(prev_entropy);
         }
       });
 
@@ -1358,20 +1403,52 @@ impl EgoQuantum {
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
-        if ui
+        let response = ui
           .button(code_text)
           .on_hover_text("Mnemonic dictionary")
-          .on_disabled_hover_text("Mnemonic dictionary\nCannot modify: wallet already initialized.")
-          .clicked()
-        {
+          .on_disabled_hover_text(
+            "Mnemonic dictionary\nCannot modify: wallet already initialized.",
+          );
+
+        if response.clicked() {
           let idx = VALID_LANG_CODES
             .iter()
             .position(|&c| c == current_code)
             .unwrap_or(0);
+
           let next_idx = (idx + 1) % VALID_LANG_CODES.len();
           let next_code = VALID_LANG_CODES[next_idx];
 
           self.wallet.seed_secret.mnemonic_dictionary = match next_code {
+            "EN" => Zeroizing::new(MnemonicLanguage::English),
+            "CS" => Zeroizing::new(MnemonicLanguage::Czech),
+            "FR" => Zeroizing::new(MnemonicLanguage::French),
+            "IT" => Zeroizing::new(MnemonicLanguage::Italian),
+            "PT" => Zeroizing::new(MnemonicLanguage::Portuguese),
+            "ES" => Zeroizing::new(MnemonicLanguage::Spanish),
+            "ZH-CN" => Zeroizing::new(MnemonicLanguage::ChineseSimplified),
+            "ZH-TW" => Zeroizing::new(MnemonicLanguage::ChineseTraditional),
+            "JA" => Zeroizing::new(MnemonicLanguage::Japanese),
+            "KO" => Zeroizing::new(MnemonicLanguage::Korean),
+            _ => Zeroizing::new(MnemonicLanguage::English),
+          };
+        }
+
+        if response.secondary_clicked() {
+          let idx = VALID_LANG_CODES
+            .iter()
+            .position(|&c| c == current_code)
+            .unwrap_or(0);
+
+          let prev_idx = if idx == 0 {
+            VALID_LANG_CODES.len() - 1
+          } else {
+            idx - 1
+          };
+
+          let prev_code = VALID_LANG_CODES[prev_idx];
+
+          self.wallet.seed_secret.mnemonic_dictionary = match prev_code {
             "EN" => Zeroizing::new(MnemonicLanguage::English),
             "CS" => Zeroizing::new(MnemonicLanguage::Czech),
             "FR" => Zeroizing::new(MnemonicLanguage::French),
@@ -1399,14 +1476,14 @@ impl EgoQuantum {
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
-        if ui
+        let response = ui
           .button(source_text)
           .on_hover_text("Mnemonic passphrase source")
           .on_disabled_hover_text(
             "Mnemonic passphrase source\nCannot modify: wallet already initialized.",
-          )
-          .clicked()
-        {
+          );
+
+        if response.clicked() {
           let idx = VALID_MNEMONIC_SOURCES
             .iter()
             .position(|&s| s == *source)
@@ -1417,12 +1494,28 @@ impl EgoQuantum {
           self.wallet.seed_secret.mnemonic_passphrase_source =
             Zeroizing::new(VALID_MNEMONIC_SOURCES[next_idx].to_string());
         }
+
+        if response.secondary_clicked() {
+          let idx = VALID_MNEMONIC_SOURCES
+            .iter()
+            .position(|&s| s == *source)
+            .unwrap_or(0);
+
+          let prev_idx = if idx == 0 {
+            VALID_MNEMONIC_SOURCES.len() - 1
+          } else {
+            idx - 1
+          };
+
+          self.wallet.seed_secret.mnemonic_passphrase_source =
+            Zeroizing::new(VALID_MNEMONIC_SOURCES[prev_idx].to_string());
+        }
       });
 
       ui.separator();
 
-      // JUMP: STATUS BIP
-      ui.label(egui::RichText::new("Addresses").monospace().small());
+      // JUMP: STATUS PATH
+      ui.label(egui::RichText::new("Path").monospace().small());
       let bip_text = if self.wallet.wallet_data.active_bip == 44 {
         egui::RichText::new("BIP 44")
           .strong()
@@ -1433,20 +1526,16 @@ impl EgoQuantum {
           .monospace()
           .color(ui.visuals().weak_text_color())
       };
+      let bip_response = ui.button(bip_text).on_hover_text("BIP derivation path");
 
-      if ui
-        .button(bip_text)
-        .on_hover_text("BIP derivation path")
-        .clicked()
-      {
+      if bip_response.clicked() || bip_response.secondary_clicked() {
         self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 {
           32
         } else {
           44
-        }
+        };
       }
 
-      // JUMP: STATUS Hardened
       let hardened_text = if self.wallet.wallet_data.hardened_address {
         egui::RichText::new("Hardened")
           .strong()
@@ -1458,19 +1547,109 @@ impl EgoQuantum {
           .color(ui.visuals().weak_text_color())
       };
 
-      if ui
-        .button(hardened_text)
-        .on_hover_text("Hardened addresses")
-        .clicked()
-      {
+      let hardened_response = ui.button(hardened_text).on_hover_text("Hardened addresses");
+
+      if hardened_response.clicked() || hardened_response.secondary_clicked() {
         self.wallet.wallet_data.hardened_address = !self.wallet.wallet_data.hardened_address;
       }
 
+      // JUMP: STATUS COINS
       if has_addresses {
         ui.separator();
 
-        ui.label(format!("Coins: {}", self.wallet.addresses_by_coin.0.len()))
+        ui.label(egui::RichText::new("Coins").monospace().small());
+
+        ui.add_enabled_ui(!has_addresses, |ui| {
+          ui.label(
+            egui::RichText::new(self.wallet.addresses_by_coin.0.len().to_string())
+              .monospace()
+              .color(self.get_text_color()),
+          )
           .on_hover_text("Total numbers of coins");
+        });
+
+        ui.separator();
+
+        ui.label(egui::RichText::new("Addresses").monospace().small());
+
+        if ui
+          .button("-")
+          .on_hover_text(format!(
+            "Remove {} address from wallet",
+            self.gui.address_count
+          ))
+          .clicked()
+        {
+          for (_coin, addresses) in self.wallet.addresses_by_coin.0.iter_mut() {
+            if addresses.len() <= 1 {
+              continue;
+            }
+
+            let can_remove = (addresses.len() - 1).min(self.gui.address_count as usize);
+
+            if can_remove > 0 {
+              addresses.truncate(addresses.len() - can_remove);
+            }
+          }
+
+          if let Some((_coin, addresses)) = self.wallet.addresses_by_coin.0.iter().next() {
+            self.wallet.address_components.derivation_path.last_index =
+              Zeroizing::new(addresses.len() as u32);
+          }
+        }
+
+        let address_text = {
+          egui::RichText::new(self.gui.address_count.to_string())
+            .strong()
+            .monospace()
+            .color(active_text_color)
+        };
+
+        ui.add_enabled_ui(has_addresses, |ui| {
+          let response = ui.button(address_text).on_hover_text("Address number");
+
+          if response.clicked() {
+            let idx = ADD_ADDRESS_COUNT
+              .iter()
+              .position(|&c| c == self.gui.address_count)
+              .unwrap_or(0);
+
+            let next_idx = (idx + 1) % ADD_ADDRESS_COUNT.len();
+            self.gui.address_count = ADD_ADDRESS_COUNT[next_idx];
+          }
+
+          if response.secondary_clicked() {
+            let idx = ADD_ADDRESS_COUNT
+              .iter()
+              .position(|&c| c == self.gui.address_count)
+              .unwrap_or(0);
+
+            let prev_idx = if idx == 0 {
+              ADD_ADDRESS_COUNT.len() - 1
+            } else {
+              idx - 1
+            };
+
+            self.gui.address_count = ADD_ADDRESS_COUNT[prev_idx];
+          }
+        });
+
+        if ui
+          .button("+")
+          .on_hover_text(format!(
+            "Add {} address more to wallet",
+            self.gui.address_count
+          ))
+          .clicked()
+        {
+          let source = self.get_entropy_source();
+
+          if self.gui.anu_dialog.save_entropy {
+            self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
+          }
+
+          let _ = self.generate_new_wallet(Some(source));
+        }
       }
     });
 
@@ -1658,9 +1837,8 @@ fn set_app_title() -> FunctionOutput<String> {
   let feature = e_q::get_active_app_feature();
 
   let title = format!(
-    "{} - {} {} ({})",
+    "{} {} ({})",
     APP_NAME.unwrap_or("eQ"),
-    APP_DESCRIPTION.unwrap_or_default(),
     APP_VERSION.unwrap_or_default(),
     feature
   );

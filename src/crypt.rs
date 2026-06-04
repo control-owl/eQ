@@ -1371,7 +1371,6 @@ fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
     }
   };
 
-  println!("dict: {}", mnemonic_dictionary.display_name());
   // 4 Mnemonic passphrase
   let pass_len_bytes = match take(&plain, &mut off, 2) {
     Ok(length) => length,
