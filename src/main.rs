@@ -37,6 +37,9 @@ const VALID_ENTROPY_SOURCES: &[&str] = &[
   #[cfg(feature = "dev")]
   "File",
 ];
+const VALID_LANG_CODES: &[&str] = &[
+  "EN", "CS", "FR", "IT", "PT", "ES", "ZH-CN", "ZH-TW", "JA", "KO",
+];
 const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
 const VALID_MNEMONIC_LENGTHS: &[usize] = &[24, 21, 18, 15, 12];
 // const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
@@ -693,212 +696,171 @@ impl EgoQuantum {
         }
       });
 
-      ui.menu_button("Security", |ui| {
-        // JUMP: ENTROPY SOURCE CHANGE
-        ui.menu_button("Entropy source", |ui| {
-
-          // RNG SOURCE
-          ui.menu_button(VALID_ENTROPY_SOURCES[0], |ui| {
-            ui.vertical_centered(|ui| {
-              ui.heading("CPU Hardware RNG");
-              ui.add_space(GUI_MARGIN);
-              ui.label("Entropy from local CPU instructions.");
-              ui.label("Fast, offline, strong cryptographic randomness.");
-
-              ui.add_space(GUI_MARGIN);
-
-              let disabled = has_addresses;
-              let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
-
-              ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
-                  self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
-                }
-              });
-
-              if disabled {
-                ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
-              }
-            });
-          });
-
-          // QRNG SOURCE
-          #[cfg(not(feature = "eq-os"))]
-          ui.menu_button(VALID_ENTROPY_SOURCES[1], |ui| {
-            ui.vertical_centered(|ui| {
-              ui.heading("Quantum RNG");
-              ui.add_space(GUI_MARGIN);
-              ui.label("Entropy from quantum vacuum fluctuations.");
-              ui.label("Online only.");
-
-              ui.add_space(GUI_MARGIN);
-
-              let disabled = has_addresses;
-              let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
-
-              ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Use Quantum RNG").clicked() && selected {
-                  self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
-                  self.gui.anu_dialog.open = true;
-                }
-              });
-
-              if disabled {
-                ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
-              }
-            });
-          });
-
-          // FILE SOURCE
-          #[cfg(all(not(feature = "eq-os"), feature = "dev"))]
-          ui.menu_button(VALID_ENTROPY_SOURCES[2], |ui| {
-            ui.vertical_centered(|ui| {
-              ui.heading("Entropy From File");
-              ui.add_space(GUI_MARGIN);
-              ui.label("Load entropy from an external file.");
-              ui.label("Useful for offline or pre-generated entropy.");
-
-              ui.add_space(GUI_MARGIN);
-
-              let disabled = has_addresses;
-              let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
-
-              ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Use File Entropy").clicked() {
-                  if selected {
-                    self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
-                  }
-                }
-              });
-
-              if disabled {
-                ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
-              }
-            });
-          });
-        });
-
-        ui.separator();
-
-        // JUMP: MNEMONIC PASS CHANGE
-        ui.menu_button("Mnemonic passphrase", |ui| {
-
-          // RNG
-          ui.menu_button(VALID_MNEMONIC_SOURCES[0], |ui| {
-            ui.vertical_centered(|ui| {
-              ui.heading("CPU Hardware RNG");
-              ui.add_space(GUI_MARGIN);
-              ui.label("Mnemonic passphrase from local CPU instructions.");
-              ui.label("128 random characters");
-
-              ui.add_space(GUI_MARGIN);
-
-              let disabled = has_addresses;
-              let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
-
-              ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
-                  self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
-                }
-              });
-
-              if disabled {
-                ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
-              }
-            });
-          });
-
-          // CUSTOM
-          ui.menu_button(VALID_MNEMONIC_SOURCES[1], |ui| {
-            ui.vertical_centered(|ui| {
-              ui.heading("Custom mnemonic passphrase");
-              ui.add_space(GUI_MARGIN);
-              ui.label("Input your own mnemonic passphrase.");
-
-              ui.add_space(GUI_MARGIN);
-
-              let disabled = has_addresses;
-              let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
-
-              ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Custom mnemonic passphrase").clicked() && selected {
-                  self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
-                  self.gui.mnemonic_passphrase_dialog.open = true;
-                }
-              });
-
-              if disabled {
-                ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
-              }
-            });
-          });
-
-          // OFF
-          ui.menu_button(VALID_MNEMONIC_SOURCES[2], |ui| {
-            ui.vertical_centered(|ui| {
-              ui.heading("Disable mnemonic passphrase");
-              ui.add_space(GUI_MARGIN);
-              ui.label("Not recommended !!!");
-              ui.label("This will lower your total entropy.");
-
-              ui.add_space(GUI_MARGIN);
-
-              let disabled = has_addresses;
-              let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
-
-              ui.add_enabled_ui(!disabled, |ui| {
-                if ui.checkbox(&mut selected, "Disable mnemonic passphrase").clicked() && selected {
-                  self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
-                }
-              });
-
-              if disabled {
-                ui.label("⚠ Cannot disable mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
-              }
-            });
-          });
-        });
-
-        // JUMP: DICTIONARY CHANGE
-        ui.menu_button("Mnemonic dictionary", |ui| {
-          let current_dict = self.wallet.seed_secret.mnemonic_dictionary.clone();
-
-          for lang in MnemonicLanguage::ALL.iter() {
-            let languages = lang.clone();
-            let display = languages.display_name();
-            let is_selected = current_dict.display_name() == display;
-
-            if ui.radio(is_selected, display).clicked() {
-              self.wallet.seed_secret.mnemonic_dictionary = Zeroizing::new(languages);
-            }
-          }
-      });
-
-        // JUMP: MNEMONIC LENGTH CHANGE
-        ui.menu_button("Mnemonic length", |ui| {
-          let current_entropy = *self.wallet.seed_secret.entropy_length;
-
-          for words in VALID_MNEMONIC_LENGTHS {
-            let target_entropy = match words {
-              12 => 128,
-              15 => 160,
-              18 => 192,
-              21 => 224,
-              24 => 256,
-              _  => continue,
-            };
-
-            let is_selected = current_entropy == target_entropy;
-
-            if ui.radio(is_selected, words.to_string()).clicked() {
-              self.wallet.seed_secret.entropy_length =
-                Zeroizing::new(target_entropy);
-            }
-          }
-        });
-
-
-      });
+//       ui.menu_button("Security", |ui| {
+// //         ui.menu_button("Entropy source", |ui| {
+// // 
+// //           // RNG SOURCE
+// //           ui.menu_button(VALID_ENTROPY_SOURCES[0], |ui| {
+// //             ui.vertical_centered(|ui| {
+// //               ui.heading("CPU Hardware RNG");
+// //               ui.add_space(GUI_MARGIN);
+// //               ui.label("Entropy from local CPU instructions.");
+// //               ui.label("Fast, offline, strong cryptographic randomness.");
+// // 
+// //               ui.add_space(GUI_MARGIN);
+// // 
+// //               let disabled = has_addresses;
+// //               let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
+// // 
+// //               ui.add_enabled_ui(!disabled, |ui| {
+// //                 if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
+// //                   self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
+// //                 }
+// //               });
+// // 
+// //               if disabled {
+// //                 ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
+// //               }
+// //             });
+// //           });
+// // 
+// //           // QRNG SOURCE
+// //           #[cfg(not(feature = "eq-os"))]
+// //           ui.menu_button(VALID_ENTROPY_SOURCES[1], |ui| {
+// //             ui.vertical_centered(|ui| {
+// //               ui.heading("Quantum RNG");
+// //               ui.add_space(GUI_MARGIN);
+// //               ui.label("Entropy from quantum vacuum fluctuations.");
+// //               ui.label("Online only.");
+// // 
+// //               ui.add_space(GUI_MARGIN);
+// // 
+// //               let disabled = has_addresses;
+// //               let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
+// // 
+// //               ui.add_enabled_ui(!disabled, |ui| {
+// //                 if ui.checkbox(&mut selected, "Use Quantum RNG").clicked() && selected {
+// //                   self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
+// //                   self.gui.anu_dialog.open = true;
+// //                 }
+// //               });
+// // 
+// //               if disabled {
+// //                 ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
+// //               }
+// //             });
+// //           });
+// // 
+// //           // FILE SOURCE
+// //           #[cfg(all(not(feature = "eq-os"), feature = "dev"))]
+// //           ui.menu_button(VALID_ENTROPY_SOURCES[2], |ui| {
+// //             ui.vertical_centered(|ui| {
+// //               ui.heading("Entropy From File");
+// //               ui.add_space(GUI_MARGIN);
+// //               ui.label("Load entropy from an external file.");
+// //               ui.label("Useful for offline or pre-generated entropy.");
+// // 
+// //               ui.add_space(GUI_MARGIN);
+// // 
+// //               let disabled = has_addresses;
+// //               let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
+// // 
+// //               ui.add_enabled_ui(!disabled, |ui| {
+// //                 if ui.checkbox(&mut selected, "Use File Entropy").clicked() {
+// //                   if selected {
+// //                     self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
+// //                   }
+// //                 }
+// //               });
+// // 
+// //               if disabled {
+// //                 ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
+// //               }
+// //             });
+// //           });
+// //         });
+// // 
+// //         ui.separator();
+// 
+//         ui.menu_button("Mnemonic passphrase", |ui| {
+// 
+//           // RNG
+//           ui.menu_button(VALID_MNEMONIC_SOURCES[0], |ui| {
+//             ui.vertical_centered(|ui| {
+//               ui.heading("CPU Hardware RNG");
+//               ui.add_space(GUI_MARGIN);
+//               ui.label("Mnemonic passphrase from local CPU instructions.");
+//               ui.label("128 random characters");
+// 
+//               ui.add_space(GUI_MARGIN);
+// 
+//               let disabled = has_addresses;
+//               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
+// 
+//               ui.add_enabled_ui(!disabled, |ui| {
+//                 if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
+//                   self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
+//                 }
+//               });
+// 
+//               if disabled {
+//                 ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
+//               }
+//             });
+//           });
+// 
+//           // CUSTOM
+//           ui.menu_button(VALID_MNEMONIC_SOURCES[1], |ui| {
+//             ui.vertical_centered(|ui| {
+//               ui.heading("Custom mnemonic passphrase");
+//               ui.add_space(GUI_MARGIN);
+//               ui.label("Input your own mnemonic passphrase.");
+// 
+//               ui.add_space(GUI_MARGIN);
+// 
+//               let disabled = has_addresses;
+//               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
+// 
+//               ui.add_enabled_ui(!disabled, |ui| {
+//                 if ui.checkbox(&mut selected, "Custom mnemonic passphrase").clicked() && selected {
+//                   self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
+//                   self.gui.mnemonic_passphrase_dialog.open = true;
+//                 }
+//               });
+// 
+//               if disabled {
+//                 ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
+//               }
+//             });
+//           });
+// 
+//           // OFF
+//           ui.menu_button(VALID_MNEMONIC_SOURCES[2], |ui| {
+//             ui.vertical_centered(|ui| {
+//               ui.heading("Disable mnemonic passphrase");
+//               ui.add_space(GUI_MARGIN);
+//               ui.label("Not recommended !!!");
+//               ui.label("This will lower your total entropy.");
+// 
+//               ui.add_space(GUI_MARGIN);
+// 
+//               let disabled = has_addresses;
+//               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
+// 
+//               ui.add_enabled_ui(!disabled, |ui| {
+//                 if ui.checkbox(&mut selected, "Disable mnemonic passphrase").clicked() && selected {
+//                   self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
+//                 }
+//               });
+// 
+//               if disabled {
+//                 ui.label("⚠ Cannot disable mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
+//               }
+//             });
+//           });
+//         });
+// 
+//       });
 
       ui.menu_button("Privacy", |ui| {
         let hide_private_keys_label = [
@@ -1275,15 +1237,15 @@ impl EgoQuantum {
     visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
     visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
 
-    ui.horizontal_wrapped(|ui| {
+    ui.horizontal(|ui| {
       ui.add_space(GUI_MARGIN);
-
-      // JUMP: STATUS BAR
       let active_text_color = self.get_text_color();
       let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
-      let source: Zeroizing<String> = self.wallet.seed_secret.entropy_source.clone();
+      // JUMP: STATUS ENTROPY
+      ui.label(egui::RichText::new("Entropy").monospace().small());
 
+      let source: Zeroizing<String> = self.wallet.seed_secret.entropy_source.clone();
       let source_text = match self.wallet.seed_secret.entropy_source.as_str() {
         "File" => egui::RichText::new(source.as_str())
           .monospace()
@@ -1295,7 +1257,12 @@ impl EgoQuantum {
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
-        if ui.button(source_text).clicked() {
+        if ui
+          .button(source_text)
+          .on_hover_text("Entropy source")
+          .on_disabled_hover_text("Entropy source\nCannot modify: wallet already initialized.")
+          .clicked()
+        {
           let idx = VALID_ENTROPY_SOURCES
             .iter()
             .position(|&s| s == *source)
@@ -1308,9 +1275,11 @@ impl EgoQuantum {
         }
       });
 
-      ui.add_space(GUI_MARGIN);
+      ui.separator();
 
-      // Mnemonic Words Length toggle
+      // JUMP: STATUS MNEMONIC
+      ui.label(egui::RichText::new("Mnemonic").monospace().small());
+
       let current_entropy = *self.wallet.seed_secret.entropy_length;
       let current_words = match current_entropy {
         128 => 12,
@@ -1321,47 +1290,139 @@ impl EgoQuantum {
       };
 
       let words_text = match *self.wallet.seed_secret.entropy_length {
-        128 => egui::RichText::new("Words: 12")
+        128 => egui::RichText::new("12")
           .monospace()
           .color(ui.visuals().weak_text_color()),
-        160 => egui::RichText::new("Words: 15")
+        160 => egui::RichText::new("15")
           .monospace()
           .color(ui.visuals().weak_text_color()),
-        192 => egui::RichText::new("Words: 18")
+        192 => egui::RichText::new("18")
           .monospace()
           .color(ui.visuals().weak_text_color()),
-        224 => egui::RichText::new("Words: 21")
+        224 => egui::RichText::new("21")
           .monospace()
           .color(ui.visuals().weak_text_color()),
-        _ => egui::RichText::new("Words: 24")
+        _ => egui::RichText::new("24")
           .strong()
           .monospace()
           .color(active_text_color),
       };
 
-      if ui.button(words_text).clicked() {
-        let idx = VALID_MNEMONIC_LENGTHS
-          .iter()
-          .position(|&w| w == current_words)
-          .unwrap_or(0);
+      ui.add_enabled_ui(!has_addresses, |ui| {
+        if ui
+          .button(words_text)
+          .on_hover_text("Mnemonic word length")
+          .on_disabled_hover_text(
+            "Mnemonic word length\nCannot modify: wallet already initialized.",
+          )
+          .clicked()
+        {
+          let idx = VALID_MNEMONIC_LENGTHS
+            .iter()
+            .position(|&w| w == current_words)
+            .unwrap_or(0);
 
-        let next_idx = (idx + 1) % VALID_MNEMONIC_LENGTHS.len();
-        let next_words = VALID_MNEMONIC_LENGTHS[next_idx];
+          let next_idx = (idx + 1) % VALID_MNEMONIC_LENGTHS.len();
+          let next_words = VALID_MNEMONIC_LENGTHS[next_idx];
 
-        let next_entropy = match next_words {
-          12 => 128,
-          15 => 160,
-          18 => 192,
-          21 => 224,
-          _ => 256,
-        };
+          let next_entropy = match next_words {
+            12 => 128,
+            15 => 160,
+            18 => 192,
+            21 => 224,
+            _ => 256,
+          };
 
-        self.wallet.seed_secret.entropy_length = Zeroizing::new(next_entropy);
-      }
+          self.wallet.seed_secret.entropy_length = Zeroizing::new(next_entropy);
+        }
+      });
 
-      ui.add_space(GUI_MARGIN);
+      let current_code = match *self.wallet.seed_secret.mnemonic_dictionary {
+        MnemonicLanguage::English => "EN",
+        MnemonicLanguage::Czech => "CS",
+        MnemonicLanguage::French => "FR",
+        MnemonicLanguage::Italian => "IT",
+        MnemonicLanguage::Portuguese => "PT",
+        MnemonicLanguage::Spanish => "ES",
+        MnemonicLanguage::ChineseSimplified => "ZH-CN",
+        MnemonicLanguage::ChineseTraditional => "ZH-TW",
+        MnemonicLanguage::Japanese => "JA",
+        MnemonicLanguage::Korean => "KO",
+      };
 
-      // BIP Version toggle
+      let code_text = {
+        egui::RichText::new(current_code)
+          .strong()
+          .monospace()
+          .color(active_text_color)
+      };
+
+      ui.add_enabled_ui(!has_addresses, |ui| {
+        if ui
+          .button(code_text)
+          .on_hover_text("Mnemonic dictionary")
+          .on_disabled_hover_text("Mnemonic dictionary\nCannot modify: wallet already initialized.")
+          .clicked()
+        {
+          let idx = VALID_LANG_CODES
+            .iter()
+            .position(|&c| c == current_code)
+            .unwrap_or(0);
+          let next_idx = (idx + 1) % VALID_LANG_CODES.len();
+          let next_code = VALID_LANG_CODES[next_idx];
+
+          self.wallet.seed_secret.mnemonic_dictionary = match next_code {
+            "EN" => Zeroizing::new(MnemonicLanguage::English),
+            "CS" => Zeroizing::new(MnemonicLanguage::Czech),
+            "FR" => Zeroizing::new(MnemonicLanguage::French),
+            "IT" => Zeroizing::new(MnemonicLanguage::Italian),
+            "PT" => Zeroizing::new(MnemonicLanguage::Portuguese),
+            "ES" => Zeroizing::new(MnemonicLanguage::Spanish),
+            "ZH-CN" => Zeroizing::new(MnemonicLanguage::ChineseSimplified),
+            "ZH-TW" => Zeroizing::new(MnemonicLanguage::ChineseTraditional),
+            "JA" => Zeroizing::new(MnemonicLanguage::Japanese),
+            "KO" => Zeroizing::new(MnemonicLanguage::Korean),
+            _ => Zeroizing::new(MnemonicLanguage::English),
+          };
+        }
+      });
+
+      let source: Zeroizing<String> = self.wallet.seed_secret.mnemonic_passphrase_source.clone();
+      let source_text = match self.wallet.seed_secret.mnemonic_passphrase_source.as_str() {
+        "Off" => egui::RichText::new(source.as_str())
+          .monospace()
+          .color(ui.visuals().weak_text_color()),
+        _ => egui::RichText::new(source.as_str())
+          .strong()
+          .monospace()
+          .color(active_text_color),
+      };
+
+      ui.add_enabled_ui(!has_addresses, |ui| {
+        if ui
+          .button(source_text)
+          .on_hover_text("Mnemonic passphrase source")
+          .on_disabled_hover_text(
+            "Mnemonic passphrase source\nCannot modify: wallet already initialized.",
+          )
+          .clicked()
+        {
+          let idx = VALID_MNEMONIC_SOURCES
+            .iter()
+            .position(|&s| s == *source)
+            .unwrap_or(0);
+
+          let next_idx = (idx + 1) % VALID_MNEMONIC_SOURCES.len();
+
+          self.wallet.seed_secret.mnemonic_passphrase_source =
+            Zeroizing::new(VALID_MNEMONIC_SOURCES[next_idx].to_string());
+        }
+      });
+
+      ui.separator();
+
+      // JUMP: STATUS BIP
+      ui.label(egui::RichText::new("Addresses").monospace().small());
       let bip_text = if self.wallet.wallet_data.active_bip == 44 {
         egui::RichText::new("BIP 44")
           .strong()
@@ -1373,7 +1434,11 @@ impl EgoQuantum {
           .color(ui.visuals().weak_text_color())
       };
 
-      if ui.button(bip_text).clicked() {
+      if ui
+        .button(bip_text)
+        .on_hover_text("BIP derivation path")
+        .clicked()
+      {
         self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 {
           32
         } else {
@@ -1381,9 +1446,7 @@ impl EgoQuantum {
         }
       }
 
-      ui.add_space(GUI_MARGIN);
-
-      // Hardened Toggle
+      // JUMP: STATUS Hardened
       let hardened_text = if self.wallet.wallet_data.hardened_address {
         egui::RichText::new("Hardened")
           .strong()
@@ -1395,14 +1458,19 @@ impl EgoQuantum {
           .color(ui.visuals().weak_text_color())
       };
 
-      if ui.button(hardened_text).clicked() {
+      if ui
+        .button(hardened_text)
+        .on_hover_text("Hardened addresses")
+        .clicked()
+      {
         self.wallet.wallet_data.hardened_address = !self.wallet.wallet_data.hardened_address;
       }
 
       if has_addresses {
         ui.separator();
 
-        ui.label(format!("Coins: {}", self.wallet.addresses_by_coin.0.len()));
+        ui.label(format!("Coins: {}", self.wallet.addresses_by_coin.0.len()))
+          .on_hover_text("Total numbers of coins");
       }
     });
 
@@ -2006,6 +2074,21 @@ impl MnemonicLanguage {
       Self::ChineseTraditional => "Chinese Traditional",
       Self::Japanese => "Japanese",
       Self::Korean => "Korean",
+    }
+  }
+
+  pub const fn short_name(&self) -> &'static str {
+    match self {
+      Self::English => "EN",
+      Self::Czech => "CS",
+      Self::French => "FR",
+      Self::Italian => "IT",
+      Self::Portuguese => "PT",
+      Self::Spanish => "ES",
+      Self::ChineseSimplified => "ZH-CN",
+      Self::ChineseTraditional => "ZH-TW",
+      Self::Japanese => "JA",
+      Self::Korean => "KO",
     }
   }
 

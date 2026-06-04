@@ -83,9 +83,7 @@ pub fn generate_seed(
         Err(err) => return Err(AppError::log(format!("Error: {:?}", err))),
       };
     }
-    "Custom" => {
-      println!("pass: {:?}", wallet.seed_secret.mnemonic_passphrase);
-    }
+    "Custom" => {}
     _ => {}
   }
 
