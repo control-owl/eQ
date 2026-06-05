@@ -316,7 +316,7 @@ struct CryptoWallet {
   address_components: Zeroizing<AddressPublicData>,
   addresses_by_coin: Zeroizing<Addresses>,
   wallet_data: Zeroizing<ExtraWalletData>,
-  pending_wallet_generation: Zeroizing<bool>,
+  wallet_gen_state: WalletGenState,
 }
 
 impl CryptoWallet {
@@ -328,7 +328,7 @@ impl CryptoWallet {
       address_components: Zeroizing::new(AddressPublicData::default()),
       addresses_by_coin: Zeroizing::new(Addresses(BTreeMap::new())),
       wallet_data: Zeroizing::new(ExtraWalletData::new()),
-      pending_wallet_generation: Zeroizing::new(false),
+      wallet_gen_state: WalletGenState::Idle,
     }
   }
 }
@@ -1730,40 +1730,56 @@ impl eframe::App for EgoQuantum {
 
             // TODO: Improve when QRNG and Custom passphrase
             if ui.button(text).clicked() {
-              let source = self.get_entropy_source();
+              let needs_qrng = self.get_entropy_source().as_str() == "QRNG";
 
-              match source.as_str() {
-                "QRNG" => {
-                  self.gui.anu_dialog.open = true;
-                  self.gui.anu_dialog.entropy_length =
-                    self.wallet.seed_secret.entropy_length.clone();
-                }
-                _ => {}
+              let needs_passphrase =
+                self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom";
+
+              if needs_qrng {
+                self.gui.anu_dialog.entropy_length = self.wallet.seed_secret.entropy_length.clone();
+                self.gui.anu_dialog.open = true;
+                self.wallet.wallet_gen_state = WalletGenState::WaitingForQrng;
+              } else if needs_passphrase {
+                self.gui.mnemonic_passphrase_dialog.open = true;
+                self.wallet.wallet_gen_state = WalletGenState::WaitingForPassphrase;
+              } else {
+                // No dialogs needed → generate immediately
+                let source = self.get_entropy_source();
+                let _ = self.generate_new_wallet(Some(source));
               }
-
-              match self.wallet.seed_secret.mnemonic_passphrase_source.as_str() {
-                "Custom" => {
-                  self.gui.mnemonic_passphrase_dialog.open = true;
-                }
-                _ => {}
-              }
-
-              self.wallet.pending_wallet_generation = Zeroizing::new(true);
             }
 
-            if *self.wallet.pending_wallet_generation
-              && !self.gui.anu_dialog.open
-              && !self.gui.mnemonic_passphrase_dialog.open
-              && self.gui.anu_dialog.save_entropy
-              && self.gui.mnemonic_passphrase_dialog.save_mnemonic
-            {
-              self.wallet.pending_wallet_generation = Zeroizing::new(false);
-              self.gui.anu_dialog.save_entropy = false;
+            if self.wallet.wallet_gen_state == WalletGenState::WaitingForQrng {
+              if !self.gui.anu_dialog.open && self.gui.anu_dialog.save_entropy {
+                // Copy entropy
+                if !self.gui.anu_dialog.randomized_entropy.is_empty() {
+                  self.wallet.seed_secret.raw_entropy =
+                    self.gui.anu_dialog.randomized_entropy.clone();
+                }
 
-              if !self.gui.anu_dialog.randomized_entropy.is_empty() {
-                self.wallet.seed_secret.raw_entropy =
-                  self.gui.anu_dialog.randomized_entropy.clone();
+                self.gui.anu_dialog.save_entropy = false;
+
+                // Next step: passphrase?
+                if self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom" {
+                  self.gui.mnemonic_passphrase_dialog.open = true;
+                  self.wallet.wallet_gen_state = WalletGenState::WaitingForPassphrase;
+                } else {
+                  self.wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
+                }
               }
+            }
+
+            if self.wallet.wallet_gen_state == WalletGenState::WaitingForPassphrase {
+              if !self.gui.mnemonic_passphrase_dialog.open
+                && self.gui.mnemonic_passphrase_dialog.save_mnemonic
+              {
+                self.gui.mnemonic_passphrase_dialog.save_mnemonic = false;
+                self.wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
+              }
+            }
+
+            if self.wallet.wallet_gen_state == WalletGenState::ReadyToGenerate {
+              self.wallet.wallet_gen_state = WalletGenState::Idle;
 
               let source = self.get_entropy_source();
               let _ = self.generate_new_wallet(Some(source));
@@ -2308,4 +2324,14 @@ impl MnemonicLanguage {
       _ => MnemonicLanguage::English,
     }
   }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Zeroize, ZeroizeOnDrop)]
+enum WalletGenState {
+  #[default]
+  Idle,
+
+  WaitingForQrng,
+  WaitingForPassphrase,
+  ReadyToGenerate,
 }
