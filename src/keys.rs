@@ -19,6 +19,7 @@ use ring::pbkdf2;
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
+use std::io::BufRead;
 use tiny_keccak::{Hasher, Keccak};
 use zeroize::Zeroize;
 
@@ -733,119 +734,6 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
     });
 
   Ok(())
-
-  // // Cosmos Coin
-  // if *coin_index == 118 {
-  //   let secp_pubkey = match &public_key {
-  //     CryptoPublicKey::Secp256k1(pk) => pk,
-  //     _ => {
-  //       return Err(AppError::log(String::from("Only Secp256k1 for generating Secp256k1 addresses")));
-  //     }
-  //   };
-
-  //   let pub_compressed: Zeroizing<Vec<u8>> = Zeroizing::new(secp_pubkey.serialize().to_vec());
-  //   let address: Zeroizing<String> = generate_atom_address(pub_compressed.clone())?;
-  //   let public_key_encoded: Zeroizing<String> = encode_cosmos_pubkey_bech32(pub_compressed)?;
-  //   let private_key_encoded: Zeroizing<String> = Zeroizing::new(BASE64.encode(private_key));
-
-  //   wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
-  //     coin_index,
-  //     path: derivation_path,
-  //     address,
-  //     public_key: public_key_encoded,
-  //     private_key: private_key_encoded,
-  //   });
-
-  //   Ok(())
-  // } else {
-  //   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
-  //     let trimmed: Zeroizing<String> = Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
-
-  //     let hex: Zeroizing<Vec<u8>> = match hex::decode(trimmed) {
-  //       Ok(hex) => Zeroizing::new(hex),
-  //       Err(err) => {
-  //         return Err(AppError::log(format!("Invalid public_key_hash: {:?}", err)));
-  //       }
-  //     };
-
-  //     hex
-  //   };
-
-  //   let public_key_encoded: Zeroizing<String> = encode_public_key(hash.clone(), coin_index.clone(), &public_key)?;
-  //   let address: Zeroizing<String> = generate_address_internal(hash.clone(), coin_index.clone(), &public_key, public_key_hash_vec)?;
-  //   let priv_key_wif: Zeroizing<String> = encode_private_key(key_derivation, wallet_import_format, hash, coin_index.clone(), private_key)?;
-
-  //   // Open Assets Coin
-  //   if *coin_index == 21 {
-  //     let btc_decoded = bs58::decode(address.clone()).into_vec().map_err(|e| AppError::log(format!("Invalid Base58 address: {e}")))?;
-
-  //     if btc_decoded.len() < 1 + 20 + 4 {
-  //       return Err(AppError::log(format!("Unexpected Base58 length for Open Assets address: {} (need ≥ 25 bytes: 1+20+4)", btc_decoded.len())));
-  //     }
-
-  //     let (btc_body, btc_checksum_bytes) = btc_decoded.split_at(btc_decoded.len() - 4);
-
-  //     let mut sha256_btc_1 = Sha256::new();
-  //     sha256_btc_1.update(btc_body);
-  //     let btc_hash_once = sha256_btc_1.finalize();
-
-  //     let mut sha256_btc_2 = Sha256::new();
-  //     sha256_btc_2.update(btc_hash_once);
-  //     let btc_hash_twice = sha256_btc_2.finalize();
-
-  //     let btc_expected_checksum = &btc_hash_twice[0..4];
-  //     if btc_checksum_bytes != btc_expected_checksum {
-  //       return Err(AppError::log("BTC Base58Check checksum mismatch"));
-  //     }
-
-  //     if btc_body.len() != 1 + 20 {
-  //       return Err(AppError::log(format!("Unexpected BTC body length: {} (expected 21 bytes: 1+20)", btc_body.len())));
-  //     }
-
-  //     let btc_version: u8 = btc_body[0];
-  //     let btc_payload_hash160: &[u8] = &btc_body[1..];
-
-  //     let oa_namespace: u8 = 0x13;
-  //     let mut oa_address_body = Vec::with_capacity(1 + 1 + btc_payload_hash160.len());
-  //     oa_address_body.push(oa_namespace);
-  //     oa_address_body.push(btc_version);
-  //     oa_address_body.extend_from_slice(btc_payload_hash160);
-
-  //     let mut sha256_oa_1 = Sha256::new();
-  //     sha256_oa_1.update(&oa_address_body);
-  //     let oa_hash_once = sha256_oa_1.finalize();
-
-  //     let mut sha256_oa_2 = Sha256::new();
-  //     sha256_oa_2.update(oa_hash_once);
-  //     let oa_hash_twice = sha256_oa_2.finalize();
-
-  //     let oa_checksum_bytes = &oa_hash_twice[0..4];
-
-  //     let mut oa_address_bytes = oa_address_body;
-  //     oa_address_bytes.extend_from_slice(oa_checksum_bytes);
-  //     let oa_colored_address = Zeroizing::new(bs58::encode(oa_address_bytes).into_string());
-
-  //     wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
-  //       coin_index,
-  //       path: derivation_path,
-  //       address: oa_colored_address,
-  //       public_key: public_key_encoded,
-  //       private_key: priv_key_wif,
-  //     });
-
-  //     return Ok(());
-  //   }
-
-  //   wallet.addresses_by_coin.0.entry(coin_name.to_string()).or_default().push(AddressPrivateData {
-  //     coin_index,
-  //     path: derivation_path,
-  //     address,
-  //     public_key: public_key_encoded,
-  //     private_key: priv_key_wif,
-  //   });
-
-  //   Ok(())
-  // }
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -2006,3 +1894,130 @@ pub fn generate_bitcoin_taproot_address(
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  let active_coins = 1;
+
+  let address_count = if *wallet.address_components.derivation_path.last_index == 0 {
+    wallet.wallet_data.address_count
+  } else {
+    *wallet.address_components.derivation_path.last_index
+  };
+  let last_index = *wallet.address_components.derivation_path.last_index;
+
+  let (start_index, end_index) = {
+    if wallet.addresses_by_coin.0.is_empty() {
+      (0, address_count)
+    } else {
+      (
+        last_index,
+        last_index.saturating_add(wallet.wallet_data.address_count),
+      )
+    }
+  };
+
+  // ECDB: Extended Coin DataBase
+  let resource_path = std::path::Path::new("coin").join("ECDB.csv");
+  let resource_path_str: Zeroizing<String> = Zeroizing::new(
+    resource_path
+      .into_os_string()
+      .into_string()
+      .unwrap_or_default(),
+  );
+  let ecdb_file = e_q::get_file_from_resources(resource_path_str);
+
+  if let Ok(file) = ecdb_file {
+    let reader = std::io::BufReader::new(file.contents());
+
+    for line_result in reader.lines() {
+      match line_result {
+        Ok(line) => {
+          let columns: Vec<&str> = line.split(',').collect();
+          let inactive_coin = columns.first().unwrap_or(&"0");
+          if *inactive_coin != active_coins.to_string() {
+            continue;
+          }
+
+          wallet.address_components.derivation_path.purpose =
+            Zeroizing::new(wallet.wallet_data.active_bip);
+          wallet.address_components.derivation_path.coin =
+            Zeroizing::new(columns[1].parse().unwrap_or(0));
+          wallet.address_components.derivation_path.purpose_hardened = Zeroizing::new(true);
+          wallet.address_components.derivation_path.coin_hardened = Zeroizing::new(true);
+
+          wallet.address_components.derivation_path.account_hardened = Zeroizing::new(true);
+          wallet.address_components.derivation_path.change_hardened =
+            Zeroizing::new(wallet.wallet_data.active_bip == 32);
+
+          wallet.address_components.derivation_path.address_hardened =
+            Zeroizing::new(wallet.wallet_data.hardened_address);
+
+          wallet.address_components.coin_name = Zeroizing::new(columns[3].to_string());
+          wallet.address_components.key_derivation = Zeroizing::new(columns[4].to_string());
+          wallet.address_components.hash = Zeroizing::new(columns[5].to_string());
+          wallet.address_components.public_key_hash = Zeroizing::new(columns[8].to_string());
+          wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
+          wallet.address_components.evm =
+            Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
+
+          for address_index in start_index..end_index {
+            wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
+
+            match wallet.address_components.key_derivation.as_str() {
+              "secp256k1" => {
+                match generate_secp256k1_child_keys(wallet) {
+                  Ok(_) => {}
+                  Err(err) => {
+                    return Err(AppError::log(format!("Can not derive child keys: {}", err)));
+                  }
+                };
+
+                match generate_secp256k1_address(wallet) {
+                  Ok(_) => {}
+                  Err(err) => {
+                    return Err(AppError::log(format!(
+                      "Can not derive secp256k1 address: {}",
+                      err
+                    )));
+                  }
+                };
+              }
+              "ed25519" => {
+                match generate_ed25519_child_keys(wallet) {
+                  Ok(_) => {}
+                  Err(err) => {
+                    return Err(AppError::log(format!("Can not derive child keys: {}", err)));
+                  }
+                };
+
+                match generate_ed25519_address(wallet) {
+                  Ok(_) => {}
+                  Err(err) => {
+                    return Err(AppError::log(format!(
+                      "Can not derive ed25519 address: {}",
+                      err
+                    )));
+                  }
+                };
+              }
+              _ => {
+                return Err(AppError::log(format!(
+                  "Unsupported key derivation: {:?}",
+                  wallet.address_components.key_derivation
+                )));
+              }
+            }
+          }
+        }
+        Err(err) => {
+          eprintln!("ECDB file error: Skipping invalid line: {}", err);
+          continue;
+        }
+      }
+    }
+
+    *wallet.address_components.derivation_path.last_index = end_index;
+  }
+
+  Ok(())
+}

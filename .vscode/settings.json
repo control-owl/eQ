@@ -19,7 +19,7 @@
   "explorer.confirmDragAndDrop": false,
   "editor.minimap.enabled": false,
   "workbench.colorCustomizations": {},
-  "terminal.integrated.tabs.enabled": false,
+  "terminal.integrated.tabs.enabled": true,
   "workbench.colorTheme": "Dark Modern",
   "todo-tree.highlights.defaultHighlight": {
     "type": "text"

@@ -159,6 +159,8 @@ pub struct SaveWalletDialog {
   // TODO: Implement zeroize for Rc & RefCell
   #[zeroize(skip)]
   pub wallet_to_save: Option<SharedWallet>,
+  pub direct_save: bool,
+  pub save_location: Option<String>,
 
   // TODO: Implement zeroize for KdfChoice
   #[zeroize(skip)]
@@ -192,6 +194,8 @@ impl SaveWalletDialog {
       pixel_redundancy: 1.8,
 
       wallet_to_save: None,
+      direct_save: false,
+      save_location: None,
 
       kdf_choice: KdfChoice::default(),
 
@@ -233,7 +237,7 @@ impl SaveWalletDialog {
     *self = SaveWalletDialog::new();
   }
 
-  fn save_wallet(&mut self) -> FunctionOutput<()> {
+  pub fn save_wallet(&mut self) -> FunctionOutput<()> {
     if let Some(wallet_rc) = &self.wallet_to_save.clone() {
       let wallet_data = wallet_rc.borrow();
       let save_dialog = self.clone();
@@ -283,68 +287,93 @@ impl SaveWalletDialog {
         }
       };
 
-      // TODO: Add osk support for direct file write
-      match rfd::FileDialog::new()
-        .set_title("Save wallet file(s)")
-        .pick_folder()
-      {
-        Some(folder) => {
-          if !folder.is_dir() {
-            return Err(AppError::log("Selected path is not a directory"));
-          }
+      if self.direct_save {
+        for (i, share) in shares.iter().enumerate() {
+          let svg = match create_svg(Zeroizing::new(share.clone()), redundancy) {
+            Ok(image) => image,
+            Err(_) => return Err(AppError::log("Problem with creating SVG")),
+          };
 
-          let base_name = save_dialog.wallet_name.trim();
-          let safe_base = base_name
-            .chars()
-            .map(|c| {
-              if c == '/' || c == '\\' || c == ':' || c.is_control() {
-                '_'
-              } else {
-                c
+          let filename = format!("{}-{}.svg", self.wallet_name, i + 1);
+
+          let save_location = match &self.save_location {
+            Some(path) => path,
+            None => "",
+          };
+
+          let mut output_path = PathBuf::from(save_location);
+          output_path.push(&filename);
+
+          if let Err(e) = svg::save(&output_path, &svg) {
+            return Err(AppError::log(format!(
+              "Problem saving SVG image {:?}: {:?}",
+              output_path, e
+            )));
+          }
+        }
+      } else {
+        match rfd::FileDialog::new()
+          .set_title("Save wallet file(s)")
+          .pick_folder()
+        {
+          Some(folder) => {
+            if !folder.is_dir() {
+              return Err(AppError::log("Selected path is not a directory"));
+            }
+
+            let base_name = save_dialog.wallet_name.trim();
+            let safe_base = base_name
+              .chars()
+              .map(|c| {
+                if c == '/' || c == '\\' || c == ':' || c.is_control() {
+                  '_'
+                } else {
+                  c
+                }
+              })
+              .collect::<String>();
+
+            for (i, share) in shares.iter().enumerate() {
+              let svg = match create_svg(Zeroizing::new(share.clone()), redundancy) {
+                Ok(image) => image,
+                Err(_) => return Err(AppError::log("Problem with creating SVG")),
+              };
+
+              let filename = format!("{}-{}.svg", safe_base, i + 1);
+              let mut out_path: PathBuf = folder.clone();
+              out_path.push(&filename);
+
+              if let Err(e) = svg::save(&out_path, &svg) {
+                return Err(AppError::log(format!(
+                  "Problem saving SVG image {:?}: {:?}",
+                  out_path, e
+                )));
               }
-            })
-            .collect::<String>();
+            }
 
-          for (i, share) in shares.iter().enumerate() {
-            let svg = match create_svg(Zeroizing::new(share.clone()), redundancy) {
-              Ok(image) => image,
-              Err(_) => return Err(AppError::log("Problem with creating SVG")),
-            };
+            {
+              let reconstructed: Zeroizing<Vec<u8>> = match shamir_combine(
+                shares,
+                Zeroizing::new(total_images),
+                Zeroizing::new(threshold),
+                shamir_config,
+              ) {
+                Ok(share) => share,
+                Err(_) => return Err(AppError::log("Problem combining Shamir shares")),
+              };
 
-            let filename = format!("{}-{}.svg", safe_base, i + 1);
-            let mut out_path: PathBuf = folder.clone();
-            out_path.push(&filename);
-
-            if let Err(e) = svg::save(&out_path, &svg) {
-              return Err(AppError::log(format!(
-                "Problem saving SVG image {:?}: {:?}",
-                out_path, e
-              )));
+              if total_images > 1 {
+                assert_eq!(&*encrypted_blob, &*reconstructed);
+              } else {
+                assert_eq!(&encrypted_blob[1..], &*reconstructed);
+              }
             }
           }
-
-          {
-            let reconstructed: Zeroizing<Vec<u8>> = match shamir_combine(
-              shares,
-              Zeroizing::new(total_images),
-              Zeroizing::new(threshold),
-              shamir_config,
-            ) {
-              Ok(share) => share,
-              Err(_) => return Err(AppError::log("Problem combining Shamir shares")),
-            };
-
-            if total_images > 1 {
-              assert_eq!(&*encrypted_blob, &*reconstructed);
-            } else {
-              assert_eq!(&encrypted_blob[1..], &*reconstructed);
-            }
+          None => {
+            // user cancelled folder selection
           }
-        }
-        None => {
-          // user cancelled folder selection
-        }
-      };
+        };
+      }
     }
 
     Ok(())
@@ -1258,7 +1287,7 @@ pub fn create_payload(wallet: &CryptoWallet) -> FunctionOutput<Zeroizing<Vec<u8>
   Ok(payload)
 }
 
-fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
+pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
   let mut off = 0usize;
 
   // 1 Payload version
@@ -1504,9 +1533,9 @@ fn derive_pbkdf2_key(
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
-struct WalletPayload {
+pub struct WalletPayload {
   payload_version: u8,
-  seed_secret: SeedSecretData,
+  pub seed_secret: SeedSecretData,
   bip: Zeroizing<u32>,
   last_index: Zeroizing<u32>,
 }

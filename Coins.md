@@ -1,3 +1,4 @@
+# All supported coins
 
 | Index | Symbol | Coin name                  |
 | ----- | ------ | -------------------------- |
