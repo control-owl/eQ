@@ -33,7 +33,6 @@ const NONCE_LEN: usize = 12;
 const TAG_LEN: usize = 16;
 const SVG_BOX_SIZE: usize = 16;
 const ANU_COOLDOWN: u32 = 60 * 2;
-// const QRNG_RAW_ENTROPY_LENGTH: usize = 256;
 
 pub type SharedWallet = Rc<RefCell<Zeroizing<CryptoWallet>>>;
 

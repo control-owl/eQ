@@ -235,6 +235,8 @@ impl Zeroize for Addresses {
   }
 }
 
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 struct ExtraWalletData {
   unify_evm: bool,
@@ -254,6 +256,99 @@ impl ExtraWalletData {
       bitcoin_legacy_addresses: false,
 
       active_bip: 44,
+    }
+  }
+}
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+#[derive(Debug, Clone, Default, Zeroize, ZeroizeOnDrop)]
+pub enum MnemonicLanguage {
+  #[default]
+  English,
+
+  Czech,
+  French,
+  Italian,
+  Portuguese,
+  Spanish,
+  ChineseSimplified,
+  ChineseTraditional,
+  Japanese,
+  Korean,
+}
+
+impl MnemonicLanguage {
+  pub const ALL: [Self; 10] = [
+    Self::English,
+    Self::Czech,
+    Self::French,
+    Self::Italian,
+    Self::Portuguese,
+    Self::Spanish,
+    Self::ChineseSimplified,
+    Self::ChineseTraditional,
+    Self::Japanese,
+    Self::Korean,
+  ];
+
+  pub const fn display_name(&self) -> &'static str {
+    match self {
+      Self::English => "English",
+      Self::Czech => "Czech",
+      Self::French => "French",
+      Self::Italian => "Italian",
+      Self::Portuguese => "Portuguese",
+      Self::Spanish => "Spanish",
+      Self::ChineseSimplified => "Chinese Simplified",
+      Self::ChineseTraditional => "Chinese Traditional",
+      Self::Japanese => "Japanese",
+      Self::Korean => "Korean",
+    }
+  }
+
+  pub const fn short_name(&self) -> &'static str {
+    match self {
+      Self::English => "EN",
+      Self::Czech => "CS",
+      Self::French => "FR",
+      Self::Italian => "IT",
+      Self::Portuguese => "PT",
+      Self::Spanish => "ES",
+      Self::ChineseSimplified => "ZH-CN",
+      Self::ChineseTraditional => "ZH-TW",
+      Self::Japanese => "JA",
+      Self::Korean => "KO",
+    }
+  }
+
+  pub const fn filename(&self) -> &'static str {
+    match self {
+      Self::English => "english.txt",
+      Self::Czech => "czech.txt",
+      Self::French => "french.txt",
+      Self::Italian => "italian.txt",
+      Self::Portuguese => "portuguese.txt",
+      Self::Spanish => "spanish.txt",
+      Self::ChineseSimplified => "chinese_simplified.txt",
+      Self::ChineseTraditional => "chinese_traditional.txt",
+      Self::Japanese => "japanese.txt",
+      Self::Korean => "korean.txt",
+    }
+  }
+
+  pub fn get_dictionary(language: &str) -> Self {
+    match language {
+      "Czech" => MnemonicLanguage::Czech,
+      "French" => MnemonicLanguage::French,
+      "Italian" => MnemonicLanguage::Italian,
+      "Portuguese" => MnemonicLanguage::Portuguese,
+      "Spanish" => MnemonicLanguage::Spanish,
+      "Chinese Simplified" => MnemonicLanguage::ChineseSimplified,
+      "Chinese Traditional" => MnemonicLanguage::ChineseTraditional,
+      "Japanese" => MnemonicLanguage::Japanese,
+      "Korean" => MnemonicLanguage::Korean,
+      _ => MnemonicLanguage::English,
     }
   }
 }
@@ -331,6 +426,16 @@ impl CryptoWallet {
       wallet_gen_state: WalletGenState::Idle,
     }
   }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Zeroize, ZeroizeOnDrop)]
+enum WalletGenState {
+  #[default]
+  Idle,
+
+  WaitingForQrng,
+  WaitingForPassphrase,
+  ReadyToGenerate,
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -899,60 +1004,60 @@ impl EgoQuantum {
         let master_resp: egui::Response = ui.add_enabled(false, egui::Checkbox::new(&mut self.wallet.wallet_data.unify_master_keys, "Unify Master Keys"));
         master_resp.on_hover_text(master_label.join("\n")).on_disabled_hover_text(&devel);
 
-        let hardened_address_label = ["When enabled:",
-          "All addresses will be derived with hardened path",
-          "\n",
-          "When disabled:",
-          "Address follows normal path.",
-        ];
-
-        let hardened_address_resp = ui.add_enabled(
-            true,
-            egui::Checkbox::new(&mut self.wallet.wallet_data.hardened_address, "Hardened Addresses")
-        );
-
-        // JUMP: HARD CHANGE
-        if hardened_address_resp.changed() && has_addresses {
-          self.wallet.addresses_by_coin.0.clear();
-
-          let _ = self.generate_addresses_for_all_coins();
-        }
-
-        hardened_address_resp
-            .on_hover_text(hardened_address_label.join("\n"))
-            .on_disabled_hover_text(&devel);
-
-        // BIP32 Derivation path
-        let mut is_bip32 = self.wallet.wallet_data.active_bip == 32;
-
-        let bip_32_label = ["When enabled:",
-          "Wallet will follow BIP32 derivation path",
-          "\n",
-          "When disabled:",
-          "Wallet will follow BIP44 derivation path",
-        ];
-
-        let bip_32_response = ui.add(egui::Checkbox::new(
-            &mut is_bip32,
-            "Use BIP32 Derivation path"
-        ));
-
-        // JUMP: BIP CHANGE
-        if bip_32_response.changed() {
-            self.wallet.wallet_data.active_bip = if is_bip32 { 32 } else { 44 };
-            self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
-
-            if has_addresses {
-              self.wallet.addresses_by_coin.0.clear();
-
-              let _ = self.generate_addresses_for_all_coins();
-            }
-
-        }
-
-        bip_32_response
-            .on_hover_text(bip_32_label.join("\n"))
-            .on_disabled_hover_text(&devel);
+//         let hardened_address_label = ["When enabled:",
+//           "All addresses will be derived with hardened path",
+//           "\n",
+//           "When disabled:",
+//           "Address follows normal path.",
+//         ];
+// 
+//         let hardened_address_resp = ui.add_enabled(
+//             true,
+//             egui::Checkbox::new(&mut self.wallet.wallet_data.hardened_address, "Hardened Addresses")
+//         );
+// 
+//         // JUMP: HARD CHANGE
+//         if hardened_address_resp.changed() && has_addresses {
+//           self.wallet.addresses_by_coin.0.clear();
+// 
+//           let _ = self.generate_addresses_for_all_coins();
+//         }
+// 
+//         hardened_address_resp
+//             .on_hover_text(hardened_address_label.join("\n"))
+//             .on_disabled_hover_text(&devel);
+// 
+//         // BIP32 Derivation path
+//         let mut is_bip32 = self.wallet.wallet_data.active_bip == 32;
+// 
+//         let bip_32_label = ["When enabled:",
+//           "Wallet will follow BIP32 derivation path",
+//           "\n",
+//           "When disabled:",
+//           "Wallet will follow BIP44 derivation path",
+//         ];
+// 
+//         let bip_32_response = ui.add(egui::Checkbox::new(
+//             &mut is_bip32,
+//             "Use BIP32 Derivation path"
+//         ));
+// 
+//         // JUMP: BIP CHANGE
+//         if bip_32_response.changed() {
+//             self.wallet.wallet_data.active_bip = if is_bip32 { 32 } else { 44 };
+//             self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
+// 
+//             if has_addresses {
+//               self.wallet.addresses_by_coin.0.clear();
+// 
+//               let _ = self.generate_addresses_for_all_coins();
+//             }
+// 
+//         }
+// 
+//         bip_32_response
+//             .on_hover_text(bip_32_label.join("\n"))
+//             .on_disabled_hover_text(&devel);
 
         ui.separator();
 
@@ -1534,6 +1639,12 @@ impl EgoQuantum {
         } else {
           44
         };
+
+        if has_addresses {
+          self.wallet.addresses_by_coin.0.clear();
+
+          let _ = self.generate_addresses_for_all_coins();
+        }
       }
 
       let hardened_text = if self.wallet.wallet_data.hardened_address {
@@ -1551,6 +1662,12 @@ impl EgoQuantum {
 
       if hardened_response.clicked() || hardened_response.secondary_clicked() {
         self.wallet.wallet_data.hardened_address = !self.wallet.wallet_data.hardened_address;
+
+        if has_addresses {
+          self.wallet.addresses_by_coin.0.clear();
+
+          let _ = self.generate_addresses_for_all_coins();
+        }
       }
 
       // JUMP: STATUS COINS
@@ -1565,7 +1682,7 @@ impl EgoQuantum {
               .monospace()
               .color(self.get_text_color()),
           )
-          .on_hover_text("Total numbers of coins");
+          .on_disabled_hover_text("Total numbers of coins");
         });
 
         ui.separator();
@@ -1749,33 +1866,33 @@ impl eframe::App for EgoQuantum {
               }
             }
 
-            if self.wallet.wallet_gen_state == WalletGenState::WaitingForQrng {
-              if !self.gui.anu_dialog.open && self.gui.anu_dialog.save_entropy {
-                // Copy entropy
-                if !self.gui.anu_dialog.randomized_entropy.is_empty() {
-                  self.wallet.seed_secret.raw_entropy =
-                    self.gui.anu_dialog.randomized_entropy.clone();
-                }
+            if self.wallet.wallet_gen_state == WalletGenState::WaitingForQrng
+              && !self.gui.anu_dialog.open
+              && self.gui.anu_dialog.save_entropy
+            {
+              // Copy entropy
+              if !self.gui.anu_dialog.randomized_entropy.is_empty() {
+                self.wallet.seed_secret.raw_entropy =
+                  self.gui.anu_dialog.randomized_entropy.clone();
+              }
 
-                self.gui.anu_dialog.save_entropy = false;
+              self.gui.anu_dialog.save_entropy = false;
 
-                // Next step: passphrase?
-                if self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom" {
-                  self.gui.mnemonic_passphrase_dialog.open = true;
-                  self.wallet.wallet_gen_state = WalletGenState::WaitingForPassphrase;
-                } else {
-                  self.wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
-                }
+              // Next step: passphrase?
+              if self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom" {
+                self.gui.mnemonic_passphrase_dialog.open = true;
+                self.wallet.wallet_gen_state = WalletGenState::WaitingForPassphrase;
+              } else {
+                self.wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
               }
             }
 
-            if self.wallet.wallet_gen_state == WalletGenState::WaitingForPassphrase {
-              if !self.gui.mnemonic_passphrase_dialog.open
-                && self.gui.mnemonic_passphrase_dialog.save_mnemonic
-              {
-                self.gui.mnemonic_passphrase_dialog.save_mnemonic = false;
-                self.wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
-              }
+            if self.wallet.wallet_gen_state == WalletGenState::WaitingForPassphrase
+              && !self.gui.mnemonic_passphrase_dialog.open
+              && self.gui.mnemonic_passphrase_dialog.save_mnemonic
+            {
+              self.gui.mnemonic_passphrase_dialog.save_mnemonic = false;
+              self.wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
             }
 
             if self.wallet.wallet_gen_state == WalletGenState::ReadyToGenerate {
@@ -2234,104 +2351,3 @@ impl eframe::App for ShowCustomMnemonicWindow {
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
-
-#[derive(Debug, Clone, Default, Zeroize, ZeroizeOnDrop)]
-pub enum MnemonicLanguage {
-  #[default]
-  English,
-
-  Czech,
-  French,
-  Italian,
-  Portuguese,
-  Spanish,
-  ChineseSimplified,
-  ChineseTraditional,
-  Japanese,
-  Korean,
-}
-
-impl MnemonicLanguage {
-  pub const ALL: [Self; 10] = [
-    Self::English,
-    Self::Czech,
-    Self::French,
-    Self::Italian,
-    Self::Portuguese,
-    Self::Spanish,
-    Self::ChineseSimplified,
-    Self::ChineseTraditional,
-    Self::Japanese,
-    Self::Korean,
-  ];
-
-  pub const fn display_name(&self) -> &'static str {
-    match self {
-      Self::English => "English",
-      Self::Czech => "Czech",
-      Self::French => "French",
-      Self::Italian => "Italian",
-      Self::Portuguese => "Portuguese",
-      Self::Spanish => "Spanish",
-      Self::ChineseSimplified => "Chinese Simplified",
-      Self::ChineseTraditional => "Chinese Traditional",
-      Self::Japanese => "Japanese",
-      Self::Korean => "Korean",
-    }
-  }
-
-  pub const fn short_name(&self) -> &'static str {
-    match self {
-      Self::English => "EN",
-      Self::Czech => "CS",
-      Self::French => "FR",
-      Self::Italian => "IT",
-      Self::Portuguese => "PT",
-      Self::Spanish => "ES",
-      Self::ChineseSimplified => "ZH-CN",
-      Self::ChineseTraditional => "ZH-TW",
-      Self::Japanese => "JA",
-      Self::Korean => "KO",
-    }
-  }
-
-  pub const fn filename(&self) -> &'static str {
-    match self {
-      Self::English => "english.txt",
-      Self::Czech => "czech.txt",
-      Self::French => "french.txt",
-      Self::Italian => "italian.txt",
-      Self::Portuguese => "portuguese.txt",
-      Self::Spanish => "spanish.txt",
-      Self::ChineseSimplified => "chinese_simplified.txt",
-      Self::ChineseTraditional => "chinese_traditional.txt",
-      Self::Japanese => "japanese.txt",
-      Self::Korean => "korean.txt",
-    }
-  }
-
-  pub fn get_dictionary(language: &str) -> Self {
-    match language {
-      "Czech" => MnemonicLanguage::Czech,
-      "French" => MnemonicLanguage::French,
-      "Italian" => MnemonicLanguage::Italian,
-      "Portuguese" => MnemonicLanguage::Portuguese,
-      "Spanish" => MnemonicLanguage::Spanish,
-      "Chinese Simplified" => MnemonicLanguage::ChineseSimplified,
-      "Chinese Traditional" => MnemonicLanguage::ChineseTraditional,
-      "Japanese" => MnemonicLanguage::Japanese,
-      "Korean" => MnemonicLanguage::Korean,
-      _ => MnemonicLanguage::English,
-    }
-  }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Zeroize, ZeroizeOnDrop)]
-enum WalletGenState {
-  #[default]
-  Idle,
-
-  WaitingForQrng,
-  WaitingForPassphrase,
-  ReadyToGenerate,
-}
