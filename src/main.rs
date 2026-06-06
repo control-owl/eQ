@@ -122,7 +122,7 @@ struct SeedSecretData {
   mnemonic_passphrase: Zeroizing<String>,
   mnemonic_passphrase_source: Zeroizing<String>,
   mnemonic_dictionary: Zeroizing<MnemonicLanguage>,
-  seed: Zeroizing<String>,
+  pub seed: Zeroizing<String>,
 }
 
 impl SeedSecretData {

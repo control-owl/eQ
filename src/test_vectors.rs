@@ -881,7 +881,13 @@ fn check_wallet_save_open_function() {
   use std::cell::RefCell;
   use std::rc::Rc;
 
+  let wallet_name = "Test";
+  let wallet_file = format!("{}-1.svg", wallet_name);
+
   let mut new_wallet: CryptoWallet = CryptoWallet::new();
+  let mut save_wallet: crypt::SaveWalletDialog = crypt::SaveWalletDialog::new();
+  let mut open_wallet = crypt::OpenWalletDialog::new();
+
   new_wallet.wallet_gen_state = WalletGenState::ReadyToGenerate;
 
   let _ = keys::generate_seed(&mut new_wallet, Zeroizing::new(String::from("RNG")));
@@ -894,29 +900,37 @@ fn check_wallet_save_open_function() {
   let wrapped: Rc<RefCell<Zeroizing<CryptoWallet>>> =
     Rc::new(RefCell::new(Zeroizing::new(new_wallet.clone())));
 
-  let mut save_wallet: crypt::SaveWalletDialog = crypt::SaveWalletDialog::new();
   save_wallet.wallet_to_save = Some(wrapped);
-  save_wallet.password = String::from("Test");
-  save_wallet.wallet_name = String::from("Test");
+  save_wallet.password = String::from(wallet_name);
+  save_wallet.wallet_name = String::from(wallet_name);
   save_wallet.direct_save = true;
-  save_wallet.direct_save = true;
+  save_wallet.save_location = None;
 
   let _ = crypt::SaveWalletDialog::save_wallet(&mut save_wallet);
 
-  let mut open_wallet = crypt::OpenWalletDialog::new();
-  open_wallet.selected_svgs = [String::from("Test-1.svg")].to_vec();
-  let decoded_svg = crypt::load_svg("Test-1.svg");
+  open_wallet.selected_svgs = [wallet_file.clone()].to_vec();
+  let decoded_svg = crypt::load_svg(&wallet_file).unwrap();
 
-  let data: Zeroizing<Vec<u8>> = crypt::decrypt_wallet(
-    Zeroizing::new(String::from("Test")),
-    decoded_svg.unwrap().as_slice(),
-  )
-  .unwrap();
+  let data: Zeroizing<Vec<u8>> =
+    crypt::decrypt_wallet(Zeroizing::new(String::from("Test")), &decoded_svg).unwrap();
 
   let payload: crypt::WalletPayload = crypt::parse_payload(data).unwrap();
+  println!("data: {:?}", payload);
 
   assert_eq!(
-    payload.seed_secret.seed,
-    new_wallet.seed_secret.seed.clone()
-  )
+    payload.seed_secret.full_entropy,
+    new_wallet.seed_secret.full_entropy.clone()
+  );
+
+  assert_eq!(
+    payload.seed_secret.mnemonic_passphrase,
+    new_wallet.seed_secret.mnemonic_passphrase.clone()
+  );
+
+  assert_eq!(
+    payload.seed_secret.mnemonic_passphrase,
+    new_wallet.seed_secret.mnemonic_passphrase.clone()
+  );
+
+  let _ = std::fs::remove_file(wallet_file);
 }
