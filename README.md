@@ -2,7 +2,7 @@
 
 ## Disclaimer
 
-> Read the [DISCLAIMER](./DISCLAIMER.md) file.
+> Read the [DISCLAIMER](./DISCLAIMER.txt) file.
 
 
 ## Info
@@ -154,16 +154,16 @@ cargo run --release
 ## Screenshots
 
 ### Light theme
-<img src="./.github/preview/1.0.0-light.png" alt="Light theme" width="800">
+<img src="./.github/preview/latest-light.png" alt="Light theme" width="800">
 
 ### Dark theme
-<img src="./.github/preview/1.0.0-dark.png" alt="Dark theme" width="800">
+<img src="./.github/preview/latest-dark.png" alt="Dark theme" width="800">
 
 ### On-screen keyboard
-<img src="./.github/preview/1.30.0-keyboard.png" alt="On-screen keyboard" width="800">
+<img src="./.github/preview/latest-keyboard.png" alt="On-screen keyboard" width="800">
 
 ### Sample wallet file
-<img src="./.github/preview/test-wallet.svg" alt="Test wallet" width="800">
+<img src="./.github/preview/test-wallet.svg" alt="Test wallet" width="250">
 
 ---
 

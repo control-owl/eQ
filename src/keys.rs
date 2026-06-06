@@ -1898,16 +1898,11 @@ pub fn generate_bitcoin_taproot_address(
 pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
   let active_coins = 1;
 
-  let address_count = if *wallet.address_components.derivation_path.last_index == 0 {
-    wallet.wallet_data.address_count
-  } else {
-    *wallet.address_components.derivation_path.last_index
-  };
   let last_index = *wallet.address_components.derivation_path.last_index;
 
   let (start_index, end_index) = {
     if wallet.addresses_by_coin.0.is_empty() {
-      (0, address_count)
+      (0, wallet.wallet_data.address_count)
     } else {
       (
         last_index,
@@ -2021,3 +2016,5 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
 
   Ok(())
 }
+
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..

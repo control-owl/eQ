@@ -1,7 +1,8 @@
 # version 1.4.0
-- Bitcoin taproot address support bc1p... (default)
-- Option to generate legacy 1... bitcoin addresses
-- new supporting protocol BIP86
+- Bitcoin:
+    - Taproot address support bc1p... (default)
+    - New supporting protocol BIP86
+    - Legacy  address support 1...
 - cargo update:
     - egui (0.34.2 -> 0.34.3)
     - eframe (0.34.2 -> 0.34.3)
@@ -9,23 +10,39 @@
     - sysinfo (0.39.0 -> 0.39.3)
     - sha3 (0.11.0 -> 0.12.0)
     - serde_json (1.0.149 -> 1.0.150)
-- added new menu: security
-- new menu option: about
-- set custom mnemonic passphrase
-- set mnemonic words length
-- set mnemonic dictionary:
-    - English
-    - Czech
-    - French
-    - Italian
-    - Portuguese
-    - Spanish
-    - Chinese Simplified
-    - Chinese Traditional
-    - Japanese
-    - Korean
+- Help menu:
+    - About window
+    - License window
+    - Disclaimer window
+- Status bar:
+    - New status bar added
+    - Entropy
+    - Mnemonic word length:
+        - 12
+        - 15
+        - 18
+        - 21
+        - 24
+    - Mnemonic dictionary:
+        - English
+        - Czech
+        - French
+        - Italian
+        - Portuguese
+        - Spanish
+        - Chinese Simplified
+        - Chinese Traditional
+        - Japanese
+        - Korean
+    - Mnemonic passphrase source
+        - RNG
+        - Custom mnemonic passphrase
+        - Off
+    - BIP 32/44 path
+    - Hardened addresses
+    - Add/remove addresses
 
-# version 1.3.20.12.0
+# version 1.3.2
 - cargo update:
     - egui (0.34.1 -> 0.34.2)
     - eframe (0.34.1 -> 0.34.2)

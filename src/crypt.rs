@@ -2342,7 +2342,7 @@ impl eframe::App for ShowAnuDialog {
 
 #[cfg(feature = "osk")]
 #[derive(Default)]
-pub struct VirtualKeyboard(egui_keyboard::Keyboard);
+pub struct VirtualKeyboard(pub egui_keyboard::Keyboard);
 
 #[cfg(feature = "osk")]
 impl Clone for VirtualKeyboard {

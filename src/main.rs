@@ -29,6 +29,7 @@ const APP_DESCRIPTION: Option<&str> = option_env!("CARGO_PKG_DESCRIPTION");
 const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const APP_LICENSE: Option<&str> = option_env!("CARGO_PKG_LICENSE");
 const LICENSE_TEXT: &str = include_str!("../LICENSE");
+const DISCLAIMER_TEXT: &str = include_str!("../DISCLAIMER.txt");
 const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &[
   "RNG",
@@ -364,7 +365,6 @@ struct GuiSettings {
   zoom_factor: f32,
 
   max_rows: usize,
-  pub address_count: u32,
 
   save_dialog: crypt::SaveWalletDialog,
   open_dialog: crypt::OpenWalletDialog,
@@ -375,6 +375,8 @@ struct GuiSettings {
   mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
 
   hide_private_keys: bool,
+
+  show_disclaimer: bool,
 }
 
 impl GuiSettings {
@@ -388,7 +390,6 @@ impl GuiSettings {
       zoom_factor: 1.0,
 
       max_rows: get_max_rows,
-      address_count: 10,
 
       save_dialog: crypt::SaveWalletDialog::new(),
       open_dialog: crypt::OpenWalletDialog::default(),
@@ -399,6 +400,8 @@ impl GuiSettings {
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
 
       hide_private_keys: true,
+
+      show_disclaimer: false,
     }
   }
 }
@@ -552,7 +555,11 @@ impl EgoQuantum {
     egui::MenuBar::new().ui(ui, |ui| {
       ui.menu_button("File", |ui| {
         if ui.add_enabled(has_addresses, egui::Button::new("New")).on_hover_text("Create new wallet").clicked() {
+          let active_theme = self.gui.theme.clone();
+
           *self = Self::new();
+
+          self.gui.theme = active_theme;
         }
 
         if ui.add_enabled(true, egui::Button::new("Open")).on_disabled_hover_text(&devel).on_hover_text("Open wallet from file").clicked() {
@@ -987,7 +994,14 @@ impl EgoQuantum {
           // TODO: Create help window
         }
 
-        if ui.add_enabled(true, egui::Button::new("About")).on_disabled_hover_text(&devel).on_hover_text("Check for latest version").clicked() {
+        if ui.add_enabled(true, egui::Button::new("Disclaimer"))
+          .on_hover_text("Read before use")
+          .clicked()
+        {
+          self.gui.show_disclaimer = true;
+        }
+
+        if ui.add_enabled(true, egui::Button::new("About")).on_hover_text("Check for latest version").clicked() {
           self.gui.version_dialog.open = true;
         }
       });
@@ -996,6 +1010,16 @@ impl EgoQuantum {
     ui.vertical_centered_justified(|ui| {
       ui.heading(PROJECT_MOTO);
     });
+
+    if self.gui.show_disclaimer {
+      egui::Window::new("Project Disclaimer")
+        .open(&mut self.gui.show_disclaimer)
+        .show(ui.ctx(), |ui| {
+          egui::ScrollArea::both().show(ui, |ui| {
+            ui.code(DISCLAIMER_TEXT);
+          });
+        });
+    }
   }
 
   fn render_wallet_table(
@@ -1565,16 +1589,18 @@ impl EgoQuantum {
           .button("-")
           .on_hover_text(format!(
             "Remove {} address from wallet",
-            self.gui.address_count
+            self.wallet.wallet_data.address_count
           ))
           .clicked()
         {
+          let remove_count = self.wallet.wallet_data.address_count as usize;
+
           for (_coin, addresses) in self.wallet.addresses_by_coin.0.iter_mut() {
             if addresses.len() <= 1 {
               continue;
             }
 
-            let can_remove = (addresses.len() - 1).min(self.gui.address_count as usize);
+            let can_remove = (addresses.len() - 1).min(remove_count);
 
             if can_remove > 0 {
               addresses.truncate(addresses.len() - can_remove);
@@ -1588,7 +1614,7 @@ impl EgoQuantum {
         }
 
         let address_text = {
-          egui::RichText::new(self.gui.address_count.to_string())
+          egui::RichText::new(self.wallet.wallet_data.address_count.to_string())
             .strong()
             .monospace()
             .color(active_text_color)
@@ -1600,17 +1626,17 @@ impl EgoQuantum {
           if response.clicked() {
             let idx = ADD_ADDRESS_COUNT
               .iter()
-              .position(|&c| c == self.gui.address_count)
+              .position(|&c| c == self.wallet.wallet_data.address_count)
               .unwrap_or(0);
 
             let next_idx = (idx + 1) % ADD_ADDRESS_COUNT.len();
-            self.gui.address_count = ADD_ADDRESS_COUNT[next_idx];
+            self.wallet.wallet_data.address_count = ADD_ADDRESS_COUNT[next_idx];
           }
 
           if response.secondary_clicked() {
             let idx = ADD_ADDRESS_COUNT
               .iter()
-              .position(|&c| c == self.gui.address_count)
+              .position(|&c| c == self.wallet.wallet_data.address_count)
               .unwrap_or(0);
 
             let prev_idx = if idx == 0 {
@@ -1619,7 +1645,7 @@ impl EgoQuantum {
               idx - 1
             };
 
-            self.gui.address_count = ADD_ADDRESS_COUNT[prev_idx];
+            self.wallet.wallet_data.address_count = ADD_ADDRESS_COUNT[prev_idx];
           }
         });
 
@@ -1627,16 +1653,11 @@ impl EgoQuantum {
           .button("+")
           .on_hover_text(format!(
             "Add {} address more to wallet",
-            self.gui.address_count
+            self.wallet.wallet_data.address_count
           ))
           .clicked()
         {
           let source = self.get_entropy_source();
-
-          if self.gui.anu_dialog.save_entropy {
-            self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
-          }
-
           let _ = self.generate_new_wallet(Some(source));
         }
       }
@@ -1651,7 +1672,7 @@ impl EgoQuantum {
 
   fn get_text_color(&mut self) -> Color32 {
     match self.gui.theme.as_str() {
-      "Light" => egui::Color32::BLUE,
+      "Light" => egui::Color32::RED,
       _ => egui::Color32::GREEN,
     }
   }
@@ -2127,6 +2148,10 @@ pub struct ShowCustomMnemonicWindow {
   passphrase: Zeroizing<String>,
   show_passphrase: bool,
   pub save_mnemonic: bool,
+
+  #[zeroize(skip)]
+  #[cfg(feature = "osk")]
+  pub keyboard: crypt::VirtualKeyboard,
 }
 
 impl ShowCustomMnemonicWindow {
@@ -2136,6 +2161,9 @@ impl ShowCustomMnemonicWindow {
       passphrase: Zeroizing::new(String::new()),
       show_passphrase: false,
       save_mnemonic: false,
+
+      #[cfg(feature = "osk")]
+      keyboard: crypt::VirtualKeyboard::default(),
     }
   }
 
@@ -2171,6 +2199,9 @@ impl ShowCustomMnemonicWindow {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
+    #[cfg(feature = "osk")]
+    self.keyboard.0.pump_events(ui.ctx());
+    
     ui.add_space(GUI_MARGIN);
 
     ui.vertical_centered(|ui| {
@@ -2181,6 +2212,9 @@ impl ShowCustomMnemonicWindow {
           .desired_width(ui.available_width())
           .password(!self.show_passphrase),
       );
+
+      #[cfg(feature = "osk")]
+      self.keyboard.0.show(ui.ctx());
 
       ui.add_space(GUI_MARGIN);
 
