@@ -1,8 +1,8 @@
-# eQ — High‑Performance Cryptographic Key Generator
+# eQ: High-Performance Cryptographic Key Generator
 
 ## Disclaimer
 
-> Read the [DISCLAIMER](./DISCLAIMER.md) file.
+> Read the [DISCLAIMER](./DISCLAIMER.txt) file.
 
 
 ## Info
@@ -23,7 +23,7 @@ CC-BY-NC-ND-4.0
 Control Owl [2023-2026]
 ```
 
-**eQ** is a **high‑performance, security‑focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero‑dependency key generation for **285 cryptocurrencies**, with optional **quantum‑grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
+**eQ** is a **high-performance, security-focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero-dependency key generation for **284 cryptocurrencies**, with optional **quantum-grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
 
 This is the second generation of our key generator, following [QR2M](https://github.com/control-owl/QR2M).
 
@@ -31,26 +31,27 @@ This is the second generation of our key generator, following [QR2M](https://git
 
 ## Key Highlights
 
-### **Quantum‑grade entropy (QRNG)**
+### **Quantum-grade entropy (QRNG)**
 
-eQ can source entropy from the **ANU Quantum Random Numbers Server**, which generates randomness from **vacuum fluctuations measured via quantum optics** — a fundamentally unpredictable physical process.
+eQ can source entropy from the **ANU Quantum Random Numbers Server**, which generates randomness from **vacuum fluctuations measured via quantum optics** - a fundamentally unpredictable physical process.
 
 - Official ANU QRNG service: [https://qrng.anu.edu.au](https://qrng.anu.edu.au)
 - API documentation: [https://qrng.anu.edu.au/contact/api-documentation/](https://qrng.anu.edu.au/contact/api-documentation/)
 
-This provides an additional entropy option beyond system RNGs, especially valuable for users who want **verifiable, physics‑based randomness** rather than algorithmic PRNG output.
+This provides an additional entropy option beyond system RNGs, especially valuable for users who want **verifiable, physics-based randomness** rather than algorithmic PRNG output.
 
-### **Security‑first design**
+### **Security-first design**
 
 - Full **zeroization** of sensitive data
-- Wallets stored as **AES‑256‑GCM encrypted SVG images**
-- Optional **Shamir’s Secret Sharing** for multi‑share wallet splitting
-- No external dependencies during key generation (offline‑capable)
+- Wallets stored as **AES-256-GCM encrypted SVG images**
+- Optional **Shamir’s Secret Sharing** for multi-share wallet splitting
+- No external dependencies during key generation (offline-capable)
+- For extra security, an offline air-gapped version was created: [eQ-OS](https://github.com/control-owl/eQ-OS)
 
-### **Cross‑platform and fast**
+### **Cross-platform and fast**
 
 - Native builds for **Windows**, **Linux**, and **macOS**
-- Rust‑powered performance
+- Rust-powered performance
 - Minimalistic, predictable UI built with **egui**
 
 ---
@@ -94,7 +95,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 
 ## Features
 
-- Generate keys for **285** [coins](./Coins.md) in one click
+- Generate keys for **284** [coins](./Coins.md) in one click
 - **Ultra-fast performance** powered by Rust
 - **Minimalistic UI** built with egui
 - **Cross-platform** support: Windows, Linux, macOS
@@ -103,6 +104,12 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 - Wallet saved as **AES_256_GCM encrypted SVG image**
 - Optional [Shamir's secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing) for secure wallet splitting
 - Optional On-Screen keyboard
+- Supporting protocols:
+    - BIP32 Legacy derivation path
+    - BIP39 Mnemonic passphrase
+    - BIP44 Standard coin derivation
+    - BIP86 Bitcoin taproot address
+
 
 ---
 
@@ -147,16 +154,16 @@ cargo run --release
 ## Screenshots
 
 ### Light theme
-<img src="./.github/preview/1.0.0-light.png" alt="Light theme" width="800">
+<img src="./.github/preview/latest-light.png" alt="Light theme" width="800">
 
 ### Dark theme
-<img src="./.github/preview/1.0.0-dark.png" alt="Dark theme" width="800">
+<img src="./.github/preview/latest-dark.png" alt="Dark theme" width="800">
 
 ### On-screen keyboard
-<img src="./.github/preview/1.30.0-keyboard.png" alt="On-screen keyboard" width="800">
+<img src="./.github/preview/latest-keyboard.png" alt="On-screen keyboard" width="800">
 
 ### Sample wallet file
-<img src="./.github/preview/test-wallet.svg" alt="Test wallet" width="800">
+<img src="./.github/preview/test-wallet.svg" alt="Test wallet" width="250">
 
 ---
 
