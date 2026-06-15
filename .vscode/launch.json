@@ -7,9 +7,9 @@
         {
             "name": "eQ - All Releases",
             "configurations": [
-                "eQ [Default] Release",
-                "eQ [Dev] Release",
-                "eQ [osk] Release"
+                "Release - Default",
+                "Release - Dev",
+                "Release - OSK"
             ]
         },
 
@@ -17,9 +17,9 @@
         {
             "name": "eQ - All Debugs",
             "configurations": [
-                "eQ [Default] Debug",
-                "eQ [Dev] Debug",
-                "eQ [osk] Debug"
+                "Debug - Default",
+                "Debug - Dev",
+                "Debug - OSK"
             ]
         }
         
@@ -27,11 +27,11 @@
 
     "configurations": [
         
-        // "eQ [Default] Release"
+        // "Release - Default"
         {
             "type": "lldb",
             "request": "launch",
-            "name": "eQ [Default] Release",
+            "name": "Release - Default",
             "cargo": {
                 "args": [
                     "build",
@@ -50,11 +50,11 @@
             "cwd": "${workspaceFolder}"
         },
 
-        // "eQ [Dev] Release"
+        // "Release - Dev"
         {
             "type": "lldb",
             "request": "launch",
-            "name": "eQ [Dev] Release",
+            "name": "Release - Dev",
             "cargo": {
                 "args": [
                     "build",
@@ -73,11 +73,11 @@
             "cwd": "${workspaceFolder}"
         },
 
-        // "eQ [osk] Release"
+        // "Release - OSK"
         {
             "type": "lldb",
             "request": "launch",
-            "name": "eQ [osk] Release",
+            "name": "Release - OSK",
             "cargo": {
                 "args": [
                     "build",
@@ -98,11 +98,11 @@
 
 
 
-        // "eQ [Default] Debug"
+        // "Debug - Default"
         {
             "type": "lldb",
             "request": "launch",
-            "name": "eQ [Default] Debug",
+            "name": "Debug - Default",
             "cargo": {
                 "args": [
                     "build",
@@ -120,11 +120,11 @@
             "cwd": "${workspaceFolder}"
         },
 
-        // "eQ [Dev] Debug"
+        // "Debug - Dev"
         {
             "type": "lldb",
             "request": "launch",
-            "name": "eQ [Dev] Debug",
+            "name": "Debug - Dev",
             "cargo": {
                 "args": [
                     "build",
@@ -142,11 +142,11 @@
             "cwd": "${workspaceFolder}"
         },
 
-        // "eQ [osk] Debug"
+        // "Debug - OSK"
         {
             "type": "lldb",
             "request": "launch",
-            "name": "eQ [osk] Debug",
+            "name": "Debug - OSK",
             "cargo": {
                 "args": [
                     "build",

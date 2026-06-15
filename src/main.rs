@@ -22,6 +22,9 @@ mod test_vectors;
 #[cfg(feature = "dev")]
 mod dev;
 
+#[cfg(feature = "dev")]
+mod help;
+
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 const APP_NAME: Option<&str> = option_env!("CARGO_PKG_NAME");
@@ -371,6 +374,9 @@ struct GuiSettings {
   secrets_dialog: crypt::ShowSecretsDialog,
   anu_dialog: crypt::ShowAnuDialog,
 
+  #[cfg(feature = "dev")]
+  help_dialog: help::HelpWindow,
+
   version_dialog: ShowAboutWindow,
   mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
 
@@ -395,6 +401,9 @@ impl GuiSettings {
       open_dialog: crypt::OpenWalletDialog::default(),
       secrets_dialog: crypt::ShowSecretsDialog::new(),
       anu_dialog: crypt::ShowAnuDialog::new(),
+
+      #[cfg(feature = "dev")]
+      help_dialog: help::HelpWindow::new(),
 
       version_dialog: ShowAboutWindow::default(),
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
@@ -990,8 +999,14 @@ impl EgoQuantum {
       });
 
       ui.menu_button("Help", |ui| {
-        if ui.add_enabled(false, egui::Button::new("Help")).on_disabled_hover_text(&devel).on_hover_text("Everything about this app").clicked() {
-          // TODO: Create help window
+
+        let is_help_enabled = if cfg!(feature = "dev") { true } else { false };
+
+        if ui.add_enabled(is_help_enabled, egui::Button::new("Help"))
+          .on_hover_text("Read more")
+          .clicked()
+        {
+          self.gui.help_dialog.open = true;
         }
 
         if ui.add_enabled(true, egui::Button::new("Disclaimer"))
@@ -1738,7 +1753,6 @@ impl eframe::App for EgoQuantum {
               .monospace()
               .color(self.get_text_color());
 
-            // TODO: Improve when QRNG and Custom passphrase
             if ui.button(text).clicked() {
               let needs_qrng = self.get_entropy_source().as_str() == "QRNG";
 
@@ -1753,7 +1767,6 @@ impl eframe::App for EgoQuantum {
                 self.gui.mnemonic_passphrase_dialog.open = true;
                 self.wallet.wallet_gen_state = WalletGenState::WaitingForPassphrase;
               } else {
-                // No dialogs needed → generate immediately
                 let source = self.get_entropy_source();
                 let _ = self.generate_new_wallet(Some(source));
               }
@@ -1763,7 +1776,6 @@ impl eframe::App for EgoQuantum {
               && !self.gui.anu_dialog.open
               && self.gui.anu_dialog.save_entropy
             {
-              // Copy entropy
               if !self.gui.anu_dialog.randomized_entropy.is_empty() {
                 self.wallet.seed_secret.raw_entropy =
                   self.gui.anu_dialog.randomized_entropy.clone();
@@ -1771,7 +1783,6 @@ impl eframe::App for EgoQuantum {
 
               self.gui.anu_dialog.save_entropy = false;
 
-              // Next step: passphrase?
               if self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom" {
                 self.gui.mnemonic_passphrase_dialog.open = true;
                 self.wallet.wallet_gen_state = WalletGenState::WaitingForPassphrase;
@@ -1804,12 +1815,14 @@ impl eframe::App for EgoQuantum {
       });
     }
 
+    // JUMP: WINDOW REGISTER
     self.gui.save_dialog.show(ui.ctx());
     self.gui.open_dialog.show(ui.ctx());
     self.gui.secrets_dialog.show(ui.ctx());
     self.gui.anu_dialog.show(ui.ctx());
     self.gui.version_dialog.show(ui.ctx());
     self.gui.mnemonic_passphrase_dialog.show(ui.ctx());
+    self.gui.help_dialog.show(ui.ctx());
 
     if let Some(loaded_wallet) = ui
       .ctx()
@@ -2201,7 +2214,7 @@ impl ShowCustomMnemonicWindow {
   ) -> FunctionOutput<()> {
     #[cfg(feature = "osk")]
     self.keyboard.0.pump_events(ui.ctx());
-    
+
     ui.add_space(GUI_MARGIN);
 
     ui.vertical_centered(|ui| {
