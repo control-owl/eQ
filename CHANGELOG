@@ -1,3 +1,12 @@
+# version 1.5.0
+- new: help window
+- cargo update:
+    - getrandom (0.4.2 -> 0.4.3)
+    - bech32 (0.11.1 -> 0.12.0)
+    - zeroize (1.8.2 -> 1.9.0)
+- cargo add:
+    - egui_commonmark
+
 # version 1.4.0
 - Bitcoin:
     - Taproot address support bc1p... (default)

@@ -1000,7 +1000,7 @@ impl EgoQuantum {
 
       ui.menu_button("Help", |ui| {
 
-        let is_help_enabled = if cfg!(feature = "dev") { true } else { false };
+        let is_help_enabled = cfg!(feature = "dev");
 
         if ui.add_enabled(is_help_enabled, egui::Button::new("Help"))
           .on_hover_text("Read more")
