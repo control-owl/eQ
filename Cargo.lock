@@ -1016,6 +1016,7 @@ dependencies = [
  "egui_keyboard",
  "getrandom 0.4.3",
  "hex",
+ "image",
  "include_dir",
  "num-bigint",
  "rfd",
@@ -1954,6 +1955,8 @@ dependencies = [
  "num-traits",
  "png 0.18.1",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

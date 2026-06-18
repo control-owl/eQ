@@ -22,7 +22,8 @@ build = "build.rs"
 egui = "0.34.3"
 eframe = "0.34.3"
 egui_extras = { version = "0.34.3", features = ["svg", "image", "all_loaders"] }
-egui_commonmark = "0.23.0"
+egui_commonmark = { version = "0.23.0", features = ["load-images"] }
+image = { version = "0.25", default-features = false, features = ["png" , "jpeg"] }
 rfd = "0.17.2"
 svg = "0.18.0"
 

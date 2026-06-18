@@ -1700,7 +1700,7 @@ impl eframe::App for EgoQuantum {
     _frame: &mut eframe::Frame,
   ) {
     let ctx = ui.ctx().clone();
-
+    
     match self.gui.theme.as_str() {
       "Dark" => ctx.set_theme(egui::Theme::Dark),
       "Light" => ctx.set_theme(egui::Theme::Light),

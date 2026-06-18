@@ -30,6 +30,8 @@ enum HelpSection {
   Overview,
   KeyGeneration,
   WalletFile,
+  StatusBar,
+  ANU,
 }
 
 impl HelpSection {
@@ -37,7 +39,9 @@ impl HelpSection {
     match self {
       HelpSection::Overview => "Overview",
       HelpSection::KeyGeneration => "Key Generation",
-      HelpSection::WalletFile => "Wallet file",
+      HelpSection::WalletFile => "Wallet File",
+      HelpSection::StatusBar => "Status Bar",
+      HelpSection::ANU => "ANU QRNG",
     }
   }
 
@@ -46,6 +50,8 @@ impl HelpSection {
       HelpSection::Overview => "overview.md",
       HelpSection::KeyGeneration => "key_generation.md",
       HelpSection::WalletFile => "wallet_file.md",
+      HelpSection::StatusBar => "status_bar.md",
+      HelpSection::ANU => "anu.md",
     }
   }
 }
@@ -74,6 +80,7 @@ impl HelpWindow {
       .resizable(true)
       .default_size(ctx.globally_used_rect().size())
       .show(ctx, |ui| {
+        egui_extras::install_image_loaders(ui.ctx());        
         self.ui_content(ui);
       });
 
@@ -112,6 +119,8 @@ impl HelpWindow {
     let sections = [
       HelpSection::Overview,
       HelpSection::KeyGeneration,
+      HelpSection::ANU,
+      HelpSection::StatusBar,
       HelpSection::WalletFile,
     ];
 
@@ -127,6 +136,8 @@ impl HelpWindow {
     &mut self,
     ui: &mut Ui,
   ) {
+    ui.style_mut().url_in_tooltip = true;
+
     egui::ScrollArea::vertical()
       .content_margin(egui::Margin::same(GUI_MARGIN as i8))
       .show(ui, |ui| {

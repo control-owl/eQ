@@ -9,8 +9,9 @@
 | Encryption             | AES-256-GCM   |
 
 
-This document specifies the binary format of a wallet file produced by the `encrypt_wallet` function. The format is designed to be self-describing, forward-compatible, and resistant to tampering.
-All offsets described in this document are zero-based and inclusive.
+This document specifies the binary format of a wallet file produced by the `encrypt_wallet` function. 
+The format is designed to be self-describing, forward-compatible, and resistant to tampering. 
+All offsets described in this document are zero-based and inclusive. 
 
 
 ---

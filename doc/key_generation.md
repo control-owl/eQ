@@ -1,23 +1,26 @@
 # Key Generation Process
 
-eQ derives cryptographic keys through the following process:
+eQ generates cryptographic keys using a deterministic, standards-compliant workflow based on BIP-39, BIP-32, SLIP-0010, and the appropriate elliptic-curve algorithms.  
+The complete process consists of:
 
-1. Generate random entropy
-2. Convert entropy into mnemonic words (BIP-39)
-3. Convert the mnemonic (and optional passphrase) into a seed
-4. Derive private/public key pairs from the seed
-5. Use the appropriate cryptographic curve, such as secp256k1 or Ed25519
+1. Generating cryptographically secure entropy  
+2. Converting entropy into mnemonic words (BIP-39)  
+3. Converting the mnemonic (and optional passphrase) into a seed  
+4. Deriving master and child keys from the seed  
+5. Using the correct cryptographic curve (secp256k1 or Ed25519)  
 
+Each step is deterministic: the same entropy always produces the same wallet.
 
 ---
 
-## Entropy
+## 1. Entropy
 
-The process starts with cryptographically secure random data called entropy. The randomness quality is critical because all future keys depend on this entropy, also, the longer, the better ;)
+The process begins with **cryptographically secure random data**, known as entropy.  
+Entropy quality is critical because **every key, address, and signature** ultimately depends on it.
 
-**Common entropy sizes:**
+### Entropy Sizes
 
-| Entropy length | Mnemonic Words |
+| Entropy Length | Mnemonic Words |
 |----------------|----------------|
 | 128 bits       | 12 words       |
 | 160 bits       | 15 words       |
@@ -25,7 +28,10 @@ The process starts with cryptographically secure random data called entropy. The
 | 224 bits       | 21 words       |
 | 256 bits       | 24 words       |
 
-**Example:**
+Longer entropy - more mnemonic words - higher brute-force resistance.
+
+### Examples
+
 ```
 128-bit:
 659927443d503c1dda1864c211e7d12b
@@ -34,21 +40,29 @@ The process starts with cryptographically secure random data called entropy. The
 b5d0b44c372e9c433d9567be156b5a80cd004828e74691fe85197db50938a7e3
 ```
 
+### Technical Notes
+
+- Entropy must be uniformly random; bias reduces security.  
+- eQ supports multiple entropy sources (`RNG`, `QRNG`, `File`).  
+- Entropy is never reused across wallets unless explicitly saved.  
+- Entropy length directly determines checksum size in BIP-39.
 
 ---
 
-## Mnemonic Words (BIP-39)
+## 2. Mnemonic Words (BIP-39)
 
-BIP-39 converts entropy into a human-readable list of words.
+BIP-39 converts entropy into a human-readable mnemonic phrase.  
+This step ensures that wallets can be backed up using words instead of raw binary data.
 
-**Steps:**
+### Conversion Steps
 
-1. Compute a checksum from the entropy
-2. Append the checksum bits to the entropy
-3. Split the resulting bit stream into groups of 11 bits
-4. Map each 11-bit value to a word from the BIP-39 word list (2048 words)
+1. Compute a checksum from the entropy (`SHA-256(entropy)` first bits).  
+2. Append checksum bits to the entropy.  
+3. Split the combined bitstream into 11-bit groups.  
+4. Map each 11-bit value to a word from the 2048-word BIP-39 dictionary.
 
-**Example:**
+### Examples
+
 ```
 128-bit entropy:
 history jungle affair invest only gravity tilt nut account plate explain note
@@ -60,67 +74,134 @@ phone detail foam syrup local spell vital trap begin stick skin castle neither a
 wrestle neither effort grit sort drama tribe lava menu early advice domain clutch special define iron pizza rifle fossil steak dwarf nerve immense crumble
 ```
 
+### Technical Notes
+
+- 11 bits → 2048 possible words.  
+- Mnemonic words **encode both entropy and checksum**.  
+- Any change in entropy or checksum produces a completely different mnemonic.  
+- Different mnemonic languages produce different seeds even with identical entropy.
 
 ---
 
-## Mnemonic Passphrase
+## 3. Mnemonic Passphrase
 
-BIP-39 supports an optional passphrase. Passphrase is something like an extra word to your mnemonic.
+BIP-39 supports an optional passphrase, often called the *25th word*.  
+It is **not** stored anywhere and must be remembered by the user.
 
-**Why use a passphrase?**
+### Why Use a Passphrase?
 
-- Anyone with only the mnemonic cannot access the wallet.
-- The mnemonic and passphrase together generate the final seed.
-- Different passphrases create completely different wallets.
-- It increases the total security of your wallet.
+- Protects against mnemonic exposure attacks.  
+- Produces a completely different seed even with the same mnemonic.  
+- Adds significant entropy (eQ uses 128 random characters by default).  
+- Makes brute-forcing the wallet computationally infeasible.
 
-**Downside of using a passphrase:**
+### Security Impact
 
-- If the passphrase is lost, the derived wallet cannot be recovered with just the mnemonic words.
+A 128-character random ASCII passphrase provides:
 
+- **~850–900 bits of entropy**  
+- Far beyond the security level of the mnemonic itself  
+- Resistant to all known brute-force methods
+
+### Downside
+
+If the passphrase is lost, the wallet **cannot** be recovered using only the mnemonic words.
 
 ---
 
-## Seed Generation
+## 4. Seed Generation
 
-The mnemonic and passphrase are transformed into a seed using **PBKDF2-HMAC-SHA512**.
+The mnemonic and passphrase are converted into a seed using:
 
-**Parameters:**
+**PBKDF2-HMAC-SHA512**
 
-- Password = mnemonic sentence
-- Salt = "mnemonic" + passphrase
-- Iterations = 2048
-- Output length = 512 bits
+### Parameters
 
-**Result:**
+| Parameter     | Value                                 |
+|---------------|----------------------------------------|
+| Password      | mnemonic sentence                      |
+| Salt          | `"mnemonic"` + passphrase              |
+| Iterations    | 2048                                   |
+| Output length | 512 bits                               |
+
+### Example Output
+
 ```
 3fa4a8ccc3c5734874a7d378492b0479c5de893d3c677884cd2a4d038a7bb4068c4cc22225c8a684f43bfe37777b073008f6cd1b9c63fddbb9ba286abd26a01e
 ```
 
+### Technical Notes
+
+- PBKDF2 intentionally slows down brute-force attempts.  
+- The seed is the root of all derived keys.  
+- The seed must remain secret; leaking it compromises the entire wallet.
 
 ---
 
-## Key Generation with secp256k1
+## 5. Key Generation with secp256k1
 
-Used by Bitcoin, Ethereum, Litecoin and many EVM chains...
+Used by:
 
-**Flow:**
+- Bitcoin  
+- Ethereum  
+- Litecoin  
+- Dogecoin  
+- Most EVM chains  
+
+### Derivation Flow
+
 ```
-Entropy -> Mnemonic -> Seed -> Master Private Key -> Child Private Key -> secp256k1 Public Key
+Entropy
+  ↓
+Mnemonic
+  ↓
+Seed
+  ↓
+Master Private Key
+  ↓
+Child Private Key
+  ↓
+secp256k1 Public Key
 ```
 
+### Technical Notes
+
+- secp256k1 is a Koblitz curve optimized for fast verification.  
+- BIP-32 derivation uses HMAC-SHA512 to derive child keys.  
+- Hardened and non-hardened derivation paths behave differently.  
+- Public keys are compressed (33 bytes) by default.
 
 ---
 
-## Key Generation with Ed25519
+## 6. Key Generation with Ed25519
 
-Used by Solana, Cardano, Near, Aptos, Sui etc...
+Used by:
 
-After seed generation, Ed25519-specific derivation (often SLIP-0010) is applied.
+- Solana  
+- Cardano  
+- Near  
+- Aptos  
+- Sui  
+- Many modern proof-of-stake chains  
 
-**Flow:**
+### Derivation Flow
+
 ```
-Entropy -> Mnemonic -> Seed -> Ed25519 Private Key -> Ed25519 Public Key
+Entropy
+  ↓
+Mnemonic
+  ↓
+Seed
+  ↓
+Ed25519 Master Private Key
+  ↓
+Ed25519 Master Public Key
+  ↓
 ```
 
-eQ automates this entire process with one click while giving you full control over entropy source and passphrase.
+### Technical Notes
+
+- Ed25519 uses twisted Edwards curves (Curve25519).  
+- Most wallets use **SLIP-0010** for deterministic derivation.  
+- Ed25519 does **not** support non-hardened derivation (for security reasons).
+- Keys are resistant to side-channel attacks and signature malleability.
