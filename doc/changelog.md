@@ -6,6 +6,10 @@
     - zeroize (1.8.2 -> 1.9.0)
 - cargo add:
     - egui_commonmark
+- new: Coin filter in status bar
+
+
+---
 
 # version 1.4.0
 - Bitcoin:
@@ -51,6 +55,10 @@
     - Hardened addresses
     - Add/remove addresses
 
+
+---
+
+
 # version 1.3.2
 - cargo update:
     - egui (0.34.1 -> 0.34.2)
@@ -60,8 +68,16 @@
 - some files renamed
 - new release feature added: "osk" (eQ with on-screen keyboard)
 
+
+---
+
+
 # version 1.3.1
 - change hardened addresses output improved
+
+
+---
+
 
 # version 1.3.0
 - cargo update:
@@ -77,6 +93,10 @@
 - new eQ feature: osk
     - on-screen keyboard
 
+
+---
+
+
 # version 1.2.0
 - cargo update: sysinfo
 - cargo add: ureq
@@ -86,10 +106,18 @@
 - fix: address starting point
 - fix: re-saving SVG file
 
+
+---
+
+
 # version 1.1.0
 - cargo update: getrandom
 - git pre-push hook added
 - new release: macOS, windows
+
+
+---
+
 
 # version 1.0.1
 - Secrets window
@@ -98,6 +126,10 @@
     - Pulse Chain
     - SONIC
     - Scroll
+
+
+---
+
 
 # version 1.0.0
 - First version

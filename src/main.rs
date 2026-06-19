@@ -22,7 +22,6 @@ mod test_vectors;
 #[cfg(feature = "dev")]
 mod dev;
 
-#[cfg(feature = "dev")]
 mod help;
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -32,7 +31,7 @@ const APP_DESCRIPTION: Option<&str> = option_env!("CARGO_PKG_DESCRIPTION");
 const APP_VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const APP_LICENSE: Option<&str> = option_env!("CARGO_PKG_LICENSE");
 const LICENSE_TEXT: &str = include_str!("../LICENSE");
-const DISCLAIMER_TEXT: &str = include_str!("../DISCLAIMER.txt");
+const DISCLAIMER_TEXT: &str = include_str!("../doc/disclaimer.md");
 const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &[
   "RNG",
@@ -374,7 +373,6 @@ struct GuiSettings {
   secrets_dialog: crypt::ShowSecretsDialog,
   anu_dialog: crypt::ShowAnuDialog,
 
-  #[cfg(feature = "dev")]
   help_dialog: help::HelpWindow,
 
   version_dialog: ShowAboutWindow,
@@ -383,6 +381,8 @@ struct GuiSettings {
   hide_private_keys: bool,
 
   show_disclaimer: bool,
+
+  coin_filter: String,
 }
 
 impl GuiSettings {
@@ -402,7 +402,6 @@ impl GuiSettings {
       secrets_dialog: crypt::ShowSecretsDialog::new(),
       anu_dialog: crypt::ShowAnuDialog::new(),
 
-      #[cfg(feature = "dev")]
       help_dialog: help::HelpWindow::new(),
 
       version_dialog: ShowAboutWindow::default(),
@@ -411,6 +410,8 @@ impl GuiSettings {
       hide_private_keys: true,
 
       show_disclaimer: false,
+
+      coin_filter: String::new(),
     }
   }
 }
@@ -999,10 +1000,7 @@ impl EgoQuantum {
       });
 
       ui.menu_button("Help", |ui| {
-
-        let is_help_enabled = cfg!(feature = "dev");
-
-        if ui.add_enabled(is_help_enabled, egui::Button::new("Help"))
+        if ui.add_enabled(true, egui::Button::new("Help"))
           .on_hover_text("Read more")
           .clicked()
         {
@@ -1056,6 +1054,7 @@ impl EgoQuantum {
     ];
 
     let active_columns = if cfg!(feature = "dev") { 7 } else { 6 };
+    let filter_lower = self.gui.coin_filter.trim().to_ascii_lowercase();
 
     TableBuilder::new(ui)
       .striped(true)
@@ -1105,6 +1104,11 @@ impl EgoQuantum {
       })
       .body(|mut body| {
         for (coin, addresses) in &self.wallet.addresses_by_coin.0 {
+          // JUMP: COIN FILTER
+          if !filter_lower.is_empty() && !coin.to_ascii_lowercase().contains(&filter_lower) {
+            continue;
+          }
+
           if let Some(first) = addresses.first().cloned() {
             let mut group_expanded = false;
 
@@ -1598,6 +1602,7 @@ impl EgoQuantum {
 
         ui.separator();
 
+        // JUMP: STATUS ADDRESSES
         ui.label(egui::RichText::new("Addresses").monospace().small());
 
         if ui
@@ -1675,6 +1680,38 @@ impl EgoQuantum {
           let source = self.get_entropy_source();
           let _ = self.generate_new_wallet(Some(source));
         }
+
+        ui.separator();
+
+        // JUMP: STATUS FILTER
+        ui.add_enabled_ui(has_addresses, |ui| {
+          ui.label(egui::RichText::new("Filter").monospace().small());
+
+          let filter_text = &mut self.gui.coin_filter;
+          let response = ui.add(
+            egui::TextEdit::singleline(filter_text)
+              .desired_width(74.0)
+              .hint_text("Coin name")
+              .font(egui::TextStyle::Monospace),
+          );
+
+          if response.changed() {
+            filter_text.make_ascii_lowercase();
+            filter_text.truncate(20);
+          }
+
+          if !filter_text.is_empty() {
+            if ui
+              .button(egui::RichText::new("X").monospace().strong())
+              .on_hover_text("Clear filter")
+              .clicked()
+            {
+              filter_text.clear();
+            }
+          }
+
+          response.on_hover_text("Filter coins by name");
+        });
       }
     });
 
@@ -1700,7 +1737,7 @@ impl eframe::App for EgoQuantum {
     _frame: &mut eframe::Frame,
   ) {
     let ctx = ui.ctx().clone();
-    
+
     match self.gui.theme.as_str() {
       "Dark" => ctx.set_theme(egui::Theme::Dark),
       "Light" => ctx.set_theme(egui::Theme::Light),
@@ -1737,7 +1774,7 @@ impl eframe::App for EgoQuantum {
             egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
           )
           .show(ui, |ui| {
-            // ui.take_available_height();
+            ui.take_available_height();
             self.render_wallet_table(ui);
           });
       });
@@ -2162,7 +2199,6 @@ pub struct ShowCustomMnemonicWindow {
   show_passphrase: bool,
   pub save_mnemonic: bool,
 
-  #[zeroize(skip)]
   #[cfg(feature = "osk")]
   pub keyboard: crypt::VirtualKeyboard,
 }

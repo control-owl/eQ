@@ -9,6 +9,7 @@ To begin, press the `Generate QRNG` button.
 
 The application will request an entropy block from the ANU API using the parameters defined in the `Settings` tab.
 
+
 ---
 
 ## Generate QRNG
@@ -16,6 +17,9 @@ The application will request an entropy block from the ANU API using the paramet
 When you press the `Generate QRNG` button, the interface will display the downloaded data and the extracted entropy:
 
 ![ANU Generate QRNG](doc/attachments/anu-generate-qrng.png)
+
+
+---
 
 ### Raw ANU Data
 
@@ -32,6 +36,7 @@ In this example, the extracted bytes are:
 8d 01 87 a3 3e a6 ad a2 c4 cf 16 b9 6a 70 53 c6 54 29 44 82 ff ce 86 cz 99 4f 93
 ```
 
+
 ---
 
 ## Entropy Extraction Modes
@@ -41,6 +46,15 @@ If `Sequential Slice` is selected in the `Settings` tab, the entropy is taken as
 ![ANU Generate QRNG Sequential](doc/attachments/anu-sequential-slice.png)
 
 If `Random Values` is selected, the entropy bytes are chosen randomly from the downloaded block.
+In this example, the extracted bytes are:
+
+```
+cf fa 9e 16 24 16 ... bd 44 3b 83 31 06 2e
+```
+
+
+
+---
 
 ### Randomize Button
 
@@ -48,9 +62,13 @@ The `Randomize` button allows you to reshuffle the downloaded bits.
 This is useful because ANU enforces a **120-second cooldown per request**, so the application downloads more data than immediately required.  
 Shuffling ensures additional entropy variation without needing another API call.
 
+
+---
+
 ### Saving the Wallet
 
 Pressing the `Save` button finalizes the entropy and generates a new wallet.
+
 
 ---
 
@@ -59,6 +77,7 @@ Pressing the `Save` button finalizes the entropy and generates a new wallet.
 ![Settings](doc/attachments/anu-settings.png)
 
 The `Settings` tab defines how the ANU API request is constructed and how entropy is extracted.
+
 
 ---
 
@@ -100,6 +119,7 @@ Entropy extraction modes determine how the final entropy is selected from the do
 | `Sequential Slice`| Takes a continuous slice of bytes in order |
 
 These settings directly influence the entropy used for wallet generation.
+
 
 ---
 

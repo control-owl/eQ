@@ -27,6 +27,7 @@ jobs:
       APP_NAME: "eQ"
       APP_PATH: "target/${{ matrix.target }}/release"
       OUTPUT_DIR: "LAB7041/${{ matrix.target }}"
+      CHANGELOG: "doc/changelog.md"
 
     steps:
       - name: Install system dependencies
@@ -74,7 +75,7 @@ jobs:
       - name: Extract version number
         shell: pwsh
         run: |
-          $line = (Get-Content CHANGELOG | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1).Trim()
+          $line = (Get-Content ${{ env.CHANGELOG }} | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1).Trim()
 
           if (-not $line) {
               Write-Error "CHANGELOG first non-empty line is empty or unreadable"
@@ -130,7 +131,7 @@ jobs:
 
           Compress-Archive -Path `
             "$OUTPUT_DIR/$OUTPUT_BIN", `
-            "$ROOT/CHANGELOG", `
+            "$ROOT/${{ env.CHANGELOG }}", `
             "$ROOT/LICENSE" `
             -DestinationPath "$OUTPUT_DIR/$ZIP_FILE" `
             -Force
@@ -150,7 +151,7 @@ jobs:
           files: |
             ${{ env.OUTPUT_DIR }}/${{ env.ZIP_FILE }}
             ${{ env.OUTPUT_DIR }}/${{ env.ZIP_FILE }}.sha256
-            CHANGELOG
+            ${{ env.CHANGELOG }}
             LICENSE
           draft: false
           prerelease: true

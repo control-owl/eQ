@@ -124,6 +124,12 @@ pub enum KdfChoice {
   Argon2id,
 }
 
+impl Zeroize for KdfChoice {
+  fn zeroize(&mut self) {
+    *self = KdfChoice::default();
+  }
+}
+
 impl std::fmt::Display for KdfChoice {
   fn fmt(
     &self,
@@ -162,8 +168,6 @@ pub struct SaveWalletDialog {
   pub direct_save: bool,
   pub save_location: Option<String>,
 
-  // TODO: Implement zeroize for KdfChoice
-  #[zeroize(skip)]
   pub kdf_choice: KdfChoice,
 
   pub pbkdf2_rounds: u32,
@@ -171,7 +175,6 @@ pub struct SaveWalletDialog {
   pub argon2_memory_mb: u32,
   pub argon2_parallelism: u32,
 
-  #[zeroize(skip)]
   #[cfg(feature = "osk")]
   pub keyboard: VirtualKeyboard,
 }
@@ -635,7 +638,6 @@ pub struct OpenWalletDialog {
   #[zeroize(skip)]
   pub loaded_wallet: Option<SharedWallet>,
 
-  #[zeroize(skip)]
   #[cfg(feature = "osk")]
   pub keyboard: VirtualKeyboard,
 }
@@ -2343,6 +2345,13 @@ impl eframe::App for ShowAnuDialog {
 #[cfg(feature = "osk")]
 #[derive(Default)]
 pub struct VirtualKeyboard(pub egui_keyboard::Keyboard);
+
+#[cfg(feature = "osk")]
+impl Zeroize for VirtualKeyboard {
+  fn zeroize(&mut self) {
+    self.0 = egui_keyboard::Keyboard::default();
+  }
+}
 
 #[cfg(feature = "osk")]
 impl Clone for VirtualKeyboard {

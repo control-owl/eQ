@@ -29,9 +29,11 @@ enum HelpSection {
   #[default]
   Overview,
   KeyGeneration,
-  WalletFile,
-  StatusBar,
   ANU,
+  StatusBar,
+  WalletFile,
+  SupportedCoins,
+  Changelog
 }
 
 impl HelpSection {
@@ -39,9 +41,11 @@ impl HelpSection {
     match self {
       HelpSection::Overview => "Overview",
       HelpSection::KeyGeneration => "Key Generation",
-      HelpSection::WalletFile => "Wallet File",
-      HelpSection::StatusBar => "Status Bar",
       HelpSection::ANU => "ANU QRNG",
+      HelpSection::StatusBar => "Status Bar",
+      HelpSection::WalletFile => "Wallet File",
+      HelpSection::SupportedCoins => "Supported Coins",
+      HelpSection::Changelog => "Changelog",
     }
   }
 
@@ -49,9 +53,11 @@ impl HelpSection {
     match self {
       HelpSection::Overview => "overview.md",
       HelpSection::KeyGeneration => "key_generation.md",
-      HelpSection::WalletFile => "wallet_file.md",
-      HelpSection::StatusBar => "status_bar.md",
       HelpSection::ANU => "anu.md",
+      HelpSection::StatusBar => "status_bar.md",
+      HelpSection::WalletFile => "wallet_file.md",
+      HelpSection::SupportedCoins => "supported_coins.md",
+      HelpSection::Changelog => "changelog.md",
     }
   }
 }
@@ -78,9 +84,9 @@ impl HelpWindow {
     egui::Window::new("Help")
       .open(&mut open)
       .resizable(true)
-      .default_size(ctx.globally_used_rect().size())
+      // .default_size(ctx.globally_used_rect().size())
       .show(ctx, |ui| {
-        egui_extras::install_image_loaders(ui.ctx());        
+        egui_extras::install_image_loaders(ui.ctx());
         self.ui_content(ui);
       });
 
@@ -122,6 +128,8 @@ impl HelpWindow {
       HelpSection::ANU,
       HelpSection::StatusBar,
       HelpSection::WalletFile,
+      HelpSection::SupportedCoins,
+      HelpSection::Changelog,
     ];
 
     for &section in &sections {

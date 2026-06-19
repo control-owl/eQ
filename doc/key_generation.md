@@ -11,6 +11,7 @@ The complete process consists of:
 
 Each step is deterministic: the same entropy always produces the same wallet.
 
+
 ---
 
 ## 1. Entropy
@@ -196,7 +197,6 @@ Seed
 Ed25519 Master Private Key
   ↓
 Ed25519 Master Public Key
-  ↓
 ```
 
 ### Technical Notes

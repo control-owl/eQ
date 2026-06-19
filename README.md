@@ -2,22 +2,22 @@
 
 ## Disclaimer
 
-> Read the [DISCLAIMER](./DISCLAIMER.txt) file.
+> Read the [DISCLAIMER](./doc/disclaimer.md) file.
 
 
 ## Info
 
 ```
- ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄ 
-▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌
-▐░▌          ▐░▌       ▐░▌
-▐░█▄▄▄▄▄▄▄▄▄ ▐░▌       ▐░▌
-▐░░░░░░░░░░░▌▐░▌       ▐░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░█▄▄▄▄▄▄▄█░▌
-▐░▌          ▐░░░░░░░░░░░▌
-▐░█▄▄▄▄▄▄▄▄▄  ▀▀▀▀▀▀█░█▀▀ 
-▐░░░░░░░░░░░▌        ▐░▌  
+ ▄▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄▄ 
+█░░░░░░░░░░░█ █░░░░░░░░░░░█
+█░█▀▀▀▀▀▀▀▀▀  █░█▀▀▀▀▀▀▀█░█
+█░█           █░█       █░█
+█░█▄▄▄▄▄▄▄▄▄  █░█       █░█
+█░░░░░░░░░░░█ █░█       █░█
+█░█▀▀▀▀▀▀▀▀▀  █░█▄▄▄▄▄▄▄█░█
+█░█           █░░░░░░░░░░░█
+█░█▄▄▄▄▄▄▄▄▄  ▀▀▀▀▀▀█░█▀▀ 
+█░░░░░░░░░░░█        █░█  
  ▀▀▀▀▀▀▀▀▀▀▀          ▀   
 CC-BY-NC-ND-4.0
 Control Owl [2023-2026]
@@ -95,7 +95,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 
 ## Features
 
-- Generate keys for **284** [coins](./Coins.md) in one click
+- Generate keys for **284** [coins](./doc/supported-coins.md) in one click
 - **Ultra-fast performance** powered by Rust
 - **Minimalistic UI** built with egui
 - **Cross-platform** support: Windows, Linux, macOS
@@ -119,6 +119,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 
 1. Download the latest release: [![GitHub release](https://img.shields.io/github/v/release/control-owl/eQ)](https://github.com/control-owl/eQ/releases)
 
+Check changelog if wanted: [Changelog](./doc/changelog.md) file.
 
 ### Manual way
 

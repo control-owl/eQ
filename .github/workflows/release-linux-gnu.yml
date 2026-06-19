@@ -27,6 +27,7 @@ jobs:
       APP_NAME: "eQ"
       APP_PATH: "target/${{ matrix.target }}/release"
       OUTPUT_DIR: "LAB7041/${{ matrix.target }}"
+      CHANGELOG: "doc/changelog.md"
 
     steps:
       - name: "Install system dependencies"
@@ -70,7 +71,7 @@ jobs:
 
       - name: "Extract version number"
         run: |
-          VERSION_NUMBER=$(head -n 1 CHANGELOG | cut -d ':' -f 2- | tr -d ' #version')
+          VERSION_NUMBER=$(head -n 1 ${{ env.CHANGELOG }} | cut -d ':' -f 2- | tr -d ' #version')
 
           if [[ ! "$VERSION_NUMBER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: VERSION_NUMBER is not in valid format: ${VERSION_NUMBER}"
@@ -123,7 +124,7 @@ jobs:
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
-            -C ../../ CHANGELOG LICENSE
+            -C ../../ "${{ env.CHANGELOG }}" LICENSE
           
           echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_ENV
           echo "Release files prepared"
@@ -138,9 +139,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }} 
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256 
-            CHANGELOG 
+            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}
+            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256
+            ${{ env.CHANGELOG }}
             LICENSE
           draft: false
           prerelease: true

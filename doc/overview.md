@@ -6,6 +6,7 @@ It supports **+280** coins, follows all major industry standards, and gives you 
 All sensitive operations-entropy generation, mnemonic creation, seed derivation, and key generation-are performed **locally on your machine**. 
 No network connection is required unless you explicitly choose to use `QRNG` for quantum-grade entropy.
 
+
 ---
 
 ## What is eQ?
@@ -18,6 +19,7 @@ eQ is a deterministic, standards-compliant key generator built for:
 - anyone who wants a simple, transparent, and secure way to generate wallets
 
 The application is built in Rust and uses modern cryptographic libraries to ensure correctness, safety, and performance.
+
 
 ---
 
@@ -32,6 +34,10 @@ The application is built in Rust and uses modern cryptographic libraries to ensu
 - Hardened derivation paths enabled by default 
 - No telemetry, no tracking, no external dependencies
 
+
+---
+
+
 ### Quantum-Grade Entropy (Optional)
 
 If you want additional randomness, eQ integrates with the **ANU Quantum Random Number Generator**. 
@@ -42,6 +48,11 @@ You remain in control:
 - Data is downloaded once
 - Bits can be randomized locally 
 - Entropy extraction mode is selectable
+
+
+
+---
+
 
 ### Encrypted SVG Wallet Files
 
@@ -55,14 +66,20 @@ Example wallet file:
 
 ![Test Wallet File](doc/attachments/test-wallet-file.png)
 
-### Broad Standards Support
+
+
+---
+
+
+### Standards Support
 
 eQ supports:
 
 - BIP-39 (mnemonics) 
-- BIP-32 (HD wallets) 
-- BIP-44 / BIP-86 derivation paths 
-- SLIP-0010 for Ed25519 chains 
+- BIP-32 (Legacy wallets) 
+- BIP-44
+- BIP-86
+- SLIP-0010
 - secp256k1 and Ed25519 curves 
 - 280+ cryptocurrencies across many chains
 
@@ -79,6 +96,7 @@ It runs eQ in a fully isolated environment with:
 - no external attack surface
 
 Perfect for long-term cold storage and high-security setups.
+
 
 ---
 

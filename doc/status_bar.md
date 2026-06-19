@@ -8,6 +8,7 @@ It is divided into the following sections:
 3. Path  
 4. Coins  
 5. Addresses  
+6. Filter
 
 
 ![Status Bar](doc/attachments/status-bar.png)
@@ -31,13 +32,13 @@ Available options:
 #### RNG
 
 `RNG` is the default entropy source.  
-It uses the local CPU hardware random number generator or OS‑provided cryptographic randomness.  
+It uses the local CPU hardware random number generator or OS-provided cryptographic randomness.  
 This method:
 
 - requires **no internet connection**,  
 - works on **any machine**,  
 - supports **fully offline wallet generation**,  
-- avoids network‑based interception risks.
+- avoids network-based interception risks.
 
 From a security perspective, local RNG is deterministic only in the sense that it depends on the system’s entropy pool, but modern OS RNGs (e.g., `/dev/urandom`, `getrandom()`, RDRAND) are considered cryptographically secure for wallet generation.
 
@@ -60,8 +61,8 @@ For detailed behavior, extraction modes, and security considerations, refer to t
 This option will allow loading entropy from an external file.  
 Typical use cases include:
 
-- air‑gapped entropy generation,  
-- pre‑generated entropy pools,  
+- air-gapped entropy generation,  
+- pre-generated entropy pools,  
 - hardware RNG exports.
 
 This feature is not yet active.
@@ -70,7 +71,7 @@ This feature is not yet active.
 
 ## 2. Mnemonic
 
-The `Mnemonic` section defines how the wallet’s BIP‑39 mnemonic phrase is generated.
+The `Mnemonic` section defines how the wallet’s BIP-39 mnemonic phrase is generated.
 
 ---
 
@@ -86,7 +87,7 @@ Specifies the number of mnemonic words derived from entropy.
 | 21         | 224 bits     |
 | 24 (Default) | 256 bits   |
 
-More words = more entropy = stronger resistance against brute‑force attacks.
+More words = more entropy = stronger resistance against brute-force attacks.
 
 ---
 
@@ -127,7 +128,7 @@ Because the mnemonic strings differ:
 PBKDF2("able ball car ...") ≠ PBKDF2("acier bambin causer ...")
 ```
 
-This is expected behavior and is explicitly defined in **BIP‑39**.
+This is expected behavior and is explicitly defined in **BIP-39**.
 
 ---
 
@@ -138,11 +139,11 @@ It is generated using `RNG` and consists of **128 random characters**, providing
 
 #### Technical Impact
 
-A 128‑character random ASCII passphrase provides:
+A 128-character random ASCII passphrase provides:
 
 - approximately **~850–900 bits of entropy**, depending on character set  
 - far beyond the security level of the mnemonic itself  
-- effectively impossible to brute‑force with any foreseeable hardware
+- effectively impossible to brute-force with any foreseeable hardware
 
 This means:
 
@@ -161,13 +162,13 @@ Alternative: `32`
 
 These correspond to:
 
-- `BIP‑44`: Multi‑account hierarchical deterministic wallets  
-- `BIP‑32`: Generic hierarchical deterministic key derivation
+- `BIP-44`: Multi-account hierarchical deterministic wallets  
+- `BIP-32`: Generic hierarchical deterministic key derivation
 
 ### Hardened Addresses
 
 All addresses are generated as **hardened** by default.  
-This prevents public‑key‑based derivation attacks and ensures maximum isolation between branches of the derivation tree.
+This prevents public-key-based derivation attacks and ensures maximum isolation between branches of the derivation tree.
 
 ---
 
@@ -181,6 +182,9 @@ It displays the **total number of supported coins** generated for the wallet.
 ## 5. Addresses
 
 By default, **10 addresses** are generated.
+
+
+![Status Bar Addresses](doc/attachments/status-bar-addresses.png)
 
 You can adjust the number of addresses by:
 
@@ -197,3 +201,11 @@ Available options:
 - 100  
 
 This allows generating a larger address pool without regenerating the entire wallet.
+
+## 6. Coin filter
+
+With this entry field, you can filter coins in a table.
+
+![Status Bar Filter](doc/attachments/status-bar-filter.png)
+
+If you input text in a filter entry field, an `X` button will be shown. When pressed, it will clear the filter.
