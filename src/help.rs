@@ -10,6 +10,7 @@ use crate::GUI_MARGIN;
 pub struct HelpWindow {
   pub open: bool,
   selected_section: HelpSection,
+  
   #[zeroize(skip)]
   markdown_cache: CommonMarkCache,
 }

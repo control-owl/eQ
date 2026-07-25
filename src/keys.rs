@@ -1237,6 +1237,7 @@ pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<
       .master_private_key_bytes
       .to_vec(),
   );
+
   let master_chain_code: Zeroizing<Vec<u8>> = Zeroizing::new(
     wallet
       .secret_keys
@@ -1276,6 +1277,7 @@ pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<
   let mut private_key: Zeroizing<Vec<u8>> = master_key;
   let mut chain_code: Zeroizing<Vec<u8>> = master_chain_code;
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+
   for part in derivation_path.split('/').skip(1) {
     let hardened: Zeroizing<bool> = Zeroizing::new(part.ends_with("'"));
     let index_str: Zeroizing<String> = Zeroizing::new(part.trim_end_matches("'").to_string());
@@ -1291,6 +1293,7 @@ pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<
     } else {
       index
     };
+    
     let derived: Zeroizing<ChildEd25519KeySecretData> =
       Zeroizing::new(derive_ed25519_child(private_key, chain_code, child_index)?);
 
@@ -1411,6 +1414,43 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
         Zeroizing::new(hex::encode(&child_private_key_bytes)),
       )
     }
+    
+    128 => {
+      // The child private key we already derived is treated as the *spend* private key
+      let mut spend_priv = [0u8; 32];
+      spend_priv.copy_from_slice(&child_private_key_bytes);
+
+      // Reduce it properly
+      let spend_priv = monero_sc_reduce32(&spend_priv).to_bytes();
+
+      // Derive view key
+      let view_priv = monero_view_from_spend(&spend_priv);
+
+      // Public keys
+      let spend_pub = monero_pubkey(&spend_priv);
+      let view_pub  = monero_pubkey(&view_priv);
+
+      // Network byte – mainnet for now; you can later expose a flag
+      let network = 0x12u8;
+
+      let address = generate_monero_address(&spend_pub, &view_pub, network)?;
+
+      // For the UI we usually show both private keys (spend + view)
+      // and both public keys. Adjust the stored strings to your taste.
+      let public_key_str = Zeroizing::new(format!(
+          "spend:{} view:{}",
+          hex::encode(spend_pub),
+          hex::encode(view_pub)
+      ));
+      let private_key_str = Zeroizing::new(format!(
+          "spend:{} view:{}",
+          hex::encode(spend_priv),
+          hex::encode(view_priv)
+      ));
+
+      (address, public_key_str, private_key_str)
+    }
+    
     _ => {
       return Err(AppError::log(format!(
         "Unsupported ed25519 coin_index: {:?}",
@@ -1896,7 +1936,8 @@ pub fn generate_bitcoin_taproot_address(
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  let active_coins = 1;
+  let active_coins = if cfg!(feature = "dev") { 2 } else { 1 };
+
 
   let last_index = *wallet.address_components.derivation_path.last_index;
 
@@ -1955,6 +1996,7 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
           wallet.address_components.evm =
             Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
+          // JUMP: GENERATE NEW ADDRESSES
           for address_index in start_index..end_index {
             wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
 
@@ -2018,3 +2060,49 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn monero_sc_reduce32(bytes: &[u8; 32]) -> Scalar {
+    Scalar::from_bytes_mod_order(*bytes)
+}
+
+pub fn monero_view_from_spend(spend_priv: &[u8; 32]) -> [u8; 32] {
+    let mut hasher = Keccak::v256();
+    let mut hash = [0u8; 32];
+
+    hasher.update(spend_priv);
+    hasher.finalize(&mut hash);
+
+    monero_sc_reduce32(&hash).to_bytes()
+}
+
+pub fn monero_pubkey(priv_bytes: &[u8; 32]) -> [u8; 32] {
+    let scalar = monero_sc_reduce32(priv_bytes);
+    let point = ED25519_BASEPOINT_POINT * scalar;
+
+    point.compress().to_bytes()
+}
+
+pub fn generate_monero_address(
+    spend_pub: &[u8; 32],
+    view_pub: &[u8; 32],
+    network: u8,
+) -> FunctionOutput<Zeroizing<String>> {
+    let mut data = Zeroizing::new(Vec::with_capacity(69));
+    data.push(network);
+    data.extend_from_slice(spend_pub);
+    data.extend_from_slice(view_pub);
+
+    let mut hasher = Keccak::v256();
+    let mut checksum = [0u8; 32];
+
+    hasher.update(&data);
+    hasher.finalize(&mut checksum);
+
+    data.extend_from_slice(&checksum[..4]);
+
+    let encoded = base58_monero::encode(&data)
+        .map_err(|e| AppError::log(format!("Monero Base58 encode failed: {:?}", e)))?;
+
+    Ok(Zeroizing::new(encoded))
+}
+

@@ -162,7 +162,7 @@ pub struct SaveWalletDialog {
 
   pub pixel_redundancy: f32,
 
-  // TODO: Implement zeroize for Rc & RefCell
+  // TODO: Improve or migrate from rc
   #[zeroize(skip)]
   pub wallet_to_save: Option<SharedWallet>,
   pub direct_save: bool,

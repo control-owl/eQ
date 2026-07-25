@@ -962,9 +962,9 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1669,MEWC,Meowcoin,,,,,,,,,
 0,1688,BCX,BitcoinX,,,,,,,,,
 0,1707,TRMP,TrumPOW,,,,,,,,,
-0,1729,XTZ,Tezos (tz1),ed25519,sha256,,,0x06A19F,,,,
-0,1729,XTZ,Tezos (tz3),p256,sha256,,,0x06A1A4,,,,
 1,1729,XTZ,Tezos (tz2),secp256k1,sha256+ripemd160,,,0x06A1A1,,,,
+0,1729,XTZ,Tezos (tz3),p256,sha256,,,0x06A1A4,,,,
+0,1729,XTZ,Tezos (tz1),ed25519,sha256,,,0x06A19F,,,,
 0,1776,LBTC,Liquid BTC,,,,,,,,,
 0,1777,BBP,Biblepay,,,,,,,,,
 0,1784,JPYS,JPY Stablecoin,,,,,,,,,
@@ -1176,7 +1176,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,16754,ARDR,Ardor,,,,,,,,,
 1,18000,MTR,Meter Stable,secp256k1,keccak256,,,,,,TRUE,6627
 1,19165,SAFE,Safecoin,secp256k1,sha256,,,0x3d,0x56,0xbd,,3799
-0,19167,FLUX,Flux,,,,,,,,,
+1,19167,FLUX,Flux,secp256k1,sha256,,,0x1CB8,0x1CBD,0x80,,3029
 1,19169,RITO,Ritocoin,secp256k1,sha256,,,0x19,0x69,0x8b,,4264
 0,19788,ML,Mintlayer,,,,,,,,,
 0,20036,XND,ndau,,,,,,,,,
@@ -1297,3 +1297,6 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1179993461,HXC,HuaXia Chain,,,,,,,,,
 0,1179993471,AME,AME Chain,,,,,,,,,8162
 0,1869902945,ATTO,Atto,,,,,,,,,
+2,0,BTC,Bitcoin,secp256k1,sha256,0x0488ADE4,0x0488B21E,0x00,0x05,0x80,,1
+2,60,ETH,Ethereum,secp256k1,keccak256,,,,,,,1027
+2,128,XMR,Monero,ed25519,keccak256,,,,,,,328

@@ -757,6 +757,30 @@ mod tests {
         expected_ed25519_address: "6aprbLSWi1oHsT27ZSashtDaZBRXHmWoXP9trNzQWH8Y",
         public_key_hash: "",
       },
+
+      _Ed25519TestVector {
+        mnemonic_words: "sun history assault ticket item sustain potato mandate dawn alpha manual song alarm curtain pioneer analyst stand pool soup disorder iron defy patrol enact",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(44),
+          purpose_hardened: Zeroizing::new(true),
+
+          coin: Zeroizing::new(128),
+          coin_hardened: Zeroizing::new(true),
+
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(true),
+
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(true),
+
+          last_index: Zeroizing::new(0),
+        },
+        expected_ed25519_address: "435un3o4afSEaBE28gvRLPfi8wb7zrGcLSQLorfv5xNbd5Mt2PXzKwgMshoYirTEfbXHMk7gJbCzuMH36iktbmXnDz16oVd",
+        public_key_hash: "",
+      },
     ];
 
     for vector in test_vectors {
@@ -789,6 +813,7 @@ mod tests {
 
       let (address, _public_key, _private_key) =
         match *wallet.address_components.derivation_path.coin {
+          // Solana
           501 => {
             let address = bs58::encode(
               wallet
@@ -811,6 +836,8 @@ mod tests {
               )),
             )
           }
+          
+          // NEM
           43 => {
             let pub_key_hash: Zeroizing<String> =
               Zeroizing::new(vector.public_key_hash.to_string());
@@ -839,6 +866,38 @@ mod tests {
               )),
             )
           }
+          
+          128 => {
+            // The child private key is the spend private key
+            let mut spend_priv = [0u8; 32];
+            spend_priv.copy_from_slice(
+                &wallet.secret_keys.child_ed25519_keys.child_private_key_bytes,
+            );
+
+            // Reduce + derive view key + generate address
+            // (use the helpers you added earlier)
+            let spend_priv = keys::monero_sc_reduce32(&spend_priv).to_bytes();
+            let view_priv = keys::monero_view_from_spend(&spend_priv);
+            let spend_pub = keys::monero_pubkey(&spend_priv);
+            let view_pub  = keys::monero_pubkey(&view_priv);
+
+            let address = keys::generate_monero_address(&spend_pub, &view_pub, 0x12).unwrap()
+                .to_string();
+
+            (
+                address,
+                Zeroizing::new(format!(
+                    "spend:{} view:{}",
+                    hex::encode(spend_pub),
+                    hex::encode(view_pub)
+                )),
+                Zeroizing::new(format!(
+                    "spend:{} view:{}",
+                    hex::encode(spend_priv),
+                    hex::encode(view_priv)
+                )),
+            )
+        }
           _ => panic!("Unsupported ed25519 coin_index"),
         };
 

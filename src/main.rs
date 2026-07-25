@@ -1071,31 +1071,38 @@ impl EgoQuantum {
         active_columns,
       )
       .header(row_height, |mut header| {
+        // Index
         #[cfg(feature = "dev")]
         header.col(|ui| {
           ui.strong(column_names[0]);
         });
 
+        // Icon
         header.col(|ui| {
           ui.strong(column_names[1]);
         });
 
+        // Coin
         header.col(|ui| {
           ui.strong(column_names[2]);
         });
 
+        // Path
         header.col(|ui| {
           ui.strong(column_names[3]);
         });
 
+        // Address
         header.col(|ui| {
           ui.strong(column_names[4]);
         });
 
+        // Public key
         header.col(|ui| {
           ui.strong(column_names[5]);
         });
 
+        // Private key
         header.col(|ui| {
           ui.take_available_width();
           // ui.set_min_width(500.0);
