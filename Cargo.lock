@@ -1020,13 +1020,14 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "eQ"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "base32",
  "base58-monero",
  "base64",
  "bech32",
  "bs58",
+ "crc32fast",
  "curve25519-dalek",
  "ed25519-dalek",
  "eframe",

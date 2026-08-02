@@ -1501,6 +1501,7 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
       full_entropy,
       mnemonic_dictionary,
       mnemonic_words: Zeroizing::new(String::new()),
+      monero_mnemonic_words: Zeroizing::new(String::new()),
       mnemonic_passphrase,
       entropy_source: Zeroizing::new(String::from("SVG")),
       entropy_length: Zeroizing::new(entropy_len),
@@ -1584,6 +1585,8 @@ pub struct ShowSecretsDialog {
   pub full_entropy: Zeroizing<String>,
 
   pub mnemonic_words: Zeroizing<String>,
+  pub monero_mnemonic_words: Zeroizing<String>,
+
   pub mnemonic_passphrase: Zeroizing<String>,
   pub seed: Zeroizing<String>,
 
@@ -1603,6 +1606,7 @@ enum SecretsTab {
 
   Seed,
   MasterKeys,
+  MoneroKeys,
 }
 
 impl ShowSecretsDialog {
@@ -1615,6 +1619,8 @@ impl ShowSecretsDialog {
       full_entropy: Zeroizing::new(String::new()),
 
       mnemonic_words: Zeroizing::new(String::new()),
+      monero_mnemonic_words: Zeroizing::new(String::new()),
+
       mnemonic_passphrase: Zeroizing::new(String::new()),
       seed: Zeroizing::new(String::new()),
 
@@ -1670,6 +1676,7 @@ impl ShowSecretsDialog {
         SecretsTab::MasterKeys,
         "Master Keys",
       );
+      ui.selectable_value(&mut self.selected_tab, SecretsTab::MoneroKeys, "Monero");
     });
 
     ui.separator();
@@ -1682,6 +1689,7 @@ impl ShowSecretsDialog {
             SecretsTab::Entropy => self.ui_entropy(ui),
             SecretsTab::Seed => self.ui_seed(ui),
             SecretsTab::MasterKeys => self.ui_master_keys(ui),
+            SecretsTab::MoneroKeys => self.ui_monero_keys(ui),
           }
         });
       });
@@ -1743,6 +1751,18 @@ impl ShowSecretsDialog {
       ui,
       "Master Public Key",
       &mut self.master_ed25519_public_key,
+      true,
+    );
+  }
+
+  fn ui_monero_keys(
+    &mut self,
+    ui: &mut egui::Ui,
+  ) {
+    Self::text_group(
+      ui,
+      "Monero 25 mnemonic words",
+      &mut self.monero_mnemonic_words,
       true,
     );
   }

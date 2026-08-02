@@ -122,6 +122,7 @@ struct SeedSecretData {
   entropy_checksum: Zeroizing<String>,
   full_entropy: Zeroizing<String>,
   mnemonic_words: Zeroizing<String>,
+  monero_mnemonic_words: Zeroizing<String>,
   mnemonic_passphrase: Zeroizing<String>,
   mnemonic_passphrase_source: Zeroizing<String>,
   mnemonic_dictionary: Zeroizing<MnemonicLanguage>,
@@ -138,6 +139,7 @@ impl SeedSecretData {
       mnemonic_passphrase: Zeroizing::new(String::new()),
       mnemonic_passphrase_source: Zeroizing::new(String::from("RNG")),
       mnemonic_words: Zeroizing::new(String::new()),
+      monero_mnemonic_words: Zeroizing::new(String::new()),
       seed: Zeroizing::new(String::new()),
       full_entropy: Zeroizing::new(String::new()),
       entropy_checksum: Zeroizing::new(String::new()),
@@ -194,14 +196,19 @@ struct ChildEd25519KeySecretData {
 struct DerivationPathData {
   purpose: Zeroizing<u32>,
   purpose_hardened: Zeroizing<bool>,
+
   coin: Zeroizing<u32>,
   coin_hardened: Zeroizing<bool>,
+
   account: Zeroizing<u32>,
   account_hardened: Zeroizing<bool>,
+
   change: Zeroizing<u32>,
   change_hardened: Zeroizing<bool>,
+
   address: Zeroizing<u32>,
   address_hardened: Zeroizing<bool>,
+
   last_index: Zeroizing<u32>,
 }
 
@@ -961,6 +968,8 @@ impl EgoQuantum {
           self.gui.secrets_dialog.entropy_checksum = self.wallet.seed_secret.entropy_checksum.clone();
 
           self.gui.secrets_dialog.mnemonic_words = self.wallet.seed_secret.mnemonic_words.clone();
+          self.gui.secrets_dialog.monero_mnemonic_words = self.wallet.seed_secret.monero_mnemonic_words.clone();
+
           self.gui.secrets_dialog.mnemonic_passphrase = self.wallet.seed_secret.mnemonic_passphrase.clone();
           self.gui.secrets_dialog.seed = self.wallet.seed_secret.seed.clone();
 

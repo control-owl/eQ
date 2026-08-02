@@ -1,3 +1,9 @@
+# version 1.5.1
+- new coin: Monero (XMR)
+
+---
+
+
 # version 1.5.0
 - new: help window
 - cargo update:

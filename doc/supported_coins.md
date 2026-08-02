@@ -286,3 +286,4 @@
 | 282   | ZETA   | ZetaChain                  |
 | 283   | ZET    | Zetacoin                   |
 | 284   | ZKS    | zkSync                     |
+| 285   | ZKS    | zkSync                     |

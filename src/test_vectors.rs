@@ -42,6 +42,12 @@ struct _Ed25519TestVector {
   public_key_hash: &'static str,
 }
 
+struct _MoneroTestVector {
+  mnemonic_words: &'static str,
+  derivation_path: DerivationPathData,
+  expected_monero_address: &'static str,
+}
+
 struct _AddressTestVector {
   seed: &'static str,
   coin_name: &'static str,
@@ -58,6 +64,11 @@ struct _TaprootTestVector {
   private_key_hex: String,
   expected_tweaked_pubkey: String,
   expected_address: String,
+}
+
+struct _MoneroSeedVector {
+  bip39_mnemonic: &'static str,
+  monero_mnemonic: &'static str,
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -757,30 +768,6 @@ mod tests {
         expected_ed25519_address: "6aprbLSWi1oHsT27ZSashtDaZBRXHmWoXP9trNzQWH8Y",
         public_key_hash: "",
       },
-
-      _Ed25519TestVector {
-        mnemonic_words: "sun history assault ticket item sustain potato mandate dawn alpha manual song alarm curtain pioneer analyst stand pool soup disorder iron defy patrol enact",
-        derivation_path: DerivationPathData {
-          purpose: Zeroizing::new(44),
-          purpose_hardened: Zeroizing::new(true),
-
-          coin: Zeroizing::new(128),
-          coin_hardened: Zeroizing::new(true),
-
-          account: Zeroizing::new(0),
-          account_hardened: Zeroizing::new(true),
-
-          change: Zeroizing::new(0),
-          change_hardened: Zeroizing::new(true),
-
-          address: Zeroizing::new(0),
-          address_hardened: Zeroizing::new(true),
-
-          last_index: Zeroizing::new(0),
-        },
-        expected_ed25519_address: "435un3o4afSEaBE28gvRLPfi8wb7zrGcLSQLorfv5xNbd5Mt2PXzKwgMshoYirTEfbXHMk7gJbCzuMH36iktbmXnDz16oVd",
-        public_key_hash: "",
-      },
     ];
 
     for vector in test_vectors {
@@ -836,7 +823,7 @@ mod tests {
               )),
             )
           }
-          
+
           // NEM
           43 => {
             let pub_key_hash: Zeroizing<String> =
@@ -866,69 +853,187 @@ mod tests {
               )),
             )
           }
-          
-          128 => {
-            // The child private key is the spend private key
-            let mut spend_priv = [0u8; 32];
-            spend_priv.copy_from_slice(
-                &wallet.secret_keys.child_ed25519_keys.child_private_key_bytes,
-            );
-
-            // Reduce + derive view key + generate address
-            // (use the helpers you added earlier)
-            let spend_priv = keys::monero_sc_reduce32(&spend_priv).to_bytes();
-            let view_priv = keys::monero_view_from_spend(&spend_priv);
-            let spend_pub = keys::monero_pubkey(&spend_priv);
-            let view_pub  = keys::monero_pubkey(&view_priv);
-
-            let address = keys::generate_monero_address(&spend_pub, &view_pub, 0x12).unwrap()
-                .to_string();
-
-            (
-                address,
-                Zeroizing::new(format!(
-                    "spend:{} view:{}",
-                    hex::encode(spend_pub),
-                    hex::encode(view_pub)
-                )),
-                Zeroizing::new(format!(
-                    "spend:{} view:{}",
-                    hex::encode(spend_priv),
-                    hex::encode(view_priv)
-                )),
-            )
-        }
           _ => panic!("Unsupported ed25519 coin_index"),
         };
 
       assert_eq!(address, vector.expected_ed25519_address);
     }
   }
-}
 
-// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+  #[test]
+  fn nem_whitepaper_example_address() {
+    let pubkey_hex = "c5247738c3a510fb6c11413331d8a47764f6e78ffcdb02b6878d5dd3b77f38ed";
+    let pubkey_bytes = hex::decode(pubkey_hex).expect("invalid hex");
+    let pubkey_arr: [u8; 32] = pubkey_bytes
+      .try_into()
+      .expect("public key must be 32 bytes");
 
-#[test]
-fn nem_whitepaper_example_address() {
-  use zeroize::Zeroizing;
+    let addr = crate::keys::generate_nem_address(
+      Zeroizing::new(pubkey_arr),
+      Zeroizing::new("0x68".to_string()),
+    )
+    .expect("failed to generate NEM address")
+    .to_string();
 
-  let pubkey_hex = "c5247738c3a510fb6c11413331d8a47764f6e78ffcdb02b6878d5dd3b77f38ed";
-  let pubkey_bytes = hex::decode(pubkey_hex).expect("invalid hex");
-  let pubkey_arr: [u8; 32] = pubkey_bytes
-    .try_into()
-    .expect("public key must be 32 bytes");
+    assert_eq!(
+      addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6",
+      "Whitepaper example address must match exactly"
+    );
+  }
 
-  let addr = crate::keys::generate_nem_address(
-    Zeroizing::new(pubkey_arr),
-    Zeroizing::new("0x68".to_string()),
-  )
-  .expect("failed to generate NEM address")
-  .to_string();
+  #[test]
+  fn test_monero_derivation() {
+    let mut wallet = CryptoWallet::new();
 
-  assert_eq!(
-    addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6",
-    "Whitepaper example address must match exactly"
-  );
+    let test_vectors = vec![_MoneroTestVector {
+      mnemonic_words: "credit chat quit fine fashion poet drum budget number cart acoustic flower holiday patrol potato buffalo sorry latin sibling digital top dolphin zebra silly",
+      derivation_path: DerivationPathData {
+        purpose: Zeroizing::new(44),
+        purpose_hardened: Zeroizing::new(true),
+
+        coin: Zeroizing::new(128),
+        coin_hardened: Zeroizing::new(true),
+
+        account: Zeroizing::new(0),
+        account_hardened: Zeroizing::new(true),
+
+        change: Zeroizing::new(0),
+        change_hardened: Zeroizing::new(true),
+
+        address: Zeroizing::new(0),
+        address_hardened: Zeroizing::new(true),
+
+        last_index: Zeroizing::new(0),
+      },
+      expected_monero_address: "4A4G1vY7m7DjUoNcXMAAeWHaKWAPrjA1yWNvxR7EvaddHdzb1tx5HQBZoKJA2QfgAbAqPtY9T7oqWRv8MjnrCxeKMoYvrJC",
+    }];
+
+    for vector in test_vectors {
+      let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, None) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not generate seed from mnemonic");
+        }
+      };
+
+      let seed_hex = match convert_seed_to_hex(&seed_raw) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not convert seed to mnemonic");
+        }
+      };
+
+      wallet.seed_secret.seed = Zeroizing::new(seed_hex);
+
+      let _ = keys::generate_ed25519_master_keys(&mut wallet);
+
+      wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
+
+      match keys::generate_ed25519_child_keys(&mut wallet) {
+        Ok(keys) => keys,
+        Err(_) => {
+          panic!("Can not generate child keys for ed25519");
+        }
+      };
+
+      let mut spend_raw = [0u8; 32];
+      spend_raw.copy_from_slice(
+        &wallet
+          .secret_keys
+          .child_ed25519_keys
+          .child_private_key_bytes,
+      );
+
+      use crate::dev;
+      let spend_priv = dev::monero_sc_reduce32(&spend_raw).to_bytes();
+      let view_priv = dev::monero_secret_view_key(&spend_priv);
+      let spend_pub = dev::monero_pubkey(&spend_priv);
+      let view_pub = dev::monero_pubkey(&view_priv);
+      let address = dev::generate_monero_address(&spend_pub, &view_pub);
+
+      assert_eq!(address, vector.expected_monero_address);
+    }
+  }
+
+  #[test]
+  fn test_bip39_seed_to_monero_25_seed() {
+    use ring::{hmac, pbkdf2};
+    use zeroize::Zeroizing;
+
+    let mnemonic_vectors = vec![
+      _MoneroSeedVector {
+        bip39_mnemonic: "boil piano remember fly crane prepare juice bundle ocean erase first light bean bamboo student luggage empower hazard antenna enforce gaze picnic social toss",
+        monero_mnemonic: "hospital duets point omnibus welders wayside toilet library nestle vapidly peaches pulp initiate noodles intended money acquire ruling kettle oxygen lobster tuition onto opposite oxygen",
+      },
+      _MoneroSeedVector {
+        bip39_mnemonic: "pottery belt grocery move round over render source angry maple net trial typical clinic element hospital head thing army home choose menu clever garbage",
+        monero_mnemonic: "fatal spout moat yeti moment macro system bubble rally catch terminal when gemstone cycling poker unsafe novelty evaluate roster evicted friendly guest wiggle adhesive wiggle",
+      },
+      _MoneroSeedVector {
+        bip39_mnemonic: "wise lyrics road cool match memory school book deliver fiscal robot elite",
+        monero_mnemonic: "deodorant wrist anchor gutter pool boat reruns dreams jeers until heron were reunion eight diet lynx dewdrop joining unknown awesome wolf odometer cinema dinner jeers",
+      },
+      _MoneroSeedVector {
+        bip39_mnemonic: "topple purpose just use replace clinic head behind ordinary absurd alien lumber rack priority pole foot avoid boil",
+        monero_mnemonic: "jerseys niece reruns titans teeming nimbly each betting unjustly lending today bomb tamper broken later lazy onto pouch faulty looking perfect scenic ringing roomy each",
+      },
+      _MoneroSeedVector {
+        bip39_mnemonic: "put maid enough inmate term slim narrow stove romance appear reason melody swallow wing obscure furnace monitor squirrel host oyster glass",
+        monero_mnemonic: "fawns sifting speedy later pact dolphin cuffs lopped urchins casket aimless tell ponies agnostic duckling tutor because pitched cajun neon upcoming dejected aerial aerial agnostic",
+      },
+    ];
+
+    let wordlist = crate::dev::load_monero_wordlist();
+
+    for vector in mnemonic_vectors {
+      let salt = b"mnemonic";
+      let mut seed = Zeroizing::new([0u8; 64]);
+      let iter = std::num::NonZeroU32::new(2048).unwrap();
+
+      pbkdf2::derive(
+        pbkdf2::PBKDF2_HMAC_SHA512,
+        iter,
+        salt,
+        vector.bip39_mnemonic.as_bytes(),
+        &mut *seed,
+      );
+
+      let key = hmac::Key::new(hmac::HMAC_SHA512, b"Bitcoin seed");
+      let tag = hmac::sign(&key, &*seed);
+
+      let mut priv_key = Zeroizing::new([0u8; 32]);
+      let mut chain = Zeroizing::new([0u8; 32]);
+
+      priv_key.copy_from_slice(&tag.as_ref()[..32]);
+      chain.copy_from_slice(&tag.as_ref()[32..]);
+
+      let path: [(u32, bool); 5] = [(44, true), (128, true), (0, true), (0, false), (0, false)];
+
+      for (index, hardened) in path {
+        let parent_priv_vec = Zeroizing::new(priv_key.to_vec());
+        let parent_chain_vec = Zeroizing::new(chain.to_vec());
+        let hardened_z = Zeroizing::new(hardened);
+        let index_z = Zeroizing::new(index);
+
+        let derived = crate::keys::derive_secp256k1_child(
+          parent_priv_vec,
+          parent_chain_vec,
+          index_z,
+          hardened_z,
+        )
+        .expect("BIP32 child derivation failed");
+
+        priv_key.copy_from_slice(&derived.child_private_key_bytes);
+        chain.copy_from_slice(&derived.child_chain_code_bytes);
+      }
+
+      let hashed = crate::dev::cn_fast_hash(&*priv_key);
+      let spend_key = crate::dev::monero_sc_reduce32(&hashed).to_bytes();
+      let monero_words = crate::dev::monero_seed_to_mnemonic(&spend_key, &wordlist);
+
+      assert_eq!(vector.monero_mnemonic, monero_words);
+    }
+  }
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -995,3 +1100,23 @@ fn check_wallet_save_open_function() {
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+// Monero Debugging
+// monero-seed --slip0010 --passphrase 'a' -- 'permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple'
+// # OR: python3 -m monero_poc.seed --slip0010 --passphrase 'a' -- 'permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple'
+//
+// Seed bip39 words: permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple
+// Seed bip32 b58:   ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931
+//
+// Seed Monero:      0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708
+// Seed Monero wrds: maul loudly nearby buffet hacksaw zones kernels edgy baffles match extra eclipse uphill arena hounded wobbly actress muppet pebbles onward rift tether scrub snake rift
+//
+// Private spend key: 0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708
+// Private view key:  3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200
+//
+// Public spend key:  fc25f0a1a1fb4e6afe5ffa15cd06fcbb913eb55605d09adf5de735163d4f4a3e
+// Public view key:   2ba093948b429ec90729ecd0f705b87f36154612756433fc3dc7d8dbbf646529
+//
+// Mainnet Address:   4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg
+// Testnet Address:   A2iriuLPze9JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5dqa8Po
+// Stagenet Address:  5BPMKVb6Mt9JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5eeaUED
