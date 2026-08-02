@@ -311,7 +311,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,310,UGAS,Ultrain,,,,,,,,,
 0,311,ADS,Adshares,,,,,,,,,
 0,312,ARA,Aura,,,,,,,,,
-0,313,ZIL,Zilliqa,,,,,,,,,
+1,313,ZIL,Zilliqa,secp256k1,sha256,,,,,,,2469
 0,314,MOAC,MOAC,,,,,,,,,
 0,315,SWTC,SWTC,,,,,,,,,
 0,316,VNSC,vnscoin,,,,,,,,,
@@ -1297,6 +1297,4 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1179993461,HXC,HuaXia Chain,,,,,,,,,
 0,1179993471,AME,AME Chain,,,,,,,,,8162
 0,1869902945,ATTO,Atto,,,,,,,,,
-2,0,BTC,Bitcoin,secp256k1,sha256,0x0488ADE4,0x0488B21E,0x00,0x05,0x80,,1
-2,60,ETH,Ethereum,secp256k1,keccak256,,,,,,,1027
 2,128,XMR,Monero,ed25519,keccak256,0x0488ADE4,0x0488B21E,0x7F,0xC4,0x3F,,328

@@ -155,7 +155,7 @@ pub fn generate_seed(
       }
       _ => {
         vec![
-          (44, true),
+          (wallet.wallet_data.active_bip, true),
           (128, true),
           (0, true),
           (0, false),
@@ -640,9 +640,9 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
   let public_key: CryptoPublicKey = generate_public_key(wallet)?;
 
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
-  let coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
+  let mut coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
   let public_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
-  let hash: Zeroizing<String> = wallet.address_components.hash.clone();
+  let mut hash: Zeroizing<String> = wallet.address_components.hash.clone();
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
   let wallet_import_format: Zeroizing<String> =
     wallet.address_components.wallet_import_format.clone();
@@ -676,13 +676,9 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
   };
 
   match *coin_index {
-    // Bitcoin: Legacy + Taproot addresses
+    // Bitcoin
     0 => {
       if !wallet.wallet_data.bitcoin_legacy_addresses {
-        // if wallet.wallet_data.active_bip != 32 && !wallet.wallet_data.bitcoin_legacy_addresses {
-        //   wallet.address_components.derivation_path.purpose = Zeroizing::new(86);
-        // }
-
         return generate_bitcoin_taproot_address(
           wallet,
           &public_key,
@@ -751,6 +747,48 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       return generate_open_assets_address(wallet, &public_key, &derivation_path, private_key);
     }
 
+    // Zilliqa
+    313 => {
+      if wallet.wallet_data.zilliqa_legacy_addresses {
+        coin_name = Zeroizing::new(String::from("Zilliqa (Legacy)"));
+
+        let secp_pubkey = match &public_key {
+          CryptoPublicKey::Secp256k1(pk) => pk,
+          _ => {
+            return Err(AppError::log(String::from(
+              "Only Secp256k1 for generating Secp256k1 addresses",
+            )));
+          }
+        };
+
+        let pub_compressed: Zeroizing<Vec<u8>> = Zeroizing::new(secp_pubkey.serialize().to_vec());
+
+        let address: Zeroizing<String> = generate_zilliqa_address(pub_compressed.clone())?;
+        let public_key_encoded: Zeroizing<String> =
+          Zeroizing::new(hex::encode(pub_compressed.as_slice()));
+        let private_key_encoded: Zeroizing<String> = Zeroizing::new(hex::encode(private_key));
+
+        wallet
+          .addresses_by_coin
+          .0
+          .entry(coin_name.to_string())
+          .or_default()
+          .push(AddressPrivateData {
+            coin_index,
+            path: derivation_path,
+            address,
+            public_key: public_key_encoded,
+            private_key: private_key_encoded,
+          });
+
+        return Ok(());
+      } else {
+        // TODO: evm logic
+        coin_name = Zeroizing::new(String::from("Zilliqa 2.0"));
+        hash = Zeroizing::new(String::from("keccak256"));
+      }
+    }
+
     _ => {}
   }
 
@@ -766,12 +804,14 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
 
   let public_key_encoded: Zeroizing<String> =
     encode_public_key(hash.clone(), coin_index.clone(), &public_key)?;
+
   let address: Zeroizing<String> = generate_address_internal(
     hash.clone(),
     coin_index.clone(),
     &public_key,
     public_key_hash_vec,
   )?;
+
   let priv_key_wif: Zeroizing<String> = encode_private_key(
     key_derivation,
     wallet_import_format,
@@ -2124,3 +2164,23 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+fn generate_zilliqa_address(
+  pub_compressed: Zeroizing<Vec<u8>>
+) -> FunctionOutput<Zeroizing<String>> {
+  let full_hash = e_q::calculate_sha256_hash(pub_compressed);
+  let hash20: Zeroizing<Vec<u8>> = Zeroizing::new(full_hash[12..].to_vec());
+
+  let address: Zeroizing<String> =
+    match bech32_encode::<Bech32>(Zeroizing::new(String::from("zil")), hash20) {
+      Ok(address) => address,
+      Err(err) => {
+        return Err(AppError::log(format!(
+          "Problem with bech32 encoding: {:?}",
+          err
+        )));
+      }
+    };
+
+  Ok(address)
+}

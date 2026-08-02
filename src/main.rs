@@ -252,6 +252,7 @@ struct ExtraWalletData {
   unify_master_keys: bool,
   hardened_address: bool,
   bitcoin_legacy_addresses: bool,
+  zilliqa_legacy_addresses: bool,
   active_bip: u32,
   address_count: u32,
 }
@@ -264,6 +265,7 @@ impl ExtraWalletData {
       hardened_address: true,
 
       bitcoin_legacy_addresses: false,
+      zilliqa_legacy_addresses: false,
 
       active_bip: 44,
       address_count: 10,
@@ -987,12 +989,12 @@ impl EgoQuantum {
         ui.menu_button("Bitcoin", |ui| {
           let bitcoin_legacy_description = [
             "When enabled:",
-            "Generates both Legacy and Taproot addresses.",
-            "Legacy addresses (P2PKH) - Start with '1...'",
-            "Taproot addresses (P2TR) - Start with 'bc1p...'",
+            "Generate Legacy address",
+            "Legacy address (P2PKH) - Start with '1...'",
             "\n",
             "When disabled:",
-            "Generates only Taproot addresses",
+            "Generates Taproot addresses",
+            "Taproot address (P2TR) - Start with 'bc1p...'",
           ];
 
           let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
@@ -1005,6 +1007,30 @@ impl EgoQuantum {
 
 
           bitcoin_legacy_resp.on_hover_text(bitcoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
+        });
+
+        ui.menu_button("Zilliqa", |ui| {
+          let zilliqa_legacy_description = [
+            "When enabled:",
+            "Generate Legacy address",
+            "Legacy address start with 'zil1...'",
+            "\n",
+            "When disabled:",
+            "Generate new Zilliqa 2.0 address ",
+            "Address is EVM compatible",
+            "EVM addresses start with '0x...'",
+          ];
+
+          let zilliqa_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.zilliqa_legacy_addresses, "Generate legacy addresses"));
+
+          // JUMP: LEGACY CHANGE
+          if zilliqa_legacy_resp.changed() && has_addresses {
+            self.wallet.addresses_by_coin.0.clear();
+            let _ = self.generate_addresses_for_all_coins();
+          }
+
+
+          zilliqa_legacy_resp.on_hover_text(zilliqa_legacy_description.join("\n")).on_disabled_hover_text(&devel);
         });
       });
 
