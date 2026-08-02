@@ -41,7 +41,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 1,40,EXP,Expanse,secp256k1,keccak256,,,,,,TRUE,1070
 1,41,EMC2,Einsteinium,secp256k1,sha256,,,0x21,,0xa1,,201
 0,42,DCR,Decred,secp256k1,blake256,0x02FDA4E8,0x02FDA926,0x073f,0x071a,0x22de,,1168
-0,43,XEM,NEM,ed25519,,,,0x68,,,,873
+1,43,XEM,NEM,ed25519,,,,0x68,,,,873
 1,44,PART,Particl,secp256k1,sha256,0x8F1DAEB8,0x696E82D1,0x38,0x3c,0x6c,,1826
 0,45,ARG,Argentum,,,,,,,,,31
 0,46,LIBERTAS,Libertas,,,,,,,,,5997

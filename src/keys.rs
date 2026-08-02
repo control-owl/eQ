@@ -150,7 +150,7 @@ pub fn generate_seed(
         vec![
           (0, true),
           (0, true),
-          (0, wallet.wallet_data.hardened_address),
+          (0, true),
         ]
       }
       _ => {
@@ -158,8 +158,6 @@ pub fn generate_seed(
           (wallet.wallet_data.active_bip, true),
           (128, true),
           (0, true),
-          (0, false),
-          (0, wallet.wallet_data.hardened_address),
         ]
       }
     };
@@ -783,7 +781,6 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
 
         return Ok(());
       } else {
-        // TODO: evm logic
         coin_name = Zeroizing::new(String::from("Zilliqa 2.0"));
         hash = Zeroizing::new(String::from("keccak256"));
       }
@@ -1523,30 +1520,29 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
     128 => {
       use crate::dev;
 
-      let seed_hex = wallet.seed_secret.seed.to_string();
+      let seed_bytes: Zeroizing<Vec<u8>> = match hex::decode(wallet.seed_secret.seed.as_str()) {
+        Ok(bytes) => Zeroizing::new(bytes),
+        Err(err) => {
+          return Err(AppError::log(format!(
+            "Problem with decoding seed_bytes: {}",
+            err
+          )));
+        }
+      };
 
-      let seed_bytes = hex::decode(&seed_hex)
-        .map_err(|err| AppError::log(format!("Invalid monero seed hex: {:?}", err)))?;
+      let (addr, spend_priv, view_priv) = dev::monero_from_bip39_slip0010(&seed_bytes);
 
-      if seed_bytes.len() < 32 {
-        return Err(AppError::log("Monero requires at least 32 bytes of seed"));
-      }
-
-      let mut seed32 = [0u8; 32];
-      seed32.copy_from_slice(&seed_bytes[..32]);
-
-      let spend_priv = dev::monero_secret_spend_key(&seed32);
-      let view_priv = dev::monero_secret_view_key(&spend_priv);
       let spend_pub = dev::monero_pubkey(&spend_priv);
       let view_pub = dev::monero_pubkey(&view_priv);
-      let address = Zeroizing::new(dev::generate_monero_address(&spend_pub, &view_pub));
+
+      let address = Zeroizing::new(addr);
 
       let public_key_str = Zeroizing::new(format!(
         "spend: {}\nview: {}",
         hex::encode(spend_pub),
         hex::encode(view_pub)
       ));
-
+      
       let private_key_str = Zeroizing::new(format!(
         "spend: {}\nview: {}",
         hex::encode(spend_priv),
@@ -1654,39 +1650,48 @@ pub fn get_derivation_path(
           ""
         },
       )),
-      _ => Zeroizing::new(format!(
-        "m/{}{}/{}{}/{}{}/{}{}/{}{}",
-        wallet.wallet_data.active_bip,
-        if *path.purpose_hardened || extra_hard {
-          "'"
+      _ => {
+        if wallet.wallet_data.slip_derivation_path {
+          Zeroizing::new(format!(
+            "m/{}'/{}'/{}'",
+            wallet.wallet_data.active_bip, *path.coin, *path.address,
+          ))
         } else {
-          ""
-        },
-        *path.coin,
-        if *path.coin_hardened || extra_hard {
-          "'"
-        } else {
-          ""
-        },
-        *path.account,
-        if *path.account_hardened || extra_hard {
-          "'"
-        } else {
-          ""
-        },
-        *path.change,
-        if *path.change_hardened || extra_hard {
-          "'"
-        } else {
-          ""
-        },
-        *path.address,
-        if *path.address_hardened || extra_hard {
-          "'"
-        } else {
-          ""
-        },
-      )),
+          Zeroizing::new(format!(
+            "m/{}{}/{}{}/{}{}/{}{}/{}{}",
+            wallet.wallet_data.active_bip,
+            if *path.purpose_hardened || extra_hard {
+              "'"
+            } else {
+              ""
+            },
+            *path.coin,
+            if *path.coin_hardened || extra_hard {
+              "'"
+            } else {
+              ""
+            },
+            *path.account,
+            if *path.account_hardened || extra_hard {
+              "'"
+            } else {
+              ""
+            },
+            *path.change,
+            if *path.change_hardened || extra_hard {
+              "'"
+            } else {
+              ""
+            },
+            *path.address,
+            if *path.address_hardened || extra_hard {
+              "'"
+            } else {
+              ""
+            },
+          ))
+        }
+      }
     },
   };
 
@@ -2168,7 +2173,7 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
 fn generate_zilliqa_address(
   pub_compressed: Zeroizing<Vec<u8>>
 ) -> FunctionOutput<Zeroizing<String>> {
-  let full_hash = e_q::calculate_sha256_hash(pub_compressed);
+  let full_hash: Zeroizing<Vec<u8>> = e_q::calculate_sha256_hash(pub_compressed);
   let hash20: Zeroizing<Vec<u8>> = Zeroizing::new(full_hash[12..].to_vec());
 
   let address: Zeroizing<String> =

@@ -251,8 +251,11 @@ struct ExtraWalletData {
   unify_evm: bool,
   unify_master_keys: bool,
   hardened_address: bool,
+  slip_derivation_path: bool,
+  
   bitcoin_legacy_addresses: bool,
   zilliqa_legacy_addresses: bool,
+  
   active_bip: u32,
   address_count: u32,
 }
@@ -263,6 +266,7 @@ impl ExtraWalletData {
       unify_evm: false,
       unify_master_keys: true,
       hardened_address: true,
+      slip_derivation_path: true,
 
       bitcoin_legacy_addresses: false,
       zilliqa_legacy_addresses: false,
@@ -703,172 +707,6 @@ impl EgoQuantum {
         }
       });
 
-//       ui.menu_button("Security", |ui| {
-// //         ui.menu_button("Entropy source", |ui| {
-// // 
-// //           // RNG SOURCE
-// //           ui.menu_button(VALID_ENTROPY_SOURCES[0], |ui| {
-// //             ui.vertical_centered(|ui| {
-// //               ui.heading("CPU Hardware RNG");
-// //               ui.add_space(GUI_MARGIN);
-// //               ui.label("Entropy from local CPU instructions.");
-// //               ui.label("Fast, offline, strong cryptographic randomness.");
-// // 
-// //               ui.add_space(GUI_MARGIN);
-// // 
-// //               let disabled = has_addresses;
-// //               let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
-// // 
-// //               ui.add_enabled_ui(!disabled, |ui| {
-// //                 if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
-// //                   self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[0].to_string());
-// //                 }
-// //               });
-// // 
-// //               if disabled {
-// //                 ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
-// //               }
-// //             });
-// //           });
-// // 
-// //           // QRNG SOURCE
-// //           #[cfg(not(feature = "eq-os"))]
-// //           ui.menu_button(VALID_ENTROPY_SOURCES[1], |ui| {
-// //             ui.vertical_centered(|ui| {
-// //               ui.heading("Quantum RNG");
-// //               ui.add_space(GUI_MARGIN);
-// //               ui.label("Entropy from quantum vacuum fluctuations.");
-// //               ui.label("Online only.");
-// // 
-// //               ui.add_space(GUI_MARGIN);
-// // 
-// //               let disabled = has_addresses;
-// //               let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
-// // 
-// //               ui.add_enabled_ui(!disabled, |ui| {
-// //                 if ui.checkbox(&mut selected, "Use Quantum RNG").clicked() && selected {
-// //                   self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[1].to_string());
-// //                   self.gui.anu_dialog.open = true;
-// //                 }
-// //               });
-// // 
-// //               if disabled {
-// //                 ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
-// //               }
-// //             });
-// //           });
-// // 
-// //           // FILE SOURCE
-// //           #[cfg(all(not(feature = "eq-os"), feature = "dev"))]
-// //           ui.menu_button(VALID_ENTROPY_SOURCES[2], |ui| {
-// //             ui.vertical_centered(|ui| {
-// //               ui.heading("Entropy From File");
-// //               ui.add_space(GUI_MARGIN);
-// //               ui.label("Load entropy from an external file.");
-// //               ui.label("Useful for offline or pre-generated entropy.");
-// // 
-// //               ui.add_space(GUI_MARGIN);
-// // 
-// //               let disabled = has_addresses;
-// //               let mut selected = self.wallet.seed_secret.entropy_source == Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
-// // 
-// //               ui.add_enabled_ui(!disabled, |ui| {
-// //                 if ui.checkbox(&mut selected, "Use File Entropy").clicked() {
-// //                   if selected {
-// //                     self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[2].to_string());
-// //                   }
-// //                 }
-// //               });
-// // 
-// //               if disabled {
-// //                 ui.label("⚠ Cannot change entropy source while addresses exist.").on_hover_text("Please remove all addresses to generate new entropy");
-// //               }
-// //             });
-// //           });
-// //         });
-// // 
-// //         ui.separator();
-// 
-//         ui.menu_button("Mnemonic passphrase", |ui| {
-// 
-//           // RNG
-//           ui.menu_button(VALID_MNEMONIC_SOURCES[0], |ui| {
-//             ui.vertical_centered(|ui| {
-//               ui.heading("CPU Hardware RNG");
-//               ui.add_space(GUI_MARGIN);
-//               ui.label("Mnemonic passphrase from local CPU instructions.");
-//               ui.label("128 random characters");
-// 
-//               ui.add_space(GUI_MARGIN);
-// 
-//               let disabled = has_addresses;
-//               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
-// 
-//               ui.add_enabled_ui(!disabled, |ui| {
-//                 if ui.checkbox(&mut selected, "Use CPU RNG").clicked() && selected {
-//                   self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[0].to_string());
-//                 }
-//               });
-// 
-//               if disabled {
-//                 ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
-//               }
-//             });
-//           });
-// 
-//           // CUSTOM
-//           ui.menu_button(VALID_MNEMONIC_SOURCES[1], |ui| {
-//             ui.vertical_centered(|ui| {
-//               ui.heading("Custom mnemonic passphrase");
-//               ui.add_space(GUI_MARGIN);
-//               ui.label("Input your own mnemonic passphrase.");
-// 
-//               ui.add_space(GUI_MARGIN);
-// 
-//               let disabled = has_addresses;
-//               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
-// 
-//               ui.add_enabled_ui(!disabled, |ui| {
-//                 if ui.checkbox(&mut selected, "Custom mnemonic passphrase").clicked() && selected {
-//                   self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[1].to_string());
-//                   self.gui.mnemonic_passphrase_dialog.open = true;
-//                 }
-//               });
-// 
-//               if disabled {
-//                 ui.label("⚠ Cannot change mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
-//               }
-//             });
-//           });
-// 
-//           // OFF
-//           ui.menu_button(VALID_MNEMONIC_SOURCES[2], |ui| {
-//             ui.vertical_centered(|ui| {
-//               ui.heading("Disable mnemonic passphrase");
-//               ui.add_space(GUI_MARGIN);
-//               ui.label("Not recommended !!!");
-//               ui.label("This will lower your total entropy.");
-// 
-//               ui.add_space(GUI_MARGIN);
-// 
-//               let disabled = has_addresses;
-//               let mut selected = self.wallet.seed_secret.mnemonic_passphrase_source == Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
-// 
-//               ui.add_enabled_ui(!disabled, |ui| {
-//                 if ui.checkbox(&mut selected, "Disable mnemonic passphrase").clicked() && selected {
-//                   self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[2].to_string());
-//                 }
-//               });
-// 
-//               if disabled {
-//                 ui.label("⚠ Cannot disable mnemonic passphrase while addresses exist.").on_hover_text("Please remove all addresses to generate new mnemonic passphrase");
-//               }
-//             });
-//           });
-//         });
-// 
-//       });
-
       ui.menu_button("Privacy", |ui| {
         let hide_private_keys_label = [
           "When enabled:",
@@ -902,60 +740,24 @@ impl EgoQuantum {
         let master_resp: egui::Response = ui.add_enabled(false, egui::Checkbox::new(&mut self.wallet.wallet_data.unify_master_keys, "Unify Master Keys"));
         master_resp.on_hover_text(master_label.join("\n")).on_disabled_hover_text(&devel);
 
-//         let hardened_address_label = ["When enabled:",
-//           "All addresses will be derived with hardened path",
-//           "\n",
-//           "When disabled:",
-//           "Address follows normal path.",
-//         ];
-// 
-//         let hardened_address_resp = ui.add_enabled(
-//             true,
-//             egui::Checkbox::new(&mut self.wallet.wallet_data.hardened_address, "Hardened Addresses")
-//         );
-// 
-//         // JUMP: HARD CHANGE
-//         if hardened_address_resp.changed() && has_addresses {
-//           self.wallet.addresses_by_coin.0.clear();
-// 
-//           let _ = self.generate_addresses_for_all_coins();
-//         }
-// 
-//         hardened_address_resp
-//             .on_hover_text(hardened_address_label.join("\n"))
-//             .on_disabled_hover_text(&devel);
-// 
-//         // BIP32 Derivation path
-//         let mut is_bip32 = self.wallet.wallet_data.active_bip == 32;
-// 
-//         let bip_32_label = ["When enabled:",
-//           "Wallet will follow BIP32 derivation path",
-//           "\n",
-//           "When disabled:",
-//           "Wallet will follow BIP44 derivation path",
-//         ];
-// 
-//         let bip_32_response = ui.add(egui::Checkbox::new(
-//             &mut is_bip32,
-//             "Use BIP32 Derivation path"
-//         ));
-// 
-//         // JUMP: BIP CHANGE
-//         if bip_32_response.changed() {
-//             self.wallet.wallet_data.active_bip = if is_bip32 { 32 } else { 44 };
-//             self.wallet.address_components.derivation_path.purpose = Zeroizing::new(self.wallet.wallet_data.active_bip);
-// 
-//             if has_addresses {
-//               self.wallet.addresses_by_coin.0.clear();
-// 
-//               let _ = self.generate_addresses_for_all_coins();
-//             }
-// 
-//         }
-// 
-//         bip_32_response
-//             .on_hover_text(bip_32_label.join("\n"))
-//             .on_disabled_hover_text(&devel);
+        let slip_derivation_description = [
+          "When enabled:",
+          "Use SLIP-0010 derivation path: m/44'/{coin_index}'/0'",
+          "\n",
+          "When disabled:",
+          "Use BIP44 derivation path: m/44'/{coin_index}'/0'/0'/0'",
+          "or BIP32 derivation path: m/0'/0'/0'",
+        ];
+
+        let slip_derivation_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.slip_derivation_path, "Use SLIP-0010 derivation"));
+
+        if slip_derivation_resp.changed() && has_addresses {
+          self.wallet.addresses_by_coin.0.clear();
+          let _ = self.generate_addresses_for_all_coins();
+        }
+
+
+        slip_derivation_resp.on_hover_text(slip_derivation_description.join("\n")).on_disabled_hover_text(&devel);
 
         ui.separator();
 
@@ -1013,7 +815,7 @@ impl EgoQuantum {
           let zilliqa_legacy_description = [
             "When enabled:",
             "Generate Legacy address",
-            "Legacy address start with 'zil1...'",
+            "Legacy address start with 'zil...'",
             "\n",
             "When disabled:",
             "Generate new Zilliqa 2.0 address ",
@@ -1023,7 +825,6 @@ impl EgoQuantum {
 
           let zilliqa_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.zilliqa_legacy_addresses, "Generate legacy addresses"));
 
-          // JUMP: LEGACY CHANGE
           if zilliqa_legacy_resp.changed() && has_addresses {
             self.wallet.addresses_by_coin.0.clear();
             let _ = self.generate_addresses_for_all_coins();
@@ -1033,6 +834,8 @@ impl EgoQuantum {
           zilliqa_legacy_resp.on_hover_text(zilliqa_legacy_description.join("\n")).on_disabled_hover_text(&devel);
         });
       });
+
+
 
       ui.menu_button("Help", |ui| {
         if ui.add_enabled(true, egui::Button::new("Help"))

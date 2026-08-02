@@ -1,5 +1,6 @@
 # version 1.5.1
 - new coin: Monero (XMR)
+- new coin: NEM (XEM)
 - new coin: Zilliqa (ZIL)
     - Legacy address zil1... supported
     - New V2 address 0x... supported

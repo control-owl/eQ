@@ -40,6 +40,8 @@ struct _Ed25519TestVector {
   derivation_path: DerivationPathData,
   expected_ed25519_address: &'static str,
   public_key_hash: &'static str,
+
+  slip_derivation: bool,
 }
 
 struct _MoneroTestVector {
@@ -714,6 +716,7 @@ mod tests {
         },
         expected_ed25519_address: "NAUIMD-KYQL63-AMH3XL-LYB55M-VDBRWT-ZOYV3E-GZGQ",
         public_key_hash: "0x68",
+        slip_derivation: false
       },
       _Ed25519TestVector {
         mnemonic_words: "dose dumb cluster card tag swallow despair helmet garden pave dust gas",
@@ -732,6 +735,7 @@ mod tests {
         },
         expected_ed25519_address: "NCKOWW-MEZUSS-AUF2R4-7SHIFM-ZUKGHK-74QC2P-SUI3",
         public_key_hash: "0x68",
+        slip_derivation: false
       },
       _Ed25519TestVector {
         mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
@@ -750,6 +754,7 @@ mod tests {
         },
         expected_ed25519_address: "GPAf4mYkMweFXpncRh5Fsc5vrzYEH8dEtW5Nv7BCW2cx",
         public_key_hash: "",
+        slip_derivation: false
       },
       _Ed25519TestVector {
         mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
@@ -768,10 +773,14 @@ mod tests {
         },
         expected_ed25519_address: "6aprbLSWi1oHsT27ZSashtDaZBRXHmWoXP9trNzQWH8Y",
         public_key_hash: "",
+        slip_derivation: false
       },
     ];
 
     for vector in test_vectors {
+
+      wallet.wallet_data.slip_derivation_path = vector.slip_derivation;
+
       let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, None) {
         Ok(seed) => seed,
         Err(_) => {
@@ -882,79 +891,121 @@ mod tests {
     );
   }
 
+  //   #[test]
+  //   fn test_monero_derivation() {
+  //     let mut wallet = CryptoWallet::new();
+  //
+  //     let test_vectors = vec![_MoneroTestVector {
+  //       mnemonic_words: "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple",
+  //       mnemonic_passphrase: "a",
+  //       derivation_path: DerivationPathData {
+  //         purpose: Zeroizing::new(44),
+  //         purpose_hardened: Zeroizing::new(true),
+  //
+  //         coin: Zeroizing::new(128),
+  //         coin_hardened: Zeroizing::new(true),
+  //
+  //         account: Zeroizing::new(0),
+  //         account_hardened: Zeroizing::new(true),
+  //
+  //         change: Zeroizing::new(0),
+  //         change_hardened: Zeroizing::new(true),
+  //
+  //         address: Zeroizing::new(0),
+  //         address_hardened: Zeroizing::new(true),
+  //
+  //         last_index: Zeroizing::new(0),
+  //       },
+  //       expected_monero_address: "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg",
+  //     }];
+  //
+  //     for vector in test_vectors {
+  //       let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, Some(vector.mnemonic_passphrase)) {
+  //         Ok(seed) => seed,
+  //         Err(_) => {
+  //           panic!("Can not generate seed from mnemonic");
+  //         }
+  //       };
+  //
+  //       let seed_hex = match convert_seed_to_hex(&seed_raw) {
+  //         Ok(seed) => seed,
+  //         Err(_) => {
+  //           panic!("Can not convert seed to mnemonic");
+  //         }
+  //       };
+  //
+  //       assert_eq!("ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931", &seed_hex);
+  //       wallet.seed_secret.seed = Zeroizing::new(seed_hex);
+  //
+  //       let _ = keys::generate_ed25519_master_keys(&mut wallet);
+  //
+  //       wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
+  //
+  //       match keys::generate_ed25519_child_keys(&mut wallet) {
+  //         Ok(keys) => keys,
+  //         Err(_) => {
+  //           panic!("Can not generate child keys for ed25519");
+  //         }
+  //       };
+  //
+  //       let mut spend_raw = [0u8; 32];
+  //       spend_raw.copy_from_slice(
+  //         &wallet
+  //           .secret_keys
+  //           .child_ed25519_keys
+  //           .child_private_key_bytes,
+  //       );
+  //
+  //       let spend_priv = crate::dev::monero_sc_reduce32(&spend_raw).to_bytes();
+  //       let view_priv = crate::dev::monero_secret_view_key(&spend_priv);
+  //       let spend_pub = crate::dev::monero_pubkey(&spend_priv);
+  //       let view_pub = crate::dev::monero_pubkey(&view_priv);
+  //       let address = crate::dev::generate_monero_address(&spend_pub, &view_pub);
+  //
+  //       assert_eq!(address, vector.expected_monero_address);
+  //     }
+  //   }
+
   #[test]
-  fn test_monero_derivation() {
-    let mut wallet = CryptoWallet::new();
+  fn test_monero_derivation_slip0010() {
+    let mnemonic_words = "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple";
+    let mnemonic_passphrase = "a";
 
-    let test_vectors = vec![_MoneroTestVector {
-      mnemonic_words: "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple",
-      mnemonic_passphrase: "a",
-      derivation_path: DerivationPathData {
-        purpose: Zeroizing::new(44),
-        purpose_hardened: Zeroizing::new(true),
+    let seed_raw = match generate_seed_from_mnemonic(mnemonic_words, Some(mnemonic_passphrase)) {
+      Ok(seed) => seed,
+      Err(_) => {
+        panic!("Can not generate seed from mnemonic");
+      }
+    };
 
-        coin: Zeroizing::new(128),
-        coin_hardened: Zeroizing::new(true),
+    let seed_hex = match convert_seed_to_hex(&seed_raw) {
+      Ok(seed) => seed,
+      Err(_) => {
+        panic!("Can not convert seed to mnemonic");
+      }
+    };
 
-        account: Zeroizing::new(0),
-        account_hardened: Zeroizing::new(true),
+    assert_eq!(
+      seed_hex,
+      "ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931"
+    );
 
-        change: Zeroizing::new(0),
-        change_hardened: Zeroizing::new(true),
+    let (address, spend_priv, view_priv) = crate::dev::monero_from_bip39_slip0010(&seed_raw);
 
-        address: Zeroizing::new(0),
-        address_hardened: Zeroizing::new(true),
+    assert_eq!(
+      hex::encode(spend_priv),
+      "0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708"
+    );
+    
+    assert_eq!(
+      hex::encode(view_priv),
+      "3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200"
+    );
 
-        last_index: Zeroizing::new(0),
-      },
-      expected_monero_address: "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg",
-    }];
-
-    for vector in test_vectors {
-      let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, Some(vector.mnemonic_passphrase)) {
-        Ok(seed) => seed,
-        Err(_) => {
-          panic!("Can not generate seed from mnemonic");
-        }
-      };
-
-      let seed_hex = match convert_seed_to_hex(&seed_raw) {
-        Ok(seed) => seed,
-        Err(_) => {
-          panic!("Can not convert seed to mnemonic");
-        }
-      };
-
-      assert_eq!("ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931", &seed_hex);
-      wallet.seed_secret.seed = Zeroizing::new(seed_hex);
-
-      let _ = keys::generate_ed25519_master_keys(&mut wallet);
-
-      wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
-
-      match keys::generate_ed25519_child_keys(&mut wallet) {
-        Ok(keys) => keys,
-        Err(_) => {
-          panic!("Can not generate child keys for ed25519");
-        }
-      };
-
-      let mut spend_raw = [0u8; 32];
-      spend_raw.copy_from_slice(
-        &wallet
-          .secret_keys
-          .child_ed25519_keys
-          .child_private_key_bytes,
-      );
-
-      let spend_priv = crate::dev::monero_sc_reduce32(&spend_raw).to_bytes();
-      let view_priv = crate::dev::monero_secret_view_key(&spend_priv);
-      let spend_pub = crate::dev::monero_pubkey(&spend_priv);
-      let view_pub = crate::dev::monero_pubkey(&view_priv);
-      let address = crate::dev::generate_monero_address(&spend_pub, &view_pub);
-
-      assert_eq!(address, vector.expected_monero_address);
-    }
+    assert_eq!(
+      address,
+      "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg"
+    );
   }
 
   #[test]
@@ -1106,19 +1157,19 @@ fn check_wallet_save_open_function() {
 // Monero Debugging
 // monero-seed --slip0010 --passphrase 'a' -- 'permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple'
 // # OR: python3 -m monero_poc.seed --slip0010 --passphrase 'a' -- 'permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple'
-// 
+//
 // Seed bip39 words: permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple
 // Seed bip32 b58:   ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931
-// 
+//
 // Seed Monero:      0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708
 // Seed Monero wrds: maul loudly nearby buffet hacksaw zones kernels edgy baffles match extra eclipse uphill arena hounded wobbly actress muppet pebbles onward rift tether scrub snake rift
-// 
+//
 // Private spend key: 0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708
 // Private view key:  3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200
-// 
+//
 // Public spend key:  fc25f0a1a1fb4e6afe5ffa15cd06fcbb913eb55605d09adf5de735163d4f4a3e
 // Public view key:   2ba093948b429ec90729ecd0f705b87f36154612756433fc3dc7d8dbbf646529
-// 
+//
 // Mainnet Address:   4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg
 // Testnet Address:   A2iriuLPze9JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5dqa8Po
 // Stagenet Address:  5BPMKVb6Mt9JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5eeaUED
