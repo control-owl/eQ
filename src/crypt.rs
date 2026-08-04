@@ -1501,7 +1501,6 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
       full_entropy,
       mnemonic_dictionary,
       mnemonic_words: Zeroizing::new(String::new()),
-      monero_mnemonic_words: Zeroizing::new(String::new()),
       mnemonic_passphrase,
       entropy_source: Zeroizing::new(String::from("SVG")),
       entropy_length: Zeroizing::new(entropy_len),
@@ -1509,6 +1508,9 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
       mnemonic_passphrase_source: Zeroizing::new(String::from("SVG")),
       entropy_checksum: Zeroizing::new(String::new()),
       seed: Zeroizing::new(String::new()),
+      
+      monero_mnemonic_words: Zeroizing::new(String::new()),
+      monero_spend_key: Zeroizing::new(String::new()),
     },
     bip,
     last_index,
@@ -1761,7 +1763,7 @@ impl ShowSecretsDialog {
   ) {
     Self::text_group(
       ui,
-      "Monero 25 mnemonic words",
+      "Monero 25 mnemonic words\nm/44'/128'/0'",
       &mut self.monero_mnemonic_words,
       true,
     );

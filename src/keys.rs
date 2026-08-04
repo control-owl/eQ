@@ -147,11 +147,7 @@ pub fn generate_seed(
 
     let path: Vec<(u32, bool)> = match wallet.wallet_data.active_bip {
       32 => {
-        vec![
-          (0, true),
-          (0, true),
-          (0, true),
-        ]
+        vec![(0, true), (0, true), (0, true)]
       }
       _ => {
         vec![
@@ -178,9 +174,10 @@ pub fn generate_seed(
 
     let hashed = cn_fast_hash(&*priv_key);
     let spend_key = monero_sc_reduce32(&hashed).to_bytes();
-    let monero_words = Zeroizing::new(monero_seed_to_mnemonic(&spend_key, &wordlist));
+    let monero_words: Zeroizing<String> = Zeroizing::new(monero_seed_to_mnemonic(&spend_key, &wordlist));
 
     wallet.seed_secret.monero_mnemonic_words = monero_words;
+    wallet.seed_secret.monero_spend_key = Zeroizing::new(hex::encode(spend_key).to_string());
   }
 
   Ok(())
@@ -1143,6 +1140,10 @@ pub fn generate_keccak256_address(
   let address_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(keccak_result[12..].to_vec());
 
   let address: Zeroizing<String> = match *coin_index {
+    // Icon
+    74 => Zeroizing::new(format!("hx{}", hex::encode(address_bytes))),
+
+    // Tron
     195 => {
       let mut tron_prefixed: Zeroizing<Vec<u8>> = public_key_hash;
       tron_prefixed.extend_from_slice(&address_bytes);
@@ -1158,6 +1159,7 @@ pub fn generate_keccak256_address(
 
       Zeroizing::new(bs58::encode(full_payload).into_string())
     }
+
     _ => Zeroizing::new(format!("0x{}", hex::encode(address_bytes))),
   };
 
@@ -1519,34 +1521,23 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
     #[cfg(feature = "dev")]
     128 => {
       use crate::dev;
+      
+      let monero_spend_priv: [u8; 32] = hex::decode(wallet.seed_secret.monero_spend_key.clone()).unwrap().try_into().unwrap();
+      let monero_view_priv: [u8; 32] = Scalar::from_bytes_mod_order(dev::cn_fast_hash(&monero_spend_priv)).to_bytes();
+      let spend_pub = dev::monero_pubkey(&monero_spend_priv);
+      let view_pub = dev::monero_pubkey(&monero_view_priv);
+      let address: Zeroizing<String> = Zeroizing::new(dev::generate_monero_address(&spend_pub, &view_pub));
 
-      let seed_bytes: Zeroizing<Vec<u8>> = match hex::decode(wallet.seed_secret.seed.as_str()) {
-        Ok(bytes) => Zeroizing::new(bytes),
-        Err(err) => {
-          return Err(AppError::log(format!(
-            "Problem with decoding seed_bytes: {}",
-            err
-          )));
-        }
-      };
-
-      let (addr, spend_priv, view_priv) = dev::monero_from_bip39_slip0010(&seed_bytes);
-
-      let spend_pub = dev::monero_pubkey(&spend_priv);
-      let view_pub = dev::monero_pubkey(&view_priv);
-
-      let address = Zeroizing::new(addr);
-
-      let public_key_str = Zeroizing::new(format!(
+      let public_key_str: Zeroizing<String> = Zeroizing::new(format!(
         "spend: {}\nview: {}",
         hex::encode(spend_pub),
         hex::encode(view_pub)
       ));
-      
-      let private_key_str = Zeroizing::new(format!(
+
+      let private_key_str: Zeroizing<String> = Zeroizing::new(format!(
         "spend: {}\nview: {}",
-        hex::encode(spend_priv),
-        hex::encode(view_priv)
+        hex::encode(monero_spend_priv),
+        hex::encode(monero_view_priv)
       ));
 
       (address, public_key_str, private_key_str)
@@ -1616,6 +1607,7 @@ pub fn get_derivation_path(
         ""
       },
     )),
+
     _ => match curve {
       "secp256k1" => Zeroizing::new(format!(
         "m/{}{}/{}{}/{}{}/{}{}/{}{}",
@@ -1650,6 +1642,7 @@ pub fn get_derivation_path(
           ""
         },
       )),
+
       _ => {
         if wallet.wallet_data.slip_derivation_path {
           Zeroizing::new(format!(

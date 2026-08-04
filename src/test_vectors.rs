@@ -45,10 +45,18 @@ struct _Ed25519TestVector {
 }
 
 struct _MoneroTestVector {
-  mnemonic_words: &'static str,
-  mnemonic_passphrase: &'static str,
-  derivation_path: DerivationPathData,
+  bip39_mnemonic_words: &'static str,
+  bip39_mnemonic_passphrase: &'static str,
+  // derivation_path: DerivationPathData,
+
+  _expected_slip0010_monero_words: &'static str,
   expected_monero_address: &'static str,
+
+  expected_monero_spend_priv: &'static str,
+  expected_monero_view_priv: &'static str,
+  
+  expected_monero_spend_pub: &'static str,
+  expected_monero_view_pub: &'static str,
 }
 
 struct _AddressTestVector {
@@ -716,7 +724,7 @@ mod tests {
         },
         expected_ed25519_address: "NAUIMD-KYQL63-AMH3XL-LYB55M-VDBRWT-ZOYV3E-GZGQ",
         public_key_hash: "0x68",
-        slip_derivation: false
+        slip_derivation: false,
       },
       _Ed25519TestVector {
         mnemonic_words: "dose dumb cluster card tag swallow despair helmet garden pave dust gas",
@@ -735,7 +743,7 @@ mod tests {
         },
         expected_ed25519_address: "NCKOWW-MEZUSS-AUF2R4-7SHIFM-ZUKGHK-74QC2P-SUI3",
         public_key_hash: "0x68",
-        slip_derivation: false
+        slip_derivation: false,
       },
       _Ed25519TestVector {
         mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
@@ -754,7 +762,7 @@ mod tests {
         },
         expected_ed25519_address: "GPAf4mYkMweFXpncRh5Fsc5vrzYEH8dEtW5Nv7BCW2cx",
         public_key_hash: "",
-        slip_derivation: false
+        slip_derivation: false,
       },
       _Ed25519TestVector {
         mnemonic_words: "share skin first jacket drill suit gravity menu ticket sunset wise earn glass festival asthma system dial gossip balance mean unlock night cancel mandate",
@@ -773,12 +781,11 @@ mod tests {
         },
         expected_ed25519_address: "6aprbLSWi1oHsT27ZSashtDaZBRXHmWoXP9trNzQWH8Y",
         public_key_hash: "",
-        slip_derivation: false
+        slip_derivation: false,
       },
     ];
 
     for vector in test_vectors {
-
       wallet.wallet_data.slip_derivation_path = vector.slip_derivation;
 
       let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, None) {
@@ -891,121 +898,81 @@ mod tests {
     );
   }
 
-  //   #[test]
-  //   fn test_monero_derivation() {
-  //     let mut wallet = CryptoWallet::new();
-  //
-  //     let test_vectors = vec![_MoneroTestVector {
-  //       mnemonic_words: "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple",
-  //       mnemonic_passphrase: "a",
-  //       derivation_path: DerivationPathData {
-  //         purpose: Zeroizing::new(44),
-  //         purpose_hardened: Zeroizing::new(true),
-  //
-  //         coin: Zeroizing::new(128),
-  //         coin_hardened: Zeroizing::new(true),
-  //
-  //         account: Zeroizing::new(0),
-  //         account_hardened: Zeroizing::new(true),
-  //
-  //         change: Zeroizing::new(0),
-  //         change_hardened: Zeroizing::new(true),
-  //
-  //         address: Zeroizing::new(0),
-  //         address_hardened: Zeroizing::new(true),
-  //
-  //         last_index: Zeroizing::new(0),
-  //       },
-  //       expected_monero_address: "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg",
-  //     }];
-  //
-  //     for vector in test_vectors {
-  //       let seed_raw = match generate_seed_from_mnemonic(vector.mnemonic_words, Some(vector.mnemonic_passphrase)) {
-  //         Ok(seed) => seed,
-  //         Err(_) => {
-  //           panic!("Can not generate seed from mnemonic");
-  //         }
-  //       };
-  //
-  //       let seed_hex = match convert_seed_to_hex(&seed_raw) {
-  //         Ok(seed) => seed,
-  //         Err(_) => {
-  //           panic!("Can not convert seed to mnemonic");
-  //         }
-  //       };
-  //
-  //       assert_eq!("ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931", &seed_hex);
-  //       wallet.seed_secret.seed = Zeroizing::new(seed_hex);
-  //
-  //       let _ = keys::generate_ed25519_master_keys(&mut wallet);
-  //
-  //       wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
-  //
-  //       match keys::generate_ed25519_child_keys(&mut wallet) {
-  //         Ok(keys) => keys,
-  //         Err(_) => {
-  //           panic!("Can not generate child keys for ed25519");
-  //         }
-  //       };
-  //
-  //       let mut spend_raw = [0u8; 32];
-  //       spend_raw.copy_from_slice(
-  //         &wallet
-  //           .secret_keys
-  //           .child_ed25519_keys
-  //           .child_private_key_bytes,
-  //       );
-  //
-  //       let spend_priv = crate::dev::monero_sc_reduce32(&spend_raw).to_bytes();
-  //       let view_priv = crate::dev::monero_secret_view_key(&spend_priv);
-  //       let spend_pub = crate::dev::monero_pubkey(&spend_priv);
-  //       let view_pub = crate::dev::monero_pubkey(&view_priv);
-  //       let address = crate::dev::generate_monero_address(&spend_pub, &view_pub);
-  //
-  //       assert_eq!(address, vector.expected_monero_address);
-  //     }
-  //   }
-
   #[test]
   fn test_monero_derivation_slip0010() {
-    let mnemonic_words = "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple";
-    let mnemonic_passphrase = "a";
+    let mut wallet = CryptoWallet::new();
 
-    let seed_raw = match generate_seed_from_mnemonic(mnemonic_words, Some(mnemonic_passphrase)) {
-      Ok(seed) => seed,
-      Err(_) => {
-        panic!("Can not generate seed from mnemonic");
-      }
-    };
+    let test_vectors = vec![
+      // Sources:
+      // https://coinomi.github.io/tools/bip39/
+      // https://monero-web.com/verify
+      _MoneroTestVector {
+        bip39_mnemonic_words: "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple",
+        bip39_mnemonic_passphrase: "a",
 
-    let seed_hex = match convert_seed_to_hex(&seed_raw) {
-      Ok(seed) => seed,
-      Err(_) => {
-        panic!("Can not convert seed to mnemonic");
-      }
-    };
+        _expected_slip0010_monero_words: "maul loudly nearby buffet hacksaw zones kernels edgy baffles match extra eclipse uphill arena hounded wobbly actress muppet pebbles onward rift tether scrub snake rift",
+        expected_monero_address: "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg",
+        
+        expected_monero_spend_priv: "0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708",
+        expected_monero_view_priv: "3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200",
 
-    assert_eq!(
-      seed_hex,
-      "ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931"
-    );
+        expected_monero_spend_pub: "fc25f0a1a1fb4e6afe5ffa15cd06fcbb913eb55605d09adf5de735163d4f4a3e",
+        expected_monero_view_pub: "2ba093948b429ec90729ecd0f705b87f36154612756433fc3dc7d8dbbf646529",
+      },
+      //       _MoneroTestVector {
+//         bip39_mnemonic_words: "wave spawn demand people ticket garage achieve dance visa easily rather genuine income brush sound soon ask sail depth planet monster average timber space",
+//         bip39_mnemonic_passphrase: "",
+// 
+//         expected_monero_words: "pistons apex avidly dexterity hounded tusks pyramid hamburger bomb semifinal iceberg ungainly bugs afloat inbound fountain sphere blip pager rash oars later space suitcase pistons",
+//         expected_monero_address: "45WJGeDNjrHQo9Yqs79ZxAGRfDwaWZh2nc8pDd2WhGs7RYZkcUMRD88dWm6Dj3SKuRSUnzPngC2afENuUcMss5rURgGjXZv",
+//         
+//         expected_monero_spend_priv: "78905d063d74f17d619c9fc1c34ff57e62000d64f24d584f7f5dabe4710fad03",
+//         expected_monero_view_priv: "569ed35391369004246a79596cfab1ed4fdc48fd9e164957bf68da2ece6c8a05",
+//         
+//         expected_monero_spend_pub: "66747bfee0367a8e43ce2dd4648b5f5c3892187138d8f7d20e8a811c86672692",
+//         expected_monero_view_pub: "bd840eb326646dda4c2f8629513a309854825b214f0e0c4ffad7a2473a5975da",
+//       },
+    ];
 
-    let (address, spend_priv, view_priv) = crate::dev::monero_from_bip39_slip0010(&seed_raw);
+    for vector in test_vectors {
+      wallet.wallet_data.slip_derivation_path = true;
 
-    assert_eq!(
-      hex::encode(spend_priv),
-      "0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708"
-    );
-    
-    assert_eq!(
-      hex::encode(view_priv),
-      "3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200"
-    );
+      let seed_raw = match generate_seed_from_mnemonic(vector.bip39_mnemonic_words, Some(vector.bip39_mnemonic_passphrase)) {
+        Ok(seed) => seed,
+        Err(_) => {
+          panic!("Can not generate seed from mnemonic");
+        }
+      };
 
-    assert_eq!(
-      address,
-      "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg"
-    );
+      let (address, spend_priv, view_priv, spend_pub, view_pub) = crate::dev::monero_from_bip39_slip0010(&seed_raw);
+
+      assert_eq!(
+        address,
+        vector.expected_monero_address
+      );
+
+      assert_eq!(
+        hex::encode(spend_priv),
+        vector.expected_monero_spend_priv
+      );
+  
+      assert_eq!(
+        hex::encode(view_priv),
+        vector.expected_monero_view_priv
+      );
+
+      assert_eq!(
+        hex::encode(spend_pub),
+        vector.expected_monero_spend_pub
+      );
+  
+      assert_eq!(
+        hex::encode(view_pub),
+        vector.expected_monero_view_pub
+      );
+  
+    }
+
   }
 
   #[test]

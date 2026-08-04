@@ -122,11 +122,13 @@ struct SeedSecretData {
   entropy_checksum: Zeroizing<String>,
   full_entropy: Zeroizing<String>,
   mnemonic_words: Zeroizing<String>,
-  monero_mnemonic_words: Zeroizing<String>,
   mnemonic_passphrase: Zeroizing<String>,
   mnemonic_passphrase_source: Zeroizing<String>,
   mnemonic_dictionary: Zeroizing<MnemonicLanguage>,
   pub seed: Zeroizing<String>,
+  
+  monero_mnemonic_words: Zeroizing<String>,
+  monero_spend_key: Zeroizing<String>,
 }
 
 impl SeedSecretData {
@@ -139,11 +141,13 @@ impl SeedSecretData {
       mnemonic_passphrase: Zeroizing::new(String::new()),
       mnemonic_passphrase_source: Zeroizing::new(String::from("RNG")),
       mnemonic_words: Zeroizing::new(String::new()),
-      monero_mnemonic_words: Zeroizing::new(String::new()),
       seed: Zeroizing::new(String::new()),
       full_entropy: Zeroizing::new(String::new()),
       entropy_checksum: Zeroizing::new(String::new()),
       raw_entropy: Zeroizing::new(String::new()),
+      
+      monero_mnemonic_words: Zeroizing::new(String::new()),
+      monero_spend_key: Zeroizing::new(String::new()),
     }
   }
 }
@@ -252,10 +256,10 @@ struct ExtraWalletData {
   unify_master_keys: bool,
   hardened_address: bool,
   slip_derivation_path: bool,
-  
+
   bitcoin_legacy_addresses: bool,
   zilliqa_legacy_addresses: bool,
-  
+
   active_bip: u32,
   address_count: u32,
 }

@@ -21,9 +21,6 @@ pub fn monero_seed_to_mnemonic(
   wordlist: &[&str],
 ) -> String {
   let n = wordlist.len() as u32;
-  assert!(n > 0, "wordlist must not be empty");
-  assert!(PREFIX_LEN <= 3, "prefix length should be 3");
-
   let mut words: Vec<&str> = Vec::with_capacity(25);
   let mut checksum_input = String::with_capacity(24 * PREFIX_LEN);
 
@@ -80,8 +77,10 @@ fn slip10_master(seed: &[u8]) -> (Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>) {
 
   let mut priv_key = Zeroizing::new([0u8; 32]);
   let mut chain = Zeroizing::new([0u8; 32]);
+
   priv_key.copy_from_slice(&result[..32]);
   chain.copy_from_slice(&result[32..]);
+
   (priv_key, chain)
 }
 
@@ -150,11 +149,11 @@ pub fn generate_monero_address(
 
   let checksum = cn_fast_hash(&data);
   data.extend_from_slice(&checksum[..4]);
-  
+
   base58_monero::encode(&data).unwrap()
 }
 
-pub fn monero_from_bip39_slip0010(bip39_seed: &[u8]) -> (String, [u8; 32], [u8; 32]) {
+pub fn monero_from_bip39_slip0010(bip39_seed: &[u8]) -> (String, [u8; 32], [u8; 32], [u8; 32], [u8; 32]) {
   let spend_priv = monero_slip0010_spend_key(bip39_seed);
   let view_priv = Scalar::from_bytes_mod_order(cn_fast_hash(&spend_priv)).to_bytes();
 
@@ -162,5 +161,6 @@ pub fn monero_from_bip39_slip0010(bip39_seed: &[u8]) -> (String, [u8; 32], [u8; 
   let view_pub = monero_pubkey(&view_priv);
 
   let address = generate_monero_address(&spend_pub, &view_pub);
-  (address, spend_priv, view_priv)
+
+  (address, spend_priv, view_priv, spend_pub, view_pub)
 }
