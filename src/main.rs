@@ -39,9 +39,7 @@ const VALID_ENTROPY_SOURCES: &[&str] = &[
   #[cfg(feature = "dev")]
   "File",
 ];
-const VALID_LANG_CODES: &[&str] = &[
-  "EN", "CS", "FR", "IT", "PT", "ES", "ZH-CN", "ZH-TW", "JA", "KO",
-];
+const VALID_LANG_CODES: &[&str] = &["EN", "CS", "FR", "IT", "PT", "ES", "ZH-CN", "ZH-TW", "JA", "KO"];
 const ADD_ADDRESS_COUNT: &[u32] = &[1, 5, 10, 20, 50, 100];
 const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
 const VALID_MNEMONIC_LENGTHS: &[usize] = &[24, 21, 18, 15, 12];
@@ -126,7 +124,7 @@ struct SeedSecretData {
   mnemonic_passphrase_source: Zeroizing<String>,
   mnemonic_dictionary: Zeroizing<MnemonicLanguage>,
   pub seed: Zeroizing<String>,
-  
+
   monero_mnemonic_words: Zeroizing<String>,
   monero_spend_key: Zeroizing<String>,
 }
@@ -145,7 +143,7 @@ impl SeedSecretData {
       full_entropy: Zeroizing::new(String::new()),
       entropy_checksum: Zeroizing::new(String::new()),
       raw_entropy: Zeroizing::new(String::new()),
-      
+
       monero_mnemonic_words: Zeroizing::new(String::new()),
       monero_spend_key: Zeroizing::new(String::new()),
     }
@@ -396,6 +394,7 @@ struct GuiSettings {
   mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
 
   hide_private_keys: bool,
+  hide_public_keys: bool,
 
   show_disclaimer: bool,
 
@@ -425,6 +424,7 @@ impl GuiSettings {
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
 
       hide_private_keys: true,
+      hide_public_keys: true,
 
       show_disclaimer: false,
 
@@ -501,16 +501,11 @@ impl EgoQuantum {
     &mut self,
     entropy_source: Zeroizing<String>,
   ) -> FunctionOutput<()> {
-    if self.wallet.seed_secret.raw_entropy.is_empty()
-      || self.wallet.seed_secret.full_entropy.is_empty()
-    {
+    if self.wallet.seed_secret.raw_entropy.is_empty() || self.wallet.seed_secret.full_entropy.is_empty() {
       match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!(
-            "Problem with generating seed: {}",
-            err
-          )));
+          return Err(AppError::log(format!("Problem with generating seed: {}", err)));
         }
       };
     };
@@ -519,38 +514,20 @@ impl EgoQuantum {
   }
 
   fn generate_master_keys_if_missing(&mut self) -> FunctionOutput<()> {
-    if self
-      .wallet
-      .secret_keys
-      .master_secp256k1_keys
-      .master_private_key_encoded
-      .is_empty()
-    {
+    if self.wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded.is_empty() {
       match keys::generate_secp256k1_master_keys(&mut self.wallet) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!(
-            "Problem with generating secp256k1 master keys: {}",
-            err
-          )));
+          return Err(AppError::log(format!("Problem with generating secp256k1 master keys: {}", err)));
         }
       };
     };
 
-    if self
-      .wallet
-      .secret_keys
-      .master_ed25519_keys
-      .master_private_key_encoded
-      .is_empty()
-    {
+    if self.wallet.secret_keys.master_ed25519_keys.master_private_key_encoded.is_empty() {
       match keys::generate_ed25519_master_keys(&mut self.wallet) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!(
-            "Problem with generating ed25519 master keys: {}",
-            err
-          )));
+          return Err(AppError::log(format!("Problem with generating ed25519 master keys: {}", err)));
         }
       };
     };
@@ -562,10 +539,7 @@ impl EgoQuantum {
     match keys::generate_addresses_for_all_coins(&mut self.wallet) {
       Ok(_) => {}
       Err(err) => {
-        return Err(AppError::log(format!(
-          "Problem with generating seed: {}",
-          err
-        )));
+        return Err(AppError::log(format!("Problem with generating seed: {}", err)));
       }
     };
 
@@ -712,6 +686,17 @@ impl EgoQuantum {
       });
 
       ui.menu_button("Privacy", |ui| {
+        let hide_public_keys_column_label = [
+          "When enabled:",
+          "Public key column will be hidden.",
+          "\n",
+          "When disabled:",
+          "All public keys will be visible.",
+        ];
+
+        let hide_public_keys_column_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.gui.hide_public_keys, "Hide public keys"));
+        hide_public_keys_column_resp.on_hover_text(hide_public_keys_column_label.join("\n")).on_disabled_hover_text(&devel);
+
         let hide_private_keys_label = [
           "When enabled:",
           "Private keys will be hidden until you move mouse over it.",
@@ -885,75 +870,80 @@ impl EgoQuantum {
     let font = egui::FontId::monospace(12.0);
     let row_height = font.size + GUI_MARGIN;
 
-    let column_names = [
-      "Index",
-      "Icon",
-      "Coin",
-      "Path",
-      "Address",
-      "Public key",
-      "Private Key",
-    ];
-
-    let active_columns = if cfg!(feature = "dev") { 7 } else { 6 };
     let filter_lower = self.gui.coin_filter.trim().to_ascii_lowercase();
 
-    TableBuilder::new(ui)
+    let mut builder = TableBuilder::new(ui)
       .striped(true)
       .resizable(true)
       .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
       .min_scrolled_height(0.0)
+      .auto_shrink([false, false])
       .max_scroll_height(available_height)
       .animate_scrolling(true)
-      .columns(
-        Column::remainder()
-          .auto_size_this_frame(true)
-          .resizable(true),
-        active_columns,
-      )
+      .drag_to_scroll(true);
+
+    // Index
+    #[cfg(feature = "dev")]
+    {
+      builder = builder.column(Column::auto().resizable(true).at_least(40.0));
+    }
+
+    // Icon
+    builder = builder.column(Column::exact(24.0).resizable(false));
+
+    // Coin
+    builder = builder.column(Column::auto().resizable(true).at_least(80.0));
+
+    // Path
+    builder = builder.column(Column::auto().resizable(true).at_least(100.0));
+
+    // Address
+    builder = builder.column(Column::initial(500.0).resizable(true).clip(true).at_least(140.0));
+
+    // Public key
+    if !self.gui.hide_public_keys {
+      builder = builder.column(Column::initial(500.0).resizable(true).clip(true).at_least(140.0));
+    }
+
+    // Private key
+    builder = builder.column(Column::remainder().clip(true).at_least(180.0).resizable(false));
+
+    builder
       .header(row_height, |mut header| {
-        // Index
         #[cfg(feature = "dev")]
         header.col(|ui| {
-          ui.strong(column_names[0]);
+          ui.strong("Index");
         });
 
-        // Icon
         header.col(|ui| {
-          ui.strong(column_names[1]);
+          ui.strong("Icon");
         });
 
-        // Coin
         header.col(|ui| {
-          ui.strong(column_names[2]);
+          ui.strong("Coin");
         });
 
-        // Path
         header.col(|ui| {
-          ui.strong(column_names[3]);
+          ui.strong("Path");
         });
 
-        // Address
         header.col(|ui| {
-          ui.strong(column_names[4]);
+          ui.strong("Address");
         });
 
-        // Public key
-        header.col(|ui| {
-          ui.strong(column_names[5]);
-        });
+        if !self.gui.hide_public_keys {
+          header.col(|ui| {
+            ui.strong("Public key");
+          });
+        }
 
-        // Private key
         header.col(|ui| {
-          ui.take_available_width();
-          // ui.set_min_width(500.0);
-          ui.strong(column_names[6]);
+          ui.strong("Private Key");
         });
       })
       .body(|mut body| {
         for (coin, addresses) in &self.wallet.addresses_by_coin.0 {
-          // JUMP: COIN FILTER
           if !filter_lower.is_empty() && !coin.to_ascii_lowercase().contains(&filter_lower) {
             continue;
           }
@@ -962,78 +952,86 @@ impl EgoQuantum {
             let mut group_expanded = false;
 
             body.row(row_height, |mut row| {
+              // Index
               #[cfg(feature = "dev")]
               row.col(|ui| {
                 ui.label(first.coin_index.to_string());
               });
 
+              // Icon
               row.col(|ui| {
-                let icon_path = std::path::Path::new("coin")
-                  .join("logo")
-                  .join(format!("{}.svg", *first.coin_index));
-                let icon_path_str: Zeroizing<String> =
-                  Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
+                let icon_path = std::path::Path::new("coin").join("logo").join(format!("{}.svg", *first.coin_index));
+                let icon_path_str: Zeroizing<String> = Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
 
-                match e_q::get_file_from_resources(icon_path_str) {
-                  Ok(file) => {
-                    ui.add(
-                      egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
-                        .fit_to_exact_size(egui::vec2(24.0, 24.0))
-                        .corner_radius(10),
-                    );
-                  }
-                  Err(_) => {
-                    // ui.add(egui::Spinner::new().size(24.0));
-                  }
+                if let Ok(file) = e_q::get_file_from_resources(icon_path_str) {
+                  ui.add(
+                    egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
+                      .fit_to_exact_size(egui::vec2(24.0, 24.0))
+                      .corner_radius(10),
+                  );
                 }
+
+                // match e_q::get_file_from_resources(icon_path_str) {
+                //   Ok(file) => {
+                //     ui.add(
+                //       egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
+                //         .fit_to_exact_size(egui::vec2(24.0, 24.0))
+                //         .corner_radius(10),
+                //     );
+                //   }
+                //   Err(_) => {}
+                // }
               });
 
+              // Coin
               row.col(|ui| {
-                let collapsing_resp =
-                  egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
-                    .id_salt(format!("coin_group:{}", coin))
-                    .default_open(false)
-                    .show(ui, |_ui| {});
-
+                let collapsing_resp = egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
+                  .id_salt(format!("coin_group:{}", coin))
+                  .default_open(false)
+                  .show(ui, |_ui| {});
                 group_expanded = collapsing_resp.body_returned.is_some();
               });
 
+              // Path
               row.col(|ui| {
                 ui.label(&*first.path);
               });
 
+              // Address
               row.col(|ui| {
                 ui.horizontal(|ui| {
                   if ui.button("📋").on_hover_text("Copy address").clicked() {
                     ui.ctx().copy_text(first.address.to_string());
                   }
-
                   ui.label(&*first.address);
                 });
               });
 
-              row.col(|ui| {
-                ui.horizontal(|ui| {
-                  if ui.button("📋").on_hover_text("Copy public key").clicked() {
-                    ui.ctx().copy_text(first.public_key.to_string());
-                  }
-
-                  ui.label(first.public_key.to_string());
+              // Public key
+              if !self.gui.hide_public_keys {
+                row.col(|ui| {
+                  ui.horizontal(|ui| {
+                    if ui.button("📋").on_hover_text("Copy public key").clicked() {
+                      ui.ctx().copy_text(first.public_key.to_string());
+                    }
+                    ui.label(first.public_key.to_string());
+                  });
                 });
-              });
+              }
 
+              // Private key
               row.col(|ui| {
                 ui.horizontal(|ui| {
                   if ui.button("📋").on_hover_text("Copy private key").clicked() {
                     ui.ctx().copy_text(first.private_key.to_string());
                   }
 
-                  let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys {
-                    &first.private_key
+                  let is_visible = ui.ui_contains_pointer() || !self.gui.hide_private_keys;
+                  if is_visible {
+                    ui.monospace(&*first.private_key);
                   } else {
-                    "••••••••••••••"
-                  };
-                  ui.label(display_text);
+                    ui.monospace("•••••••");
+                  }
                 });
               });
             });
@@ -1041,56 +1039,62 @@ impl EgoQuantum {
             if group_expanded {
               for addr in addresses.iter().skip(1) {
                 body.row(row_height, |mut row| {
+                  // Index
                   #[cfg(feature = "dev")]
                   row.col(|ui| {
                     ui.label(addr.coin_index.to_string());
                   });
 
+                  // No icon
                   row.col(|ui| {
-                    ui.label(String::new());
+                    ui.label("");
                   });
 
+                  // Coin name
                   row.col(|ui| {
                     ui.label(coin);
                   });
 
+                  // Path
                   row.col(|ui| {
                     ui.label(addr.path.to_string());
                   });
 
+                  // Address
                   row.col(|ui| {
                     ui.horizontal(|ui| {
                       if ui.button("📋").on_hover_text("Copy address").clicked() {
                         ui.ctx().copy_text(addr.address.to_string());
                       }
-
                       ui.label(addr.address.to_string());
                     });
                   });
 
-                  row.col(|ui| {
-                    ui.horizontal(|ui| {
-                      if ui.button("📋").on_hover_text("Copy public key").clicked() {
-                        ui.ctx().copy_text(addr.public_key.to_string());
-                      }
-
-                      ui.label(addr.public_key.to_string());
+                  // Public key
+                  if !self.gui.hide_public_keys {
+                    row.col(|ui| {
+                      ui.horizontal(|ui| {
+                        if ui.button("📋").on_hover_text("Copy public key").clicked() {
+                          ui.ctx().copy_text(addr.public_key.to_string());
+                        }
+                        ui.label(addr.public_key.to_string());
+                      });
                     });
-                  });
+                  }
 
+                  // Private key
                   row.col(|ui| {
                     ui.horizontal(|ui| {
                       if ui.button("📋").on_hover_text("Copy private key").clicked() {
                         ui.ctx().copy_text(addr.private_key.to_string());
                       }
 
-                      let display_text = if ui.ui_contains_pointer() || !self.gui.hide_private_keys
-                      {
-                        &addr.private_key
+                      let is_visible = ui.ui_contains_pointer() || !self.gui.hide_private_keys;
+                      if is_visible {
+                        ui.monospace(&*addr.private_key);
                       } else {
-                        "••••••••••••••••"
-                      };
-                      ui.label(display_text);
+                        ui.monospace("•••••••");
+                      }
                     });
                   });
                 });
@@ -1120,13 +1124,8 @@ impl EgoQuantum {
 
       let source: Zeroizing<String> = self.wallet.seed_secret.entropy_source.clone();
       let source_text = match self.wallet.seed_secret.entropy_source.as_str() {
-        "File" => egui::RichText::new(source.as_str())
-          .monospace()
-          .color(ui.visuals().weak_text_color()),
-        _ => egui::RichText::new(source.as_str())
-          .strong()
-          .monospace()
-          .color(active_text_color),
+        "File" => egui::RichText::new(source.as_str()).monospace().color(ui.visuals().weak_text_color()),
+        _ => egui::RichText::new(source.as_str()).strong().monospace().color(active_text_color),
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
@@ -1136,31 +1135,19 @@ impl EgoQuantum {
           .on_disabled_hover_text("Entropy source\nCannot modify: wallet already initialized.");
 
         if response.clicked() {
-          let idx = VALID_ENTROPY_SOURCES
-            .iter()
-            .position(|&s| s == *source)
-            .unwrap_or(0);
+          let idx = VALID_ENTROPY_SOURCES.iter().position(|&s| s == *source).unwrap_or(0);
 
           let next_idx = (idx + 1) % VALID_ENTROPY_SOURCES.len();
 
-          self.wallet.seed_secret.entropy_source =
-            Zeroizing::new(VALID_ENTROPY_SOURCES[next_idx].to_string());
+          self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[next_idx].to_string());
         }
 
         if response.secondary_clicked() {
-          let idx = VALID_ENTROPY_SOURCES
-            .iter()
-            .position(|&s| s == *source)
-            .unwrap_or(0);
+          let idx = VALID_ENTROPY_SOURCES.iter().position(|&s| s == *source).unwrap_or(0);
 
-          let prev_idx = if idx == 0 {
-            VALID_ENTROPY_SOURCES.len() - 1
-          } else {
-            idx - 1
-          };
+          let prev_idx = if idx == 0 { VALID_ENTROPY_SOURCES.len() - 1 } else { idx - 1 };
 
-          self.wallet.seed_secret.entropy_source =
-            Zeroizing::new(VALID_ENTROPY_SOURCES[prev_idx].to_string());
+          self.wallet.seed_secret.entropy_source = Zeroizing::new(VALID_ENTROPY_SOURCES[prev_idx].to_string());
         }
       });
 
@@ -1179,37 +1166,21 @@ impl EgoQuantum {
       };
 
       let words_text = match *self.wallet.seed_secret.entropy_length {
-        128 => egui::RichText::new("12")
-          .monospace()
-          .color(ui.visuals().weak_text_color()),
-        160 => egui::RichText::new("15")
-          .monospace()
-          .color(ui.visuals().weak_text_color()),
-        192 => egui::RichText::new("18")
-          .monospace()
-          .color(ui.visuals().weak_text_color()),
-        224 => egui::RichText::new("21")
-          .monospace()
-          .color(ui.visuals().weak_text_color()),
-        _ => egui::RichText::new("24")
-          .strong()
-          .monospace()
-          .color(active_text_color),
+        128 => egui::RichText::new("12").monospace().color(ui.visuals().weak_text_color()),
+        160 => egui::RichText::new("15").monospace().color(ui.visuals().weak_text_color()),
+        192 => egui::RichText::new("18").monospace().color(ui.visuals().weak_text_color()),
+        224 => egui::RichText::new("21").monospace().color(ui.visuals().weak_text_color()),
+        _ => egui::RichText::new("24").strong().monospace().color(active_text_color),
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
         let response = ui
           .button(words_text)
           .on_hover_text("Mnemonic word length")
-          .on_disabled_hover_text(
-            "Mnemonic word length\nCannot modify: wallet already initialized.",
-          );
+          .on_disabled_hover_text("Mnemonic word length\nCannot modify: wallet already initialized.");
 
         if response.clicked() {
-          let idx = VALID_MNEMONIC_LENGTHS
-            .iter()
-            .position(|&w| w == current_words)
-            .unwrap_or(0);
+          let idx = VALID_MNEMONIC_LENGTHS.iter().position(|&w| w == current_words).unwrap_or(0);
 
           let next_idx = (idx + 1) % VALID_MNEMONIC_LENGTHS.len();
           let next_words = VALID_MNEMONIC_LENGTHS[next_idx];
@@ -1226,16 +1197,9 @@ impl EgoQuantum {
         }
 
         if response.secondary_clicked() {
-          let idx = VALID_MNEMONIC_LENGTHS
-            .iter()
-            .position(|&w| w == current_words)
-            .unwrap_or(0);
+          let idx = VALID_MNEMONIC_LENGTHS.iter().position(|&w| w == current_words).unwrap_or(0);
 
-          let prev_idx = if idx == 0 {
-            VALID_MNEMONIC_LENGTHS.len() - 1
-          } else {
-            idx - 1
-          };
+          let prev_idx = if idx == 0 { VALID_MNEMONIC_LENGTHS.len() - 1 } else { idx - 1 };
 
           let prev_words = VALID_MNEMONIC_LENGTHS[prev_idx];
 
@@ -1264,26 +1228,16 @@ impl EgoQuantum {
         MnemonicLanguage::Korean => "KO",
       };
 
-      let code_text = {
-        egui::RichText::new(current_code)
-          .strong()
-          .monospace()
-          .color(active_text_color)
-      };
+      let code_text = { egui::RichText::new(current_code).strong().monospace().color(active_text_color) };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
         let response = ui
           .button(code_text)
           .on_hover_text("Mnemonic dictionary")
-          .on_disabled_hover_text(
-            "Mnemonic dictionary\nCannot modify: wallet already initialized.",
-          );
+          .on_disabled_hover_text("Mnemonic dictionary\nCannot modify: wallet already initialized.");
 
         if response.clicked() {
-          let idx = VALID_LANG_CODES
-            .iter()
-            .position(|&c| c == current_code)
-            .unwrap_or(0);
+          let idx = VALID_LANG_CODES.iter().position(|&c| c == current_code).unwrap_or(0);
 
           let next_idx = (idx + 1) % VALID_LANG_CODES.len();
           let next_code = VALID_LANG_CODES[next_idx];
@@ -1304,16 +1258,9 @@ impl EgoQuantum {
         }
 
         if response.secondary_clicked() {
-          let idx = VALID_LANG_CODES
-            .iter()
-            .position(|&c| c == current_code)
-            .unwrap_or(0);
+          let idx = VALID_LANG_CODES.iter().position(|&c| c == current_code).unwrap_or(0);
 
-          let prev_idx = if idx == 0 {
-            VALID_LANG_CODES.len() - 1
-          } else {
-            idx - 1
-          };
+          let prev_idx = if idx == 0 { VALID_LANG_CODES.len() - 1 } else { idx - 1 };
 
           let prev_code = VALID_LANG_CODES[prev_idx];
 
@@ -1335,49 +1282,30 @@ impl EgoQuantum {
 
       let source: Zeroizing<String> = self.wallet.seed_secret.mnemonic_passphrase_source.clone();
       let source_text = match self.wallet.seed_secret.mnemonic_passphrase_source.as_str() {
-        "Off" => egui::RichText::new(source.as_str())
-          .monospace()
-          .color(ui.visuals().weak_text_color()),
-        _ => egui::RichText::new(source.as_str())
-          .strong()
-          .monospace()
-          .color(active_text_color),
+        "Off" => egui::RichText::new(source.as_str()).monospace().color(ui.visuals().weak_text_color()),
+        _ => egui::RichText::new(source.as_str()).strong().monospace().color(active_text_color),
       };
 
       ui.add_enabled_ui(!has_addresses, |ui| {
         let response = ui
           .button(source_text)
           .on_hover_text("Mnemonic passphrase source")
-          .on_disabled_hover_text(
-            "Mnemonic passphrase source\nCannot modify: wallet already initialized.",
-          );
+          .on_disabled_hover_text("Mnemonic passphrase source\nCannot modify: wallet already initialized.");
 
         if response.clicked() {
-          let idx = VALID_MNEMONIC_SOURCES
-            .iter()
-            .position(|&s| s == *source)
-            .unwrap_or(0);
+          let idx = VALID_MNEMONIC_SOURCES.iter().position(|&s| s == *source).unwrap_or(0);
 
           let next_idx = (idx + 1) % VALID_MNEMONIC_SOURCES.len();
 
-          self.wallet.seed_secret.mnemonic_passphrase_source =
-            Zeroizing::new(VALID_MNEMONIC_SOURCES[next_idx].to_string());
+          self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[next_idx].to_string());
         }
 
         if response.secondary_clicked() {
-          let idx = VALID_MNEMONIC_SOURCES
-            .iter()
-            .position(|&s| s == *source)
-            .unwrap_or(0);
+          let idx = VALID_MNEMONIC_SOURCES.iter().position(|&s| s == *source).unwrap_or(0);
 
-          let prev_idx = if idx == 0 {
-            VALID_MNEMONIC_SOURCES.len() - 1
-          } else {
-            idx - 1
-          };
+          let prev_idx = if idx == 0 { VALID_MNEMONIC_SOURCES.len() - 1 } else { idx - 1 };
 
-          self.wallet.seed_secret.mnemonic_passphrase_source =
-            Zeroizing::new(VALID_MNEMONIC_SOURCES[prev_idx].to_string());
+          self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(VALID_MNEMONIC_SOURCES[prev_idx].to_string());
         }
       });
 
@@ -1386,23 +1314,14 @@ impl EgoQuantum {
       // JUMP: STATUS PATH
       ui.label(egui::RichText::new("Path").monospace().small());
       let bip_text = if self.wallet.wallet_data.active_bip == 44 {
-        egui::RichText::new("BIP 44")
-          .strong()
-          .monospace()
-          .color(active_text_color)
+        egui::RichText::new("BIP 44").strong().monospace().color(active_text_color)
       } else {
-        egui::RichText::new("BIP 32")
-          .monospace()
-          .color(ui.visuals().weak_text_color())
+        egui::RichText::new("BIP 32").monospace().color(ui.visuals().weak_text_color())
       };
       let bip_response = ui.button(bip_text).on_hover_text("BIP derivation path");
 
       if bip_response.clicked() || bip_response.secondary_clicked() {
-        self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 {
-          32
-        } else {
-          44
-        };
+        self.wallet.wallet_data.active_bip = if self.wallet.wallet_data.active_bip == 44 { 32 } else { 44 };
 
         if has_addresses {
           self.wallet.addresses_by_coin.0.clear();
@@ -1412,14 +1331,9 @@ impl EgoQuantum {
       }
 
       let hardened_text = if self.wallet.wallet_data.hardened_address {
-        egui::RichText::new("Hardened")
-          .strong()
-          .monospace()
-          .color(active_text_color)
+        egui::RichText::new("Hardened").strong().monospace().color(active_text_color)
       } else {
-        egui::RichText::new("Non-hard")
-          .monospace()
-          .color(ui.visuals().weak_text_color())
+        egui::RichText::new("Non-hard").monospace().color(ui.visuals().weak_text_color())
       };
 
       let hardened_response = ui.button(hardened_text).on_hover_text("Hardened addresses");
@@ -1456,10 +1370,7 @@ impl EgoQuantum {
 
         if ui
           .button("-")
-          .on_hover_text(format!(
-            "Remove {} address from wallet",
-            self.wallet.wallet_data.address_count
-          ))
+          .on_hover_text(format!("Remove {} address from wallet", self.wallet.wallet_data.address_count))
           .clicked()
         {
           let remove_count = self.wallet.wallet_data.address_count as usize;
@@ -1477,8 +1388,7 @@ impl EgoQuantum {
           }
 
           if let Some((_coin, addresses)) = self.wallet.addresses_by_coin.0.iter().next() {
-            self.wallet.address_components.derivation_path.last_index =
-              Zeroizing::new(addresses.len() as u32);
+            self.wallet.address_components.derivation_path.last_index = Zeroizing::new(addresses.len() as u32);
           }
         }
 
@@ -1508,11 +1418,7 @@ impl EgoQuantum {
               .position(|&c| c == self.wallet.wallet_data.address_count)
               .unwrap_or(0);
 
-            let prev_idx = if idx == 0 {
-              ADD_ADDRESS_COUNT.len() - 1
-            } else {
-              idx - 1
-            };
+            let prev_idx = if idx == 0 { ADD_ADDRESS_COUNT.len() - 1 } else { idx - 1 };
 
             self.wallet.wallet_data.address_count = ADD_ADDRESS_COUNT[prev_idx];
           }
@@ -1520,10 +1426,7 @@ impl EgoQuantum {
 
         if ui
           .button("+")
-          .on_hover_text(format!(
-            "Add {} address more to wallet",
-            self.wallet.wallet_data.address_count
-          ))
+          .on_hover_text(format!("Add {} address more to wallet", self.wallet.wallet_data.address_count))
           .clicked()
         {
           let source = self.get_entropy_source();
@@ -1549,14 +1452,13 @@ impl EgoQuantum {
             filter_text.truncate(20);
           }
 
-          if !filter_text.is_empty() {
-            if ui
+          if !filter_text.is_empty()
+            && ui
               .button(egui::RichText::new("X").monospace().strong())
               .on_hover_text("Clear filter")
               .clicked()
-            {
-              filter_text.clear();
-            }
+          {
+            filter_text.clear();
           }
 
           response.on_hover_text("Filter coins by name");
@@ -1604,12 +1506,7 @@ impl eframe::App for EgoQuantum {
 
     egui::Panel::bottom("footer")
       .exact_size(21.0)
-      .frame(
-        egui::Frame::new()
-          .fill(STATUS_BAR_BACKGROUND_COLOR)
-          .inner_margin(2.0)
-          .outer_margin(0.0),
-      )
+      .frame(egui::Frame::new().fill(STATUS_BAR_BACKGROUND_COLOR).inner_margin(2.0).outer_margin(0.0))
       .show_inside(ui, |ui| {
         let _ = self.render_wallet_footer(ui);
       });
@@ -1619,11 +1516,8 @@ impl eframe::App for EgoQuantum {
     if has_addresses {
       egui::CentralPanel::default().show_inside(ui, |ui| {
         egui::ScrollArea::horizontal()
-          .scroll_bar_visibility(
-            egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded,
-          )
+          .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
           .show(ui, |ui| {
-            ui.take_available_height();
             self.render_wallet_table(ui);
           });
       });
@@ -1642,8 +1536,7 @@ impl eframe::App for EgoQuantum {
             if ui.button(text).clicked() {
               let needs_qrng = self.get_entropy_source().as_str() == "QRNG";
 
-              let needs_passphrase =
-                self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom";
+              let needs_passphrase = self.wallet.seed_secret.mnemonic_passphrase_source.as_str() == "Custom";
 
               if needs_qrng {
                 self.gui.anu_dialog.entropy_length = self.wallet.seed_secret.entropy_length.clone();
@@ -1658,13 +1551,9 @@ impl eframe::App for EgoQuantum {
               }
             }
 
-            if self.wallet.wallet_gen_state == WalletGenState::WaitingForQrng
-              && !self.gui.anu_dialog.open
-              && self.gui.anu_dialog.save_entropy
-            {
+            if self.wallet.wallet_gen_state == WalletGenState::WaitingForQrng && !self.gui.anu_dialog.open && self.gui.anu_dialog.save_entropy {
               if !self.gui.anu_dialog.randomized_entropy.is_empty() {
-                self.wallet.seed_secret.raw_entropy =
-                  self.gui.anu_dialog.randomized_entropy.clone();
+                self.wallet.seed_secret.raw_entropy = self.gui.anu_dialog.randomized_entropy.clone();
               }
 
               self.gui.anu_dialog.save_entropy = false;
@@ -1739,26 +1628,19 @@ impl eframe::App for EgoQuantum {
 
 fn set_app_icon() -> FunctionOutput<egui::IconData> {
   let resource_path = std::path::Path::new("logo").join("logo.png");
-  let resource_path_str: Zeroizing<String> =
-    Zeroizing::new(resource_path.to_str().unwrap_or_default().to_string());
+  let resource_path_str: Zeroizing<String> = Zeroizing::new(resource_path.to_str().unwrap_or_default().to_string());
 
   let icon_file = match e_q::get_file_from_resources(resource_path_str) {
     Ok(file) => file,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "Problem with finding app logo file: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with finding app logo file: {}", err)));
     }
   };
 
   let app_icon = match eframe::icon_data::from_png_bytes(icon_file.contents()) {
     Ok(icon) => icon,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "Problem with reading app logo icon: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with reading app logo icon: {}", err)));
     }
   };
 
@@ -1768,12 +1650,7 @@ fn set_app_icon() -> FunctionOutput<egui::IconData> {
 fn set_app_title() -> FunctionOutput<String> {
   let feature = e_q::get_active_app_feature();
 
-  let title = format!(
-    "{} {} ({})",
-    APP_NAME.unwrap_or("eQ"),
-    APP_VERSION.unwrap_or_default(),
-    feature
-  );
+  let title = format!("{} {} ({})", APP_NAME.unwrap_or("eQ"), APP_VERSION.unwrap_or_default(), feature);
 
   Ok(title)
 }
@@ -1782,20 +1659,14 @@ fn main() -> FunctionOutput<()> {
   let app_icon = match set_app_icon() {
     Ok(icon) => icon,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "Problem with setting app logo icon: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with setting app logo icon: {}", err)));
     }
   };
 
   let app_title = match set_app_title() {
     Ok(title) => title,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "Problem with setting app title: {}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with setting app title: {}", err)));
     }
   };
 
@@ -1848,20 +1719,14 @@ pub fn export_addresses_csv(
     match writeln!(file, "coin,coin_index,path,address,public_key,private_key") {
       Ok(_) => {}
       Err(err) => {
-        return Err(AppError::log(format!(
-          "Can not create private header in CSV: {}",
-          err
-        )));
+        return Err(AppError::log(format!("Can not create private header in CSV: {}", err)));
       }
     };
   } else {
     match writeln!(file, "coin,coin_index,path,address,public_key") {
       Ok(_) => {}
       Err(err) => {
-        return Err(AppError::log(format!(
-          "Can not create public header in CSV: {}",
-          err
-        )));
+        return Err(AppError::log(format!("Can not create public header in CSV: {}", err)));
       }
     };
   }
@@ -1896,10 +1761,7 @@ pub fn export_addresses_csv(
       match writeln!(file, "{}", fields.join(",")) {
         Ok(_) => {}
         Err(err) => {
-          return Err(AppError::log(format!(
-            "Can not export content to CSV: {}",
-            err
-          )));
+          return Err(AppError::log(format!("Can not export content to CSV: {}", err)));
         }
       };
     }
@@ -1939,12 +1801,9 @@ impl ShowAboutWindow {
 
     let mut open = self.open;
 
-    egui::Window::new("About")
-      .open(&mut open)
-      .resizable(true)
-      .show(ctx, |ui| {
-        let _ = self.ui_content(ui);
-      });
+    egui::Window::new("About").open(&mut open).resizable(true).show(ctx, |ui| {
+      let _ = self.ui_content(ui);
+    });
 
     if !open {
       self.close_and_clear();
@@ -2004,22 +1863,17 @@ impl ShowAboutWindow {
         {
           ui.add_space(GUI_MARGIN);
 
-          ui.hyperlink_to(
-            "Open GitHub Releases",
-            "https://github.com/control-owl/eQ/releases",
-          );
+          ui.hyperlink_to("Open GitHub Releases", "https://github.com/control-owl/eQ/releases");
         }
       });
     });
 
     if self.show_license {
-      egui::Window::new("Project License")
-        .open(&mut self.show_license)
-        .show(ui.ctx(), |ui| {
-          egui::ScrollArea::both().show(ui, |ui| {
-            ui.code(LICENSE_TEXT);
-          });
+      egui::Window::new("Project License").open(&mut self.show_license).show(ui.ctx(), |ui| {
+        egui::ScrollArea::both().show(ui, |ui| {
+          ui.code(LICENSE_TEXT);
         });
+      });
     }
 
     Ok(())
@@ -2075,12 +1929,9 @@ impl ShowCustomMnemonicWindow {
 
     let mut open = self.open;
 
-    egui::Window::new("Mnemonic Passphrase")
-      .open(&mut open)
-      .resizable(true)
-      .show(ctx, |ui| {
-        let _ = self.ui_content(ui);
-      });
+    egui::Window::new("Mnemonic Passphrase").open(&mut open).resizable(true).show(ctx, |ui| {
+      let _ = self.ui_content(ui);
+    });
 
     if !open {
       self.close_and_clear();

@@ -126,7 +126,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,125,XST,StealthCoin,,,,,,,,,448
 0,126,BRK,Breakout Coin,,,,,,,,,1286
 1,127,XVC,Vcash,secp256k1,sha256,,,0x47,0x08,0xc7,,836
-0,128,XMR,Monero,ed25519,keccak256,,,,,,,328
+1,128,XMR,Monero,ed25519,keccak256,,,0x7F,0xC4,0x3F,,328
 0,129,VOX,Voxels,,,,,,,,,
 1,130,NAV,NavCoin (Legacy),secp256k1,sha256,,,0x35,0x55,0x96,,377
 0,131,FCT,Factom Factoids,,,,,,,,,1087
@@ -1297,4 +1297,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1179993461,HXC,HuaXia Chain,,,,,,,,,
 0,1179993471,AME,AME Chain,,,,,,,,,8162
 0,1869902945,ATTO,Atto,,,,,,,,,
-2,128,XMR,Monero,ed25519,keccak256,0x0488ADE4,0x0488B21E,0x7F,0xC4,0x3F,,328
+2,0,BTC,Bitcoin,secp256k1,sha256,0x0488ADE4,0x0488B21E,0x00,0x05,0x80,,1
+2,2,LTC,Litecoin,secp256k1,sha256,0x019D9CFE,0x019DA462,0x30,0x32,0xb0,,2
+2,3,DOGE,Dogecoin,secp256k1,sha256,0x02FAC398,0x02FACAFD,0x1e,0x16,0x9e,,74
+2,4,RDD,Reddcoin,secp256k1,sha256,,,0x3d,,0xbd,,118

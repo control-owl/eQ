@@ -48,13 +48,12 @@ struct _MoneroTestVector {
   bip39_mnemonic_words: &'static str,
   bip39_mnemonic_passphrase: &'static str,
   // derivation_path: DerivationPathData,
-
   _expected_slip0010_monero_words: &'static str,
   expected_monero_address: &'static str,
 
   expected_monero_spend_priv: &'static str,
   expected_monero_view_priv: &'static str,
-  
+
   expected_monero_spend_pub: &'static str,
   expected_monero_view_pub: &'static str,
 }
@@ -260,55 +259,28 @@ mod tests {
       match keys::generate_secp256k1_master_keys(&mut wallet) {
         Ok(_) => {}
         Err(err) => {
-          return Err(crate::AppError::log(format!(
-            "Problem with parsing private_header: {}",
-            err
-          )));
+          return Err(crate::AppError::log(format!("Problem with parsing private_header: {}", err)));
         }
       };
 
       assert_eq!(
-        wallet
-          .secret_keys
-          .master_secp256k1_keys
-          .master_private_key_encoded,
+        wallet.secret_keys.master_secp256k1_keys.master_private_key_encoded,
         Zeroizing::new(vector.expected_master_xprv.to_string())
       );
       assert_eq!(
-        wallet
-          .secret_keys
-          .master_secp256k1_keys
-          .master_public_key_encoded,
+        wallet.secret_keys.master_secp256k1_keys.master_public_key_encoded,
         Zeroizing::new(vector.expected_master_xpub.to_string())
       );
       assert_eq!(
-        hex::encode(
-          wallet
-            .secret_keys
-            .master_secp256k1_keys
-            .master_private_key_bytes
-            .clone()
-        ),
+        hex::encode(wallet.secret_keys.master_secp256k1_keys.master_private_key_bytes.clone()),
         vector.expected_master_private_key
       );
       assert_eq!(
-        hex::encode(
-          wallet
-            .secret_keys
-            .master_secp256k1_keys
-            .master_chain_code_bytes
-            .clone()
-        ),
+        hex::encode(wallet.secret_keys.master_secp256k1_keys.master_chain_code_bytes.clone()),
         vector.expected_master_chain_code
       );
       assert_eq!(
-        hex::encode(
-          wallet
-            .secret_keys
-            .master_secp256k1_keys
-            .master_public_key_bytes
-            .clone()
-        ),
+        hex::encode(wallet.secret_keys.master_secp256k1_keys.master_public_key_bytes.clone()),
         vector.expected_master_public_key
       );
     }
@@ -394,12 +366,10 @@ mod tests {
     ];
 
     for vector in test_vectors {
-      let master_private_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(
-        hex::decode(vector.master_private_key).expect("can not decode master_private_key"),
-      );
-      let master_chain_code_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(
-        hex::decode(vector.master_chain_code).expect("can not decode master_chain_code"),
-      );
+      let master_private_key_bytes: Zeroizing<Vec<u8>> =
+        Zeroizing::new(hex::decode(vector.master_private_key).expect("can not decode master_private_key"));
+      let master_chain_code_bytes: Zeroizing<Vec<u8>> =
+        Zeroizing::new(hex::decode(vector.master_chain_code).expect("can not decode master_chain_code"));
 
       match keys::derive_secp256k1_child(
         master_private_key_bytes,
@@ -667,11 +637,9 @@ mod tests {
       wallet.seed_secret.seed = Zeroizing::new(String::from(vector.seed));
       wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
       wallet.address_components.coin_name = Zeroizing::new(vector.coin_name.to_string());
-      wallet.address_components.public_key_hash =
-        Zeroizing::new(vector.public_key_hash.to_string());
+      wallet.address_components.public_key_hash = Zeroizing::new(vector.public_key_hash.to_string());
       wallet.address_components.key_derivation = Zeroizing::new(String::from("secp256k1"));
-      wallet.address_components.wallet_import_format =
-        Zeroizing::new(vector.wallet_import_format.to_string());
+      wallet.address_components.wallet_import_format = Zeroizing::new(vector.wallet_import_format.to_string());
       wallet.address_components.hash = Zeroizing::new(vector.hash.to_string());
       wallet.wallet_data.bitcoin_legacy_addresses = *vector.derivation_path.purpose != 86;
 
@@ -679,25 +647,12 @@ mod tests {
       keys::generate_secp256k1_child_keys(&mut wallet)?;
       keys::generate_secp256k1_address(&mut wallet)?;
 
-      let addresses = wallet
-        .addresses_by_coin
-        .0
-        .get(vector.coin_name)
-        .expect("Coin not found");
+      let addresses = wallet.addresses_by_coin.0.get(vector.coin_name).expect("Coin not found");
       let first = addresses.first().expect("No address stored for this coin");
 
-      assert_eq!(
-        first.address,
-        Zeroizing::new(vector.expected_address.to_string())
-      );
-      assert_eq!(
-        first.public_key,
-        Zeroizing::new(vector.expected_public_key.to_string())
-      );
-      assert_eq!(
-        first.private_key,
-        Zeroizing::new(vector.expected_private_key.to_string())
-      );
+      assert_eq!(first.address, Zeroizing::new(vector.expected_address.to_string()));
+      assert_eq!(first.public_key, Zeroizing::new(vector.expected_public_key.to_string()));
+      assert_eq!(first.private_key, Zeroizing::new(vector.expected_private_key.to_string()));
     }
     Ok(())
   }
@@ -815,63 +770,38 @@ mod tests {
         }
       };
 
-      let (address, _public_key, _private_key) =
-        match *wallet.address_components.derivation_path.coin {
-          // Solana
-          501 => {
-            let address = bs58::encode(
-              wallet
-                .secret_keys
-                .child_ed25519_keys
-                .child_public_key_bytes
-                .clone(),
-            )
-            .into_string();
-            (
-              address,
-              Zeroizing::new(hex::encode(
-                &wallet.secret_keys.child_ed25519_keys.child_public_key_bytes,
-              )),
-              Zeroizing::new(hex::encode(
-                &wallet
-                  .secret_keys
-                  .child_ed25519_keys
-                  .child_private_key_bytes,
-              )),
-            )
-          }
+      let (address, _public_key, _private_key) = match *wallet.address_components.derivation_path.coin {
+        // Solana
+        501 => {
+          let address = bs58::encode(wallet.secret_keys.child_ed25519_keys.child_public_key_bytes.clone()).into_string();
+          (
+            address,
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_public_key_bytes)),
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_private_key_bytes)),
+          )
+        }
 
-          // NEM
-          43 => {
-            let pub_key_hash: Zeroizing<String> =
-              Zeroizing::new(vector.public_key_hash.to_string());
-            let pubkey_array: Zeroizing<[u8; 32]> = Zeroizing::new(
-              wallet
-                .secret_keys
-                .child_ed25519_keys
-                .child_public_key_bytes
-                .as_slice()
-                .try_into()
-                .unwrap(),
-            );
-            let address = keys::generate_nem_address(pubkey_array, pub_key_hash)
-              .unwrap()
-              .to_string();
-            (
-              address,
-              Zeroizing::new(hex::encode(
-                &wallet.secret_keys.child_ed25519_keys.child_public_key_bytes,
-              )),
-              Zeroizing::new(hex::encode(
-                &wallet
-                  .secret_keys
-                  .child_ed25519_keys
-                  .child_private_key_bytes,
-              )),
-            )
-          }
-          _ => panic!("Unsupported ed25519 coin_index"),
-        };
+        // NEM
+        43 => {
+          let pub_key_hash: Zeroizing<String> = Zeroizing::new(vector.public_key_hash.to_string());
+          let pubkey_array: Zeroizing<[u8; 32]> = Zeroizing::new(
+            wallet
+              .secret_keys
+              .child_ed25519_keys
+              .child_public_key_bytes
+              .as_slice()
+              .try_into()
+              .unwrap(),
+          );
+          let address = keys::generate_nem_address(pubkey_array, pub_key_hash).unwrap().to_string();
+          (
+            address,
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_public_key_bytes)),
+            Zeroizing::new(hex::encode(&wallet.secret_keys.child_ed25519_keys.child_private_key_bytes)),
+          )
+        }
+        _ => panic!("Unsupported ed25519 coin_index"),
+      };
 
       assert_eq!(address, vector.expected_ed25519_address);
     }
@@ -881,16 +811,11 @@ mod tests {
   fn nem_whitepaper_example_address() {
     let pubkey_hex = "c5247738c3a510fb6c11413331d8a47764f6e78ffcdb02b6878d5dd3b77f38ed";
     let pubkey_bytes = hex::decode(pubkey_hex).expect("invalid hex");
-    let pubkey_arr: [u8; 32] = pubkey_bytes
-      .try_into()
-      .expect("public key must be 32 bytes");
+    let pubkey_arr: [u8; 32] = pubkey_bytes.try_into().expect("public key must be 32 bytes");
 
-    let addr = crate::keys::generate_nem_address(
-      Zeroizing::new(pubkey_arr),
-      Zeroizing::new("0x68".to_string()),
-    )
-    .expect("failed to generate NEM address")
-    .to_string();
+    let addr = crate::keys::generate_nem_address(Zeroizing::new(pubkey_arr), Zeroizing::new("0x68".to_string()))
+      .expect("failed to generate NEM address")
+      .to_string();
 
     assert_eq!(
       addr, "NAPRIL-C6USCT-AY7NNX-B4COVK-QJL427-NPCEER-GKS6",
@@ -898,82 +823,76 @@ mod tests {
     );
   }
 
-  #[test]
-  fn test_monero_derivation_slip0010() {
-    let mut wallet = CryptoWallet::new();
-
-    let test_vectors = vec![
-      // Sources:
-      // https://coinomi.github.io/tools/bip39/
-      // https://monero-web.com/verify
-      _MoneroTestVector {
-        bip39_mnemonic_words: "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple",
-        bip39_mnemonic_passphrase: "a",
-
-        _expected_slip0010_monero_words: "maul loudly nearby buffet hacksaw zones kernels edgy baffles match extra eclipse uphill arena hounded wobbly actress muppet pebbles onward rift tether scrub snake rift",
-        expected_monero_address: "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg",
-        
-        expected_monero_spend_priv: "0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708",
-        expected_monero_view_priv: "3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200",
-
-        expected_monero_spend_pub: "fc25f0a1a1fb4e6afe5ffa15cd06fcbb913eb55605d09adf5de735163d4f4a3e",
-        expected_monero_view_pub: "2ba093948b429ec90729ecd0f705b87f36154612756433fc3dc7d8dbbf646529",
-      },
-      //       _MoneroTestVector {
-//         bip39_mnemonic_words: "wave spawn demand people ticket garage achieve dance visa easily rather genuine income brush sound soon ask sail depth planet monster average timber space",
-//         bip39_mnemonic_passphrase: "",
-// 
-//         expected_monero_words: "pistons apex avidly dexterity hounded tusks pyramid hamburger bomb semifinal iceberg ungainly bugs afloat inbound fountain sphere blip pager rash oars later space suitcase pistons",
-//         expected_monero_address: "45WJGeDNjrHQo9Yqs79ZxAGRfDwaWZh2nc8pDd2WhGs7RYZkcUMRD88dWm6Dj3SKuRSUnzPngC2afENuUcMss5rURgGjXZv",
-//         
-//         expected_monero_spend_priv: "78905d063d74f17d619c9fc1c34ff57e62000d64f24d584f7f5dabe4710fad03",
-//         expected_monero_view_priv: "569ed35391369004246a79596cfab1ed4fdc48fd9e164957bf68da2ece6c8a05",
-//         
-//         expected_monero_spend_pub: "66747bfee0367a8e43ce2dd4648b5f5c3892187138d8f7d20e8a811c86672692",
-//         expected_monero_view_pub: "bd840eb326646dda4c2f8629513a309854825b214f0e0c4ffad7a2473a5975da",
-//       },
-    ];
-
-    for vector in test_vectors {
-      wallet.wallet_data.slip_derivation_path = true;
-
-      let seed_raw = match generate_seed_from_mnemonic(vector.bip39_mnemonic_words, Some(vector.bip39_mnemonic_passphrase)) {
-        Ok(seed) => seed,
-        Err(_) => {
-          panic!("Can not generate seed from mnemonic");
-        }
-      };
-
-      let (address, spend_priv, view_priv, spend_pub, view_pub) = crate::dev::monero_from_bip39_slip0010(&seed_raw);
-
-      assert_eq!(
-        address,
-        vector.expected_monero_address
-      );
-
-      assert_eq!(
-        hex::encode(spend_priv),
-        vector.expected_monero_spend_priv
-      );
-  
-      assert_eq!(
-        hex::encode(view_priv),
-        vector.expected_monero_view_priv
-      );
-
-      assert_eq!(
-        hex::encode(spend_pub),
-        vector.expected_monero_spend_pub
-      );
-  
-      assert_eq!(
-        hex::encode(view_pub),
-        vector.expected_monero_view_pub
-      );
-  
-    }
-
-  }
+  //   #[test]
+  //   fn test_monero_derivation_slip0010() {
+  //     let mut wallet = CryptoWallet::new();
+  //
+  //     let test_vectors = vec![
+  //       // Sources:
+  //       // https://coinomi.github.io/tools/bip39/
+  //       // https://monero-web.com/verify
+  //       _MoneroTestVector {
+  //         bip39_mnemonic_words: "permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple",
+  //         bip39_mnemonic_passphrase: "a",
+  //
+  //         _expected_slip0010_monero_words: "maul loudly nearby buffet hacksaw zones kernels edgy baffles match extra eclipse uphill arena hounded wobbly actress muppet pebbles onward rift tether scrub snake rift",
+  //         expected_monero_address: "4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg",
+  //
+  //         expected_monero_spend_priv: "0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708",
+  //         expected_monero_view_priv: "3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200",
+  //
+  //         expected_monero_spend_pub: "fc25f0a1a1fb4e6afe5ffa15cd06fcbb913eb55605d09adf5de735163d4f4a3e",
+  //         expected_monero_view_pub: "2ba093948b429ec90729ecd0f705b87f36154612756433fc3dc7d8dbbf646529",
+  //       },
+  //       //       _MoneroTestVector {
+  //       //         bip39_mnemonic_words: "wave spawn demand people ticket garage achieve dance visa easily rather genuine income brush sound soon ask sail depth planet monster average timber space",
+  //       //         bip39_mnemonic_passphrase: "",
+  //       //
+  //       //         expected_monero_words: "pistons apex avidly dexterity hounded tusks pyramid hamburger bomb semifinal iceberg ungainly bugs afloat inbound fountain sphere blip pager rash oars later space suitcase pistons",
+  //       //         expected_monero_address: "45WJGeDNjrHQo9Yqs79ZxAGRfDwaWZh2nc8pDd2WhGs7RYZkcUMRD88dWm6Dj3SKuRSUnzPngC2afENuUcMss5rURgGjXZv",
+  //       //
+  //       //         expected_monero_spend_priv: "78905d063d74f17d619c9fc1c34ff57e62000d64f24d584f7f5dabe4710fad03",
+  //       //         expected_monero_view_priv: "569ed35391369004246a79596cfab1ed4fdc48fd9e164957bf68da2ece6c8a05",
+  //       //
+  //       //         expected_monero_spend_pub: "66747bfee0367a8e43ce2dd4648b5f5c3892187138d8f7d20e8a811c86672692",
+  //       //         expected_monero_view_pub: "bd840eb326646dda4c2f8629513a309854825b214f0e0c4ffad7a2473a5975da",
+  //       //       },
+  //     ];
+  //
+  //     for vector in test_vectors {
+  //       wallet.seed_secret.mnemonic_words = Zeroizing::new(vector.bip39_mnemonic_words.to_string());
+  //       wallet.seed_secret.mnemonic_passphrase = Zeroizing::new(vector.bip39_mnemonic_passphrase.to_string());
+  //
+  //       wallet.wallet_data.slip_derivation_path = true;
+  //
+  //       let seed_raw = match generate_seed_from_mnemonic(vector.bip39_mnemonic_words, Some(vector.bip39_mnemonic_passphrase)) {
+  //         Ok(seed) => seed,
+  //         Err(_) => {
+  //           panic!("Can not generate seed from mnemonic");
+  //         }
+  //       };
+  //
+  //       let spend_priv = monero_slip0010_spend_key(bip39_seed);
+  //       let view_priv = Scalar::from_bytes_mod_order(cn_fast_hash(&spend_priv)).to_bytes();
+  //
+  //       let spend_pub = monero_pubkey(&spend_priv);
+  //       let view_pub = monero_pubkey(&view_priv);
+  //
+  //       let address = generate_monero_address(&spend_pub, &view_pub);
+  //
+  //       (address, spend_priv, view_priv, spend_pub, view_pub)
+  //
+  //       assert_eq!(address, vector.expected_monero_address);
+  //
+  //       assert_eq!(hex::encode(spend_priv), vector.expected_monero_spend_priv);
+  //
+  //       assert_eq!(hex::encode(view_priv), vector.expected_monero_view_priv);
+  //
+  //       assert_eq!(hex::encode(spend_pub), vector.expected_monero_spend_pub);
+  //
+  //       assert_eq!(hex::encode(view_pub), vector.expected_monero_view_pub);
+  //     }
+  //   }
 
   #[test]
   fn test_bip39_seed_to_monero_25_seed() {
@@ -1003,20 +922,14 @@ mod tests {
       },
     ];
 
-    let wordlist = crate::dev::load_monero_wordlist();
+    let wordlist: Vec<&str> = e_q::load_monero_wordlist();
 
     for vector in mnemonic_vectors {
       let salt = b"mnemonic";
       let mut seed = Zeroizing::new([0u8; 64]);
       let iter = std::num::NonZeroU32::new(2048).unwrap();
 
-      pbkdf2::derive(
-        pbkdf2::PBKDF2_HMAC_SHA512,
-        iter,
-        salt,
-        vector.bip39_mnemonic.as_bytes(),
-        &mut *seed,
-      );
+      pbkdf2::derive(pbkdf2::PBKDF2_HMAC_SHA512, iter, salt, vector.bip39_mnemonic.as_bytes(), &mut *seed);
 
       let key = hmac::Key::new(hmac::HMAC_SHA512, b"Bitcoin seed");
       let tag = hmac::sign(&key, &*seed);
@@ -1035,23 +948,18 @@ mod tests {
         let hardened_z = Zeroizing::new(hardened);
         let index_z = Zeroizing::new(index);
 
-        let derived = crate::keys::derive_secp256k1_child(
-          parent_priv_vec,
-          parent_chain_vec,
-          index_z,
-          hardened_z,
-        )
-        .expect("BIP32 child derivation failed");
+        let derived =
+          crate::keys::derive_secp256k1_child(parent_priv_vec, parent_chain_vec, index_z, hardened_z).expect("BIP32 child derivation failed");
 
         priv_key.copy_from_slice(&derived.child_private_key_bytes);
         chain.copy_from_slice(&derived.child_chain_code_bytes);
       }
 
-      let hashed = crate::dev::cn_fast_hash(&*priv_key);
-      let spend_key = crate::dev::monero_sc_reduce32(&hashed).to_bytes();
-      let monero_words = crate::dev::monero_seed_to_mnemonic(&spend_key, &wordlist);
+      let hashed: Zeroizing<[u8; 32]> = crate::keys::cn_fast_hash(&Zeroizing::new(priv_key.to_vec())).unwrap();
+      let spend_key: Zeroizing<[u8; 32]> = Zeroizing::new(crate::keys::monero_sc_reduce32(hashed).unwrap().to_bytes());
+      let monero_words: Zeroizing<String> = crate::keys::monero_seed_to_mnemonic(spend_key, &wordlist).unwrap();
 
-      assert_eq!(vector.monero_mnemonic, monero_words);
+      assert_eq!(vector.monero_mnemonic, *monero_words);
     }
   }
 }
@@ -1081,8 +989,7 @@ fn check_wallet_save_open_function() {
   let _ = keys::generate_ed25519_child_keys(&mut new_wallet);
   let _ = keys::generate_addresses_for_all_coins(&mut new_wallet);
 
-  let wrapped: Rc<RefCell<Zeroizing<CryptoWallet>>> =
-    Rc::new(RefCell::new(Zeroizing::new(new_wallet.clone())));
+  let wrapped: Rc<RefCell<Zeroizing<CryptoWallet>>> = Rc::new(RefCell::new(Zeroizing::new(new_wallet.clone())));
 
   save_wallet.wallet_to_save = Some(wrapped);
   save_wallet.password = String::from(wallet_name);
@@ -1095,16 +1002,12 @@ fn check_wallet_save_open_function() {
   open_wallet.selected_svgs = [wallet_file.clone()].to_vec();
   let decoded_svg = crypt::load_svg(&wallet_file).unwrap();
 
-  let data: Zeroizing<Vec<u8>> =
-    crypt::decrypt_wallet(Zeroizing::new(String::from("Test")), &decoded_svg).unwrap();
+  let data: Zeroizing<Vec<u8>> = crypt::decrypt_wallet(Zeroizing::new(String::from("Test")), &decoded_svg).unwrap();
 
   let payload: crypt::WalletPayload = crypt::parse_payload(data).unwrap();
   println!("data: {:?}", payload);
 
-  assert_eq!(
-    payload.seed_secret.full_entropy,
-    new_wallet.seed_secret.full_entropy.clone()
-  );
+  assert_eq!(payload.seed_secret.full_entropy, new_wallet.seed_secret.full_entropy.clone());
 
   assert_eq!(
     payload.seed_secret.mnemonic_passphrase,

@@ -41,20 +41,14 @@ pub fn calculate_max_text_width(
   ui.fonts_mut(|font| {
     texts
       .iter()
-      .map(|text| {
-        font
-          .layout_no_wrap(text.to_string(), font_id.clone(), color)
-          .size()
-          .x
-      })
+      .map(|text| font.layout_no_wrap(text.to_string(), font_id.clone(), color).size().x)
       .fold(0.0, f32::max)
   })
 }
 
 pub fn calculate_checksum_for_entropy(entropy: Zeroizing<String>) -> Zeroizing<String> {
   let entropy_binary: Zeroizing<Vec<u8>> = convert_string_to_binary(entropy.clone());
-  let hash_raw_binary: Zeroizing<String> =
-    convert_binary_to_string(Zeroizing::new(Sha256::digest(&entropy_binary).to_vec()));
+  let hash_raw_binary: Zeroizing<String> = convert_binary_to_string(Zeroizing::new(Sha256::digest(&entropy_binary).to_vec()));
 
   let checksum_length: Zeroizing<usize> = match entropy.len() {
     128 => Zeroizing::new(4),
@@ -77,11 +71,7 @@ pub fn convert_string_to_binary(input_value: Zeroizing<String>) -> Zeroizing<Vec
       .chars()
       .collect::<Vec<char>>()
       .chunks(8)
-      .map(|chunk| {
-        chunk
-          .iter()
-          .fold(0, |acc, &bit| (acc << 1) | (bit as u8 - b'0'))
-      })
+      .map(|chunk| chunk.iter().fold(0, |acc, &bit| (acc << 1) | (bit as u8 - b'0')))
       .collect(),
   )
 }
@@ -111,9 +101,7 @@ pub fn get_text_from_resources(file_name: Zeroizing<String>) -> Zeroizing<String
   }
 }
 
-pub fn get_file_from_resources(
-  file_name: Zeroizing<String>
-) -> Result<&'static include_dir::File<'static>, String> {
+pub fn get_file_from_resources(file_name: Zeroizing<String>) -> Result<&'static include_dir::File<'static>, String> {
   RES_DIR
     .get_file(file_name.as_str())
     .ok_or_else(|| format!("File '{:?}' not found in resources", file_name))
@@ -228,8 +216,6 @@ pub fn get_active_app_feature() -> &'static str {
   }
 }
 
-// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
-
 pub fn write_u32_le(
   buf: &mut Vec<u8>,
   v: u32,
@@ -242,4 +228,9 @@ pub fn write_u16_le(
   v: u16,
 ) {
   buf.extend_from_slice(&v.to_le_bytes());
+}
+
+pub fn load_monero_wordlist() -> Vec<&'static str> {
+  static WORDLIST: &str = include_str!("../res/wordlists/monero-english.txt");
+  WORDLIST.lines().collect()
 }

@@ -25,11 +25,7 @@ fn set_environment() {
   if lines.len() >= 3 {
     let commit_hash = lines[0];
     let commit_date = lines[1];
-    let key_id = if lines[2].is_empty() {
-      "None"
-    } else {
-      lines[2]
-    };
+    let key_id = if lines[2].is_empty() { "None" } else { lines[2] };
 
     println!("cargo:rustc-env=COMMIT_HASH={commit_hash}");
     println!("cargo:rustc-env=COMMIT_DATE={commit_date}");

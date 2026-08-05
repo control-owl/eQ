@@ -2,10 +2,7 @@
 // license = "CC-BY-NC-ND-4.0  [2023-2026]  Control Owl"
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-use crate::{
-  AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, MnemonicLanguage, SeedSecretData, Zeroize,
-  ZeroizeOnDrop,
-};
+use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, MnemonicLanguage, SeedSecretData, Zeroize, ZeroizeOnDrop};
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -222,13 +219,10 @@ impl SaveWalletDialog {
 
     let mut open = self.open;
 
-    egui::Window::new("Save Wallet")
-      .open(&mut open)
-      .resizable(true)
-      .show(ctx, |ui| {
-        // TODO: Improve
-        let _ = self.ui_content(ui);
-      });
+    egui::Window::new("Save Wallet").open(&mut open).resizable(true).show(ctx, |ui| {
+      // TODO: Improve
+      let _ = self.ui_content(ui);
+    });
 
     if !open {
       self.close_and_clear();
@@ -265,16 +259,11 @@ impl SaveWalletDialog {
       ) {
         Ok(blob) => blob,
         Err(err) => {
-          return Err(AppError::log(format!(
-            "Problem with encrypting wallet: {:?}",
-            err
-          )));
+          return Err(AppError::log(format!("Problem with encrypting wallet: {:?}", err)));
         }
       };
 
-      let shamir_config = Config::new()
-        .with_integrity_check(false)
-        .with_compression(false);
+      let shamir_config = Config::new().with_integrity_check(false).with_compression(false);
 
       let shares: Zeroizing<Vec<Vec<u8>>> = if total_images == 1 {
         Zeroizing::new(vec![encrypted_blob.to_vec()])
@@ -308,17 +297,11 @@ impl SaveWalletDialog {
           output_path.push(&filename);
 
           if let Err(e) = svg::save(&output_path, &svg) {
-            return Err(AppError::log(format!(
-              "Problem saving SVG image {:?}: {:?}",
-              output_path, e
-            )));
+            return Err(AppError::log(format!("Problem saving SVG image {:?}: {:?}", output_path, e)));
           }
         }
       } else {
-        match rfd::FileDialog::new()
-          .set_title("Save wallet file(s)")
-          .pick_folder()
-        {
+        match rfd::FileDialog::new().set_title("Save wallet file(s)").pick_folder() {
           Some(folder) => {
             if !folder.is_dir() {
               return Err(AppError::log("Selected path is not a directory"));
@@ -327,13 +310,7 @@ impl SaveWalletDialog {
             let base_name = save_dialog.wallet_name.trim();
             let safe_base = base_name
               .chars()
-              .map(|c| {
-                if c == '/' || c == '\\' || c == ':' || c.is_control() {
-                  '_'
-                } else {
-                  c
-                }
-              })
+              .map(|c| if c == '/' || c == '\\' || c == ':' || c.is_control() { '_' } else { c })
               .collect::<String>();
 
             for (i, share) in shares.iter().enumerate() {
@@ -347,23 +324,16 @@ impl SaveWalletDialog {
               out_path.push(&filename);
 
               if let Err(e) = svg::save(&out_path, &svg) {
-                return Err(AppError::log(format!(
-                  "Problem saving SVG image {:?}: {:?}",
-                  out_path, e
-                )));
+                return Err(AppError::log(format!("Problem saving SVG image {:?}: {:?}", out_path, e)));
               }
             }
 
             {
-              let reconstructed: Zeroizing<Vec<u8>> = match shamir_combine(
-                shares,
-                Zeroizing::new(total_images),
-                Zeroizing::new(threshold),
-                shamir_config,
-              ) {
-                Ok(share) => share,
-                Err(_) => return Err(AppError::log("Problem combining Shamir shares")),
-              };
+              let reconstructed: Zeroizing<Vec<u8>> =
+                match shamir_combine(shares, Zeroizing::new(total_images), Zeroizing::new(threshold), shamir_config) {
+                  Ok(share) => share,
+                  Err(_) => return Err(AppError::log("Problem combining Shamir shares")),
+                };
 
               if total_images > 1 {
                 assert_eq!(&*encrypted_blob, &*reconstructed);
@@ -397,9 +367,7 @@ impl SaveWalletDialog {
 
           ui.group(|ui| {
             ui.label("Wallet name");
-            ui.add(
-              egui::TextEdit::singleline(&mut self.wallet_name).desired_width(ui.available_width()),
-            );
+            ui.add(egui::TextEdit::singleline(&mut self.wallet_name).desired_width(ui.available_width()));
             // ui.text_edit_singleline(&mut self.wallet_name);
 
             #[cfg(feature = "osk")]
@@ -515,13 +483,7 @@ impl SaveWalletDialog {
                 KdfChoice::Pbkdf2 => {
                   ui.horizontal(|ui| {
                     ui.label("Rounds:");
-                    ui.add(
-                      egui::Slider::new(
-                        &mut self.pbkdf2_rounds,
-                        min_pbkdf2_rounds..=max_pbkdf2_rounds,
-                      )
-                      .logarithmic(true),
-                    );
+                    ui.add(egui::Slider::new(&mut self.pbkdf2_rounds, min_pbkdf2_rounds..=max_pbkdf2_rounds).logarithmic(true));
                   });
                 }
 
@@ -537,34 +499,25 @@ impl SaveWalletDialog {
                   ui.horizontal(|ui| {
                     ui.label("Iterations:");
                     ui.add(
-                      egui::Slider::new(
-                        &mut self.argon2_iterations,
-                        min_argon2_iterations..=max_argon2_iterations,
-                      )
-                      .smart_aim(true)
-                      .trailing_fill(true),
+                      egui::Slider::new(&mut self.argon2_iterations, min_argon2_iterations..=max_argon2_iterations)
+                        .smart_aim(true)
+                        .trailing_fill(true),
                     )
                   });
                   ui.horizontal(|ui| {
                     ui.label("Memory (MB):");
                     ui.add(
-                      egui::Slider::new(
-                        &mut self.argon2_memory_mb,
-                        min_argon2_memory..=max_argon2_memory,
-                      )
-                      .smart_aim(true)
-                      .trailing_fill(true),
+                      egui::Slider::new(&mut self.argon2_memory_mb, min_argon2_memory..=max_argon2_memory)
+                        .smart_aim(true)
+                        .trailing_fill(true),
                     );
                   });
                   ui.horizontal(|ui| {
                     ui.label("Parallelism:");
                     ui.add(
-                      egui::Slider::new(
-                        &mut self.argon2_parallelism,
-                        min_argon2_parallelism..=max_argon2_parallelism,
-                      )
-                      .smart_aim(true)
-                      .trailing_fill(true),
+                      egui::Slider::new(&mut self.argon2_parallelism, min_argon2_parallelism..=max_argon2_parallelism)
+                        .smart_aim(true)
+                        .trailing_fill(true),
                     );
                   });
                 }
@@ -584,17 +537,11 @@ impl SaveWalletDialog {
               && self.password == self.password_confirm
               && (!self.use_sss || self.threshold <= self.total_images);
 
-            if ui
-              .add_enabled(save_enabled, egui::Button::new("Save"))
-              .clicked()
-            {
+            if ui.add_enabled(save_enabled, egui::Button::new("Save")).clicked() {
               match self.save_wallet() {
                 Ok(_) => {}
                 Err(err) => {
-                  return Err(AppError::log(format!(
-                    "Can not save wallet, error: {:?}",
-                    err
-                  )));
+                  return Err(AppError::log(format!("Can not save wallet, error: {:?}", err)));
                 }
               };
 
@@ -658,9 +605,7 @@ impl OpenWalletDialog {
     let encrypted_blob: Zeroizing<Vec<u8>> = if self.decoded_shares.len() == 1 {
       Zeroizing::new(self.decoded_shares[0].clone())
     } else {
-      let config = Config::new()
-        .with_integrity_check(false)
-        .with_compression(false);
+      let config = Config::new().with_integrity_check(false).with_compression(false);
 
       let combined_secret: Zeroizing<Vec<u8>> = shamir_combine(
         self.decoded_shares.clone(),
@@ -668,34 +613,22 @@ impl OpenWalletDialog {
         Zeroizing::new(self.decoded_shares.len() as u8),
         config,
       )
-      .map_err(|err| {
-        AppError::log(format!(
-          "Problem with combining shamir's secrets: {:?}",
-          err
-        ))
-      })?;
+      .map_err(|err| AppError::log(format!("Problem with combining shamir's secrets: {:?}", err)))?;
 
       combined_secret
     };
 
-    let data: Zeroizing<Vec<u8>> =
-      match decrypt_wallet(Zeroizing::new(self.password.clone()), &encrypted_blob) {
-        Ok(vector) => vector,
-        Err(err) => {
-          return Err(AppError::log(format!(
-            "Problem with decrypting wallet: {:?}",
-            err
-          )));
-        }
-      };
+    let data: Zeroizing<Vec<u8>> = match decrypt_wallet(Zeroizing::new(self.password.clone()), &encrypted_blob) {
+      Ok(vector) => vector,
+      Err(err) => {
+        return Err(AppError::log(format!("Problem with decrypting wallet: {:?}", err)));
+      }
+    };
 
     let payload = match parse_payload(data) {
       Ok(vector) => Zeroizing::new(vector),
       Err(err) => {
-        return Err(AppError::log(format!(
-          "Problem with parsing decrypted wallet: {:?}",
-          err
-        )));
+        return Err(AppError::log(format!("Problem with parsing decrypted wallet: {:?}", err)));
       }
     };
 
@@ -721,12 +654,9 @@ impl OpenWalletDialog {
 
     let mut open = self.open;
 
-    egui::Window::new("Open Wallet")
-      .open(&mut open)
-      .resizable(true)
-      .show(ctx, |ui| {
-        self.ui_content(ui, ctx);
-      });
+    egui::Window::new("Open Wallet").open(&mut open).resizable(true).show(ctx, |ui| {
+      self.ui_content(ui, ctx);
+    });
 
     if !open {
       self.close_and_clear();
@@ -746,78 +676,70 @@ impl OpenWalletDialog {
     #[cfg(feature = "osk")]
     self.keyboard.0.pump_events(ui.ctx());
 
-    ui.with_layout(
-      egui::Layout::top_down_justified(egui::Align::Center),
-      |ui| {
-        ui.add_space(GUI_MARGIN);
+    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+      ui.add_space(GUI_MARGIN);
 
-        ui.group(|ui| {
-          if self.selected_svgs.is_empty() {
-            ui.label("No shares selected");
-          } else {
-            ui.label(format!("Selected {} share(s):", self.selected_svgs.len()));
-            for path in &self.selected_svgs {
-              let file_name = std::path::Path::new(path)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(path);
-              ui.label(file_name.to_string());
-            }
+      ui.group(|ui| {
+        if self.selected_svgs.is_empty() {
+          ui.label("No shares selected");
+        } else {
+          ui.label(format!("Selected {} share(s):", self.selected_svgs.len()));
+          for path in &self.selected_svgs {
+            let file_name = std::path::Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path);
+            ui.label(file_name.to_string());
           }
-
-          ui.add_space(GUI_MARGIN);
-
-          if ui.button("Select SVG shares").clicked() {
-            // TODO: Add osk support for direct file read
-
-            self.pick_svg_files();
-          }
-
-          if !self.selected_svgs.is_empty() && ui.button("Clear selection").clicked() {
-            self.selected_svgs.clear();
-            self.decoded_shares.clear();
-          }
-        });
+        }
 
         ui.add_space(GUI_MARGIN);
 
-        ui.group(|ui| {
-          ui.horizontal(|ui| {
-            ui.label("Password");
+        if ui.button("Select SVG shares").clicked() {
+          // TODO: Add osk support for direct file read
 
-            ui.add(egui::TextEdit::singleline(&mut self.password).password(!self.show_password));
+          self.pick_svg_files();
+        }
 
-            let icon = if self.show_password { "Hide" } else { "Show" };
+        if !self.selected_svgs.is_empty() && ui.button("Clear selection").clicked() {
+          self.selected_svgs.clear();
+          self.decoded_shares.clear();
+        }
+      });
 
-            if ui.button(icon).clicked() {
-              self.show_password = !self.show_password;
-            }
+      ui.add_space(GUI_MARGIN);
 
-            #[cfg(feature = "osk")]
-            self.keyboard.0.show(ui.ctx());
+      ui.group(|ui| {
+        ui.horizontal(|ui| {
+          ui.label("Password");
 
-            ui.set_width(ui.available_width());
-          });
-        });
+          ui.add(egui::TextEdit::singleline(&mut self.password).password(!self.show_password));
 
-        ui.add_space(GUI_MARGIN);
+          let icon = if self.show_password { "Hide" } else { "Show" };
 
-        ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-          if ui.button("Cancel").clicked() {
-            self.close_and_clear();
+          if ui.button(icon).clicked() {
+            self.show_password = !self.show_password;
           }
 
-          let can_attempt_load = !self.selected_svgs.is_empty() && !self.password.is_empty();
-          if ui
-            .add_enabled(can_attempt_load, egui::Button::new("Load Wallet"))
-            .clicked()
-            && let Ok(_) = self.try_load_wallet(ctx)
-          {
-            self.close_and_clear()
-          }
+          #[cfg(feature = "osk")]
+          self.keyboard.0.show(ui.ctx());
+
+          ui.set_width(ui.available_width());
         });
-      },
-    );
+      });
+
+      ui.add_space(GUI_MARGIN);
+
+      ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+        if ui.button("Cancel").clicked() {
+          self.close_and_clear();
+        }
+
+        let can_attempt_load = !self.selected_svgs.is_empty() && !self.password.is_empty();
+        if ui.add_enabled(can_attempt_load, egui::Button::new("Load Wallet")).clicked()
+          && let Ok(_) = self.try_load_wallet(ctx)
+        {
+          self.close_and_clear()
+        }
+      });
+    });
   }
 
   fn pick_svg_files(&mut self) {
@@ -842,10 +764,7 @@ impl OpenWalletDialog {
           self.decoded_shares.push(share);
         }
         Err(err) => {
-          return Err(AppError::log(format!(
-            "Failed to decode SVG {}: {}",
-            path, err
-          )));
+          return Err(AppError::log(format!("Failed to decode SVG {}: {}", path, err)));
         }
       }
     }
@@ -875,16 +794,10 @@ fn shamir_split(
   threshold: Zeroizing<u8>,
   config: Config,
 ) -> FunctionOutput<Zeroizing<Vec<Vec<u8>>>> {
-  let mut scheme = match ShamirShare::builder(*total, *threshold)
-    .with_config(config)
-    .build()
-  {
+  let mut scheme = match ShamirShare::builder(*total, *threshold).with_config(config).build() {
     Ok(share) => share,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "Problem with generating shamir shares: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("Problem with generating shamir shares: {:?}", err)));
     }
   };
 
@@ -948,10 +861,7 @@ fn shamir_combine(
   let secret: Zeroizing<Vec<u8>> = match ShamirShare::reconstruct(&shares) {
     Ok(secret) => Zeroizing::new(secret),
     Err(err) => {
-      return Err(AppError::log(format!(
-        "Failed to combine Shamir shares: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("Failed to combine Shamir shares: {:?}", err)));
     }
   };
 
@@ -969,21 +879,16 @@ pub fn encrypt_wallet(
   let rng = SystemRandom::new();
 
   let mut salt = vec![0u8; SALT_LEN];
-  rng
-    .fill(&mut salt)
-    .map_err(|err| AppError::log(format!("RNG salt error: {:?}", err)))?;
+  rng.fill(&mut salt).map_err(|err| AppError::log(format!("RNG salt error: {:?}", err)))?;
 
   let mut nonce_bytes = [0u8; NONCE_LEN];
-  rng
-    .fill(&mut nonce_bytes)
-    .map_err(|e| AppError::log(format!("RNG nonce: {e:?}")))?;
+  rng.fill(&mut nonce_bytes).map_err(|e| AppError::log(format!("RNG nonce: {e:?}")))?;
   let nonce = Nonce::assume_unique_for_key(nonce_bytes);
 
   let file_key: Zeroizing<[u8; 32]> = derive_pbkdf2_key(&password, &salt, pbkdf2_rounds);
   let payload: Zeroizing<Vec<u8>> = create_payload(&wallet)?;
 
-  let unbound = UnboundKey::new(&AES_256_GCM, &file_key[..])
-    .map_err(|err| AppError::log(format!("UnboundKey AES_256_GCM: {:?}", err)))?;
+  let unbound = UnboundKey::new(&AES_256_GCM, &file_key[..]).map_err(|err| AppError::log(format!("UnboundKey AES_256_GCM: {:?}", err)))?;
   let key = LessSafeKey::new(unbound);
 
   let mut ciphertext: Zeroizing<Vec<u8>> = Zeroizing::new(payload.to_vec());
@@ -992,9 +897,7 @@ pub fn encrypt_wallet(
   let payload_len = (NONCE_LEN + ciphertext.len() + TAG_LEN) as u32;
 
   let kdf_params = match kdf_choice {
-    KdfChoice::Pbkdf2 => KdfParams::Pbkdf2 {
-      rounds: pbkdf2_rounds,
-    },
+    KdfChoice::Pbkdf2 => KdfParams::Pbkdf2 { rounds: pbkdf2_rounds },
 
     #[cfg(feature = "dev")]
     KdfChoice::Argon2id => KdfParams::Argon2id {
@@ -1008,14 +911,8 @@ pub fn encrypt_wallet(
   let kdf_id = kdf_params.kdf_id();
   let kdf_param_bytes = kdf_params.to_bytes();
 
-  let mut header: Vec<u8> = Vec::with_capacity(
-    WALLET_HEADER.len()
-      + WALLET_VERSION as usize
-      + WALLET_KDF_VERSION as usize
-      + kdf_param_bytes.len()
-      + SALT_LEN
-      + 4,
-  );
+  let mut header: Vec<u8> =
+    Vec::with_capacity(WALLET_HEADER.len() + WALLET_VERSION as usize + WALLET_KDF_VERSION as usize + kdf_param_bytes.len() + SALT_LEN + 4);
 
   header.extend_from_slice(WALLET_HEADER);
   header.push(WALLET_VERSION);
@@ -1075,8 +972,7 @@ pub fn decrypt_wallet(
     return Err(AppError::log("Truncated KDF parameters"));
   }
   let kdf_param_bytes = &file[offset..offset + kdf_param_len];
-  let kdf_params = KdfParams::parse(kdf_id, kdf_param_bytes)
-    .map_err(|e| AppError::log(format!("KDF parse error: {e}")))?;
+  let kdf_params = KdfParams::parse(kdf_id, kdf_param_bytes).map_err(|e| AppError::log(format!("KDF parse error: {e}")))?;
   offset += kdf_param_len;
 
   match kdf_params {
@@ -1118,11 +1014,9 @@ pub fn decrypt_wallet(
 
       let key_bytes: Zeroizing<[u8; 32]> = derive_pbkdf2_key(&password, salt, rounds);
 
-      let unbound = UnboundKey::new(&AES_256_GCM, &key_bytes[..])
-        .map_err(|_| AppError::log("UnboundKey AES_256_GCM"))?;
+      let unbound = UnboundKey::new(&AES_256_GCM, &key_bytes[..]).map_err(|_| AppError::log("UnboundKey AES_256_GCM"))?;
       let key = LessSafeKey::new(unbound);
-      let nonce =
-        Nonce::try_assume_unique_for_key(nonce_bytes).map_err(|_| AppError::log("Nonce size"))?;
+      let nonce = Nonce::try_assume_unique_for_key(nonce_bytes).map_err(|_| AppError::log("Nonce size"))?;
 
       let aad = Aad::from(&file[..payload_len_offset + 4]);
 
@@ -1148,9 +1042,7 @@ fn create_svg(
   let share_len = share.len();
   let min_cells_needed = (share_len as f32 * redundancy).ceil() as usize;
 
-  let possible_grids = [
-    16, 20, 24, 28, 32, 36, 40, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100,
-  ];
+  let possible_grids = [16, 20, 24, 28, 32, 36, 40, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100];
   let grid = possible_grids
     .into_iter()
     .find(|&g| g * g >= min_cells_needed)
@@ -1158,9 +1050,7 @@ fn create_svg(
 
   let size = (grid * SVG_BOX_SIZE) as f32;
 
-  let mut doc = Document::new()
-    .set("viewBox", (0, 0, size, size))
-    .set("style", "background:#FFF");
+  let mut doc = Document::new().set("viewBox", (0, 0, size, size)).set("style", "background:#FFF");
 
   for (i, &byte) in share.iter().cycle().take(grid * grid).enumerate() {
     let x = (i % grid * SVG_BOX_SIZE) as f32;
@@ -1186,9 +1076,7 @@ fn create_svg(
 
 pub fn load_svg(path: &str) -> FunctionOutput<Vec<u8>> {
   let mut content = String::new();
-  let parser = svg::open(path, &mut content)
-    .map_err(|e| format!("Failed to open SVG: {}", e))
-    .unwrap();
+  let parser = svg::open(path, &mut content).map_err(|e| format!("Failed to open SVG: {}", e)).unwrap();
 
   let mut secret_bytes = Vec::new();
 
@@ -1215,10 +1103,7 @@ pub fn load_svg(path: &str) -> FunctionOutput<Vec<u8>> {
     }
   }
 
-  let best_start = secret_bytes
-    .windows(2)
-    .position(|magic| magic == *WALLET_HEADER)
-    .unwrap_or(0);
+  let best_start = secret_bytes.windows(2).position(|magic| magic == *WALLET_HEADER).unwrap_or(0);
   let recovered = &secret_bytes[best_start..];
 
   Ok(recovered.to_vec())
@@ -1248,32 +1133,22 @@ pub fn create_payload(wallet: &CryptoWallet) -> FunctionOutput<Zeroizing<Vec<u8>
   // 2 Full entropy (length u32 LE + bytes)
   let entropy_bytes = wallet.seed_secret.full_entropy.as_bytes();
   let entropy_len = entropy_bytes.len();
-  let entropy_len_u32: u32 = entropy_len
-    .try_into()
-    .expect("Entropy length too large for u32");
+  let entropy_len_u32: u32 = entropy_len.try_into().expect("Entropy length too large for u32");
   payload.extend_from_slice(&entropy_len_u32.to_le_bytes());
   payload.extend_from_slice(entropy_bytes);
 
   // 3 Mnemonic dictionary (length u16 LE + bytes)
-  let dict_bytes = wallet
-    .seed_secret
-    .mnemonic_dictionary
-    .display_name()
-    .as_bytes();
+  let dict_bytes = wallet.seed_secret.mnemonic_dictionary.display_name().as_bytes();
 
   let dict_len = dict_bytes.len();
-  let dict_len_u16: u16 = dict_len
-    .try_into()
-    .expect("Mnemonic dictionary length too large for u16");
+  let dict_len_u16: u16 = dict_len.try_into().expect("Mnemonic dictionary length too large for u16");
   payload.extend_from_slice(&dict_len_u16.to_le_bytes());
   payload.extend_from_slice(dict_bytes);
 
   // 4 Mnemonic passphrase (length u16 LE + bytes)
   let pass_bytes = wallet.seed_secret.mnemonic_passphrase.as_bytes();
   let pass_len = pass_bytes.len();
-  let pass_len_u16: u16 = pass_len
-    .try_into()
-    .expect("Mnemonic passphrase length too large for u16");
+  let pass_len_u16: u16 = pass_len.try_into().expect("Mnemonic passphrase length too large for u16");
   payload.extend_from_slice(&pass_len_u16.to_le_bytes());
   payload.extend_from_slice(pass_bytes);
 
@@ -1282,8 +1157,7 @@ pub fn create_payload(wallet: &CryptoWallet) -> FunctionOutput<Zeroizing<Vec<u8>
   payload.extend_from_slice(&(*path.purpose).to_le_bytes());
 
   // 6 Last index (u32 LE)
-  let derivation: &Zeroizing<crate::DerivationPathData> =
-    &wallet.address_components.derivation_path;
+  let derivation: &Zeroizing<crate::DerivationPathData> = &wallet.address_components.derivation_path;
   payload.extend_from_slice(&(*derivation.last_index).to_le_bytes());
 
   Ok(payload)
@@ -1296,10 +1170,7 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   let version_bytes = match take(&plain, &mut off, 1) {
     Ok(byte) => byte,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading payload version failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading payload version failed: {:?}", err)));
     }
   };
   let payload_version: u8 = version_bytes[0];
@@ -1308,39 +1179,27 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   let entropy_len_bytes = match take(&plain, &mut off, 4) {
     Ok(byte) => byte,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading entropy length failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading entropy length failed: {:?}", err)));
     }
   };
 
   let entropy_len_u32 = match read_u32_le(entropy_len_bytes.as_slice()) {
     Ok(length) => length,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "parsing entropy length failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("parsing entropy length failed: {:?}", err)));
     }
   };
 
   let entropy_len = entropy_len_u32 as usize;
 
   if entropy_len > (1 << 24) {
-    return Err(AppError::log(format!(
-      "entropy length too large: {}",
-      entropy_len
-    )));
+    return Err(AppError::log(format!("entropy length too large: {}", entropy_len)));
   }
 
   let entropy_bytes = match take(&plain, &mut off, entropy_len) {
     Ok(byte) => byte,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading entropy bytes failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading entropy bytes failed: {:?}", err)));
     }
   };
 
@@ -1355,49 +1214,34 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   let dict_len_bytes = match take(&plain, &mut off, 2) {
     Ok(length) => length,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading dictionary length failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading dictionary length failed: {:?}", err)));
     }
   };
 
   let dict_len_u16 = match read_u16_le(dict_len_bytes.as_slice()) {
     Ok(length) => length,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "parsing dictionary length failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("parsing dictionary length failed: {:?}", err)));
     }
   };
 
   let dict_len = dict_len_u16 as usize;
 
   if dict_len > (1 << 16) {
-    return Err(AppError::log(format!(
-      "dictionary length too large: {}",
-      dict_len
-    )));
+    return Err(AppError::log(format!("dictionary length too large: {}", dict_len)));
   }
 
   let dict_bytes = match take(&plain, &mut off, dict_len) {
     Ok(b) => b,
     Err(e) => {
-      return Err(AppError::log(format!(
-        "reading dictionary bytes failed: {:?}",
-        e
-      )));
+      return Err(AppError::log(format!("reading dictionary bytes failed: {:?}", e)));
     }
   };
 
   let mnemonic_dictionary: Zeroizing<MnemonicLanguage> = match String::from_utf8(dict_bytes) {
     Ok(dict) => Zeroizing::new(MnemonicLanguage::get_dictionary(&dict)),
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading dict_bytes failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading dict_bytes failed: {:?}", err)));
     }
   };
 
@@ -1405,49 +1249,34 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   let pass_len_bytes = match take(&plain, &mut off, 2) {
     Ok(length) => length,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading passphrase length failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading passphrase length failed: {:?}", err)));
     }
   };
 
   let pass_len_u16 = match read_u16_le(pass_len_bytes.as_slice()) {
     Ok(length) => length,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "parsing passphrase length failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("parsing passphrase length failed: {:?}", err)));
     }
   };
 
   let pass_len = pass_len_u16 as usize;
 
   if pass_len > (1 << 16) {
-    return Err(AppError::log(format!(
-      "passphrase length too large: {}",
-      pass_len
-    )));
+    return Err(AppError::log(format!("passphrase length too large: {}", pass_len)));
   }
 
   let pass_bytes = match take(&plain, &mut off, pass_len) {
     Ok(byte) => byte,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading passphrase bytes failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading passphrase bytes failed: {:?}", err)));
     }
   };
 
   let mnemonic_passphrase = match String::from_utf8(pass_bytes) {
     Ok(pass) => Zeroizing::new(pass),
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading pass_bytes failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading pass_bytes failed: {:?}", err)));
     }
   };
 
@@ -1455,20 +1284,14 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   let bip_bytes = match take(&plain, &mut off, 4) {
     Ok(byte) => byte,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading derivation purpose failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading derivation purpose failed: {:?}", err)));
     }
   };
 
   let bip_u32 = match read_u32_le(bip_bytes.as_slice()) {
     Ok(bip) => bip,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "parsing derivation purpose failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("parsing derivation purpose failed: {:?}", err)));
     }
   };
 
@@ -1478,20 +1301,14 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   let last_index_bytes = match take(&plain, &mut off, 4) {
     Ok(byte) => byte,
     Err(err) => {
-      return Err(AppError::log(format!(
-        "reading last index failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("reading last index failed: {:?}", err)));
     }
   };
 
   let last_index = match read_u32_le(last_index_bytes.as_slice()) {
     Ok(index) => Zeroizing::new(index),
     Err(err) => {
-      return Err(AppError::log(format!(
-        "parsing last index failed: {:?}",
-        err
-      )));
+      return Err(AppError::log(format!("parsing last index failed: {:?}", err)));
     }
   };
 
@@ -1508,7 +1325,7 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
       mnemonic_passphrase_source: Zeroizing::new(String::from("SVG")),
       entropy_checksum: Zeroizing::new(String::new()),
       seed: Zeroizing::new(String::new()),
-      
+
       monero_mnemonic_words: Zeroizing::new(String::new()),
       monero_spend_key: Zeroizing::new(String::new()),
     },
@@ -1646,12 +1463,9 @@ impl ShowSecretsDialog {
 
     let mut open = self.open;
 
-    egui::Window::new("Show secrets")
-      .open(&mut open)
-      .resizable(true)
-      .show(ctx, |ui| {
-        let _ = self.ui_content(ui);
-      });
+    egui::Window::new("Show secrets").open(&mut open).resizable(true).show(ctx, |ui| {
+      let _ = self.ui_content(ui);
+    });
 
     if !open {
       self.close_and_clear();
@@ -1673,11 +1487,7 @@ impl ShowSecretsDialog {
     ui.horizontal(|ui| {
       ui.selectable_value(&mut self.selected_tab, SecretsTab::Entropy, "Entropy");
       ui.selectable_value(&mut self.selected_tab, SecretsTab::Seed, "Seed");
-      ui.selectable_value(
-        &mut self.selected_tab,
-        SecretsTab::MasterKeys,
-        "Master Keys",
-      );
+      ui.selectable_value(&mut self.selected_tab, SecretsTab::MasterKeys, "Master Keys");
       ui.selectable_value(&mut self.selected_tab, SecretsTab::MoneroKeys, "Monero");
     });
 
@@ -1686,13 +1496,11 @@ impl ShowSecretsDialog {
     egui::ScrollArea::both()
       .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .show(ui, |ui| {
-        ui.with_layout(Layout::top_down(Align::Center), |ui| {
-          match self.selected_tab {
-            SecretsTab::Entropy => self.ui_entropy(ui),
-            SecretsTab::Seed => self.ui_seed(ui),
-            SecretsTab::MasterKeys => self.ui_master_keys(ui),
-            SecretsTab::MoneroKeys => self.ui_monero_keys(ui),
-          }
+        ui.with_layout(Layout::top_down(Align::Center), |ui| match self.selected_tab {
+          SecretsTab::Entropy => self.ui_entropy(ui),
+          SecretsTab::Seed => self.ui_seed(ui),
+          SecretsTab::MasterKeys => self.ui_master_keys(ui),
+          SecretsTab::MoneroKeys => self.ui_monero_keys(ui),
         });
       });
 
@@ -1713,12 +1521,7 @@ impl ShowSecretsDialog {
     ui: &mut egui::Ui,
   ) {
     Self::text_group(ui, "Mnemonic words", &mut self.mnemonic_words, true);
-    Self::text_group(
-      ui,
-      "Mnemonic passphrase",
-      &mut self.mnemonic_passphrase,
-      true,
-    );
+    Self::text_group(ui, "Mnemonic passphrase", &mut self.mnemonic_passphrase, true);
     Self::text_group(ui, "Seed", &mut self.seed, true);
   }
 
@@ -1727,46 +1530,21 @@ impl ShowSecretsDialog {
     ui: &mut egui::Ui,
   ) {
     ui.heading("Secp256k1");
-    Self::text_group(
-      ui,
-      "Master Private Key",
-      &mut self.master_secp256k1_private_key,
-      true,
-    );
-    Self::text_group(
-      ui,
-      "Master Public Key",
-      &mut self.master_secp256k1_public_key,
-      true,
-    );
+    Self::text_group(ui, "Master Private Key", &mut self.master_secp256k1_private_key, true);
+    Self::text_group(ui, "Master Public Key", &mut self.master_secp256k1_public_key, true);
 
     ui.add_space(GUI_MARGIN);
 
     ui.heading("Ed25519");
-    Self::text_group(
-      ui,
-      "Master Private Key",
-      &mut self.master_ed25519_private_key,
-      true,
-    );
-    Self::text_group(
-      ui,
-      "Master Public Key",
-      &mut self.master_ed25519_public_key,
-      true,
-    );
+    Self::text_group(ui, "Master Private Key", &mut self.master_ed25519_private_key, true);
+    Self::text_group(ui, "Master Public Key", &mut self.master_ed25519_public_key, true);
   }
 
   fn ui_monero_keys(
     &mut self,
     ui: &mut egui::Ui,
   ) {
-    Self::text_group(
-      ui,
-      "Monero 25 mnemonic words\nm/44'/128'/0'",
-      &mut self.monero_mnemonic_words,
-      true,
-    );
+    Self::text_group(ui, "Monero 25 mnemonic words\nm/44'/128'/0'", &mut self.monero_mnemonic_words, true);
   }
 
   fn text_group(
@@ -1780,13 +1558,9 @@ impl ShowSecretsDialog {
 
       ui.vertical_centered(|ui| {
         if multiline {
-          ui.add(
-            egui::TextEdit::multiline(&mut value.as_str()).desired_width(ui.available_width()),
-          );
+          ui.add(egui::TextEdit::multiline(&mut value.as_str()).desired_width(ui.available_width()));
         } else {
-          ui.add(
-            egui::TextEdit::singleline(&mut value.as_str()).desired_width(ui.available_width()),
-          );
+          ui.add(egui::TextEdit::singleline(&mut value.as_str()).desired_width(ui.available_width()));
         }
 
         if ui.button("📋").on_hover_text("Copy to clipboard").clicked() {
@@ -1902,12 +1676,9 @@ impl ShowAnuDialog {
 
     let mut open = self.open;
 
-    egui::Window::new("Create QRNG entropy")
-      .open(&mut open)
-      .resizable(true)
-      .show(ctx, |ui| {
-        let _ = self.ui_content(ui);
-      });
+    egui::Window::new("Create QRNG entropy").open(&mut open).resizable(true).show(ctx, |ui| {
+      let _ = self.ui_content(ui);
+    });
 
     if !open {
       self.close_and_clear();
@@ -1938,11 +1709,9 @@ impl ShowAnuDialog {
     egui::ScrollArea::vertical()
       .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .show(ui, |ui| {
-        ui.with_layout(Layout::top_down(Align::Center), |ui| {
-          match self.selected_tab {
-            AnuTab::Anu => self.ui_anu(ui),
-            AnuTab::Settings => self.ui_settings(ui),
-          }
+        ui.with_layout(Layout::top_down(Align::Center), |ui| match self.selected_tab {
+          AnuTab::Anu => self.ui_anu(ui),
+          AnuTab::Settings => self.ui_settings(ui),
         });
       });
 
@@ -1961,10 +1730,7 @@ impl ShowAnuDialog {
 
     ui.add_space(GUI_MARGIN);
 
-    if self.show_randomize
-      && !self.randomized_entropy.is_empty()
-      && ui.button("Randomize").clicked()
-    {
+    if self.show_randomize && !self.randomized_entropy.is_empty() && ui.button("Randomize").clicked() {
       self.randomize_entropy();
     }
 
@@ -1998,8 +1764,7 @@ impl ShowAnuDialog {
     if self.cooldown_secs > 0 {
       ui.label("One request every 2 minutes");
 
-      ui.ctx()
-        .request_repaint_after(std::time::Duration::from_millis(1000));
+      ui.ctx().request_repaint_after(std::time::Duration::from_millis(1000));
 
       generate_button = generate_button.sense(egui::Sense::hover());
     }
@@ -2007,10 +1772,7 @@ impl ShowAnuDialog {
     let resp = ui.add(generate_button);
 
     if self.cooldown_secs > 0 {
-      resp.on_hover_text(format!(
-        "ANU QRNG API allows only 1 request per {} seconds.",
-        ANU_COOLDOWN
-      ));
+      resp.on_hover_text(format!("ANU QRNG API allows only 1 request per {} seconds.", ANU_COOLDOWN));
     } else if resp.clicked() {
       self.show_randomize = true;
 
@@ -2036,14 +1798,7 @@ impl ShowAnuDialog {
         egui::Color32::PLACEHOLDER
       };
 
-      job.append(
-        &format!("{} ", val),
-        0.0,
-        egui::TextFormat {
-          color,
-          ..Default::default()
-        },
-      );
+      job.append(&format!("{} ", val), 0.0, egui::TextFormat { color, ..Default::default() });
     }
 
     ui.label(job);
@@ -2089,16 +1844,8 @@ impl ShowAnuDialog {
       egui::ComboBox::from_label("Entropy extraction mode")
         .selected_text(format!("{:?}", *self.entropy_mode))
         .show_ui(ui, |ui| {
-          ui.selectable_value(
-            &mut *self.entropy_mode,
-            EntropyMode::RandomValues,
-            "Random values",
-          );
-          ui.selectable_value(
-            &mut *self.entropy_mode,
-            EntropyMode::SequentialSlice,
-            "Sequential slice",
-          );
+          ui.selectable_value(&mut *self.entropy_mode, EntropyMode::RandomValues, "Random values");
+          ui.selectable_value(&mut *self.entropy_mode, EntropyMode::SequentialSlice, "Sequential slice");
         });
 
       ui.add_space(GUI_MARGIN);
@@ -2117,10 +1864,7 @@ impl ShowAnuDialog {
       AnuDataTypes::Hex16 => "hex16",
     };
 
-    let url = format!(
-      "https://qrng.anu.edu.au/API/jsonI.php?length={}&type={}&size={}",
-      length, data_type, size
-    );
+    let url = format!("https://qrng.anu.edu.au/API/jsonI.php?length={}&type={}&size={}", length, data_type, size);
 
     let result = ureq::get(&url).call();
 
@@ -2189,9 +1933,7 @@ impl ShowAnuDialog {
           }
           Err(_) => self.fetched_json = Zeroizing::new(text),
         },
-        Err(err) => {
-          self.fetched_json = Zeroizing::new(format!("Error reading response body: {}", err))
-        }
+        Err(err) => self.fetched_json = Zeroizing::new(format!("Error reading response body: {}", err)),
       },
       Err(err) => self.fetched_json = Zeroizing::new(format!("HTTP error: {}", err)),
     };
@@ -2302,10 +2044,7 @@ impl ShowAnuDialog {
         return;
       }
 
-      let entropy = collected_bits
-        .chars()
-        .take(*self.entropy_length)
-        .collect::<String>();
+      let entropy = collected_bits.chars().take(*self.entropy_length).collect::<String>();
       self.randomized_entropy = Zeroizing::new(entropy);
       return;
     }

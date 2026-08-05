@@ -30,7 +30,7 @@ enum HelpSection {
   #[default]
   Overview,
   KeyGeneration,
-  ANU,
+  Anu,
   StatusBar,
   WalletFile,
   SupportedCoins,
@@ -42,7 +42,7 @@ impl HelpSection {
     match self {
       HelpSection::Overview => "Overview",
       HelpSection::KeyGeneration => "Key Generation",
-      HelpSection::ANU => "ANU QRNG",
+      HelpSection::Anu => "ANU QRNG",
       HelpSection::StatusBar => "Status Bar",
       HelpSection::WalletFile => "Wallet File",
       HelpSection::SupportedCoins => "Supported Coins",
@@ -54,7 +54,7 @@ impl HelpSection {
     match self {
       HelpSection::Overview => "overview.md",
       HelpSection::KeyGeneration => "key_generation.md",
-      HelpSection::ANU => "anu.md",
+      HelpSection::Anu => "anu.md",
       HelpSection::StatusBar => "status_bar.md",
       HelpSection::WalletFile => "wallet_file.md",
       HelpSection::SupportedCoins => "supported_coins.md",
@@ -105,11 +105,9 @@ impl HelpWindow {
     &mut self,
     ui: &mut Ui,
   ) {
-    egui::Panel::left("help_sidebar")
-      .resizable(true)
-      .show_inside(ui, |ui| {
-        self.sidebar(ui);
-      });
+    egui::Panel::left("help_sidebar").resizable(true).show_inside(ui, |ui| {
+      self.sidebar(ui);
+    });
 
     egui::CentralPanel::default().show_inside(ui, |ui| {
       self.render_section(ui);
@@ -126,7 +124,7 @@ impl HelpWindow {
     let sections = [
       HelpSection::Overview,
       HelpSection::KeyGeneration,
-      HelpSection::ANU,
+      HelpSection::Anu,
       HelpSection::StatusBar,
       HelpSection::WalletFile,
       HelpSection::SupportedCoins,
@@ -157,10 +155,7 @@ impl HelpWindow {
             CommonMarkViewer::new().show(ui, &mut self.markdown_cache, &content);
           }
           Err(e) => {
-            ui.colored_label(
-              egui::Color32::RED,
-              format!("Could not load {}: {}", doc_path, e),
-            );
+            ui.colored_label(egui::Color32::RED, format!("Could not load {}: {}", doc_path, e));
           }
         }
       });
