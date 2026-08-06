@@ -62,7 +62,12 @@ impl KdfParams {
           return Err(AppError::log("PBKDF2 param length must be 4"));
         }
 
-        let rounds = u32::from_le_bytes(data[..4].try_into().unwrap());
+        let rounds = match data[..4].try_into() {
+          Ok(bytes) => u32::from_le_bytes(bytes),
+          Err(err) => {
+            return Err(AppError::log(format!("Failed to parse rounds from data: {:?}", err)));
+          }
+        };
         Ok(KdfParams::Pbkdf2 { rounds })
       }
 
@@ -563,7 +568,7 @@ impl eframe::App for SaveWalletDialog {
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("Save Wallet");
       self.show(ui.ctx());
     });
@@ -779,7 +784,7 @@ impl eframe::App for OpenWalletDialog {
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("Open Wallet");
       self.show(ui.ctx());
     });
@@ -965,7 +970,14 @@ pub fn decrypt_wallet(
   if file.len() < offset + 4 {
     return Err(AppError::log("Truncated KDF parameter length"));
   }
-  let kdf_param_len = u32::from_le_bytes(file[offset..offset + 4].try_into().unwrap()) as usize;
+
+  let kdf_param_len = match file[offset..offset + 4].try_into() {
+    Ok(bytes) => u32::from_le_bytes(bytes) as usize,
+    Err(err) => {
+      return Err(AppError::log(format!("Failed to parse KDF parameter length: {:?}", err)));
+    }
+  };
+
   offset += 4;
 
   if file.len() < offset + kdf_param_len {
@@ -984,7 +996,14 @@ pub fn decrypt_wallet(
       if file.len() < offset + 4 {
         return Err(AppError::log("Missing salt length"));
       }
-      let salt_len = u32::from_le_bytes(file[offset..offset + 4].try_into().unwrap()) as usize;
+
+      let salt_len = match file[offset..offset + 4].try_into() {
+        Ok(bytes) => u32::from_le_bytes(bytes) as usize,
+        Err(err) => {
+          return Err(AppError::log(format!("Failed to parse salt length: {:?}", err)));
+        }
+      };
+
       offset += 4;
 
       if file.len() < offset + salt_len {
@@ -996,7 +1015,14 @@ pub fn decrypt_wallet(
       if file.len() < offset + 4 {
         return Err(AppError::log("Missing payload length"));
       }
-      let payload_len = u32::from_le_bytes(file[offset..offset + 4].try_into().unwrap()) as usize;
+
+      let payload_len = match file[offset..offset + 4].try_into() {
+        Ok(bytes) => u32::from_le_bytes(bytes) as usize,
+        Err(err) => {
+          return Err(AppError::log(format!("Failed to parse payload length: {:?}", err)));
+        }
+      };
+
       let payload_len_offset = offset;
       offset += 4;
 
@@ -1076,7 +1102,13 @@ fn create_svg(
 
 pub fn load_svg(path: &str) -> FunctionOutput<Vec<u8>> {
   let mut content = String::new();
-  let parser = svg::open(path, &mut content).map_err(|e| format!("Failed to open SVG: {}", e)).unwrap();
+
+  let parser = match svg::open(path, &mut content) {
+    Ok(p) => p,
+    Err(e) => {
+      return Err(AppError::log(format!("Failed to open SVG: {}", e)));
+    }
+  };
 
   let mut secret_bytes = Vec::new();
 
@@ -1577,7 +1609,7 @@ impl eframe::App for ShowSecretsDialog {
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("Wallet secrets");
       self.show(ui.ctx());
     });
@@ -2094,7 +2126,7 @@ impl eframe::App for ShowAnuDialog {
   ) {
     self.update_cooldown(ui.ctx());
 
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("ANU QRNG");
       self.show(ui.ctx());
     });

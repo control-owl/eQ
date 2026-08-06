@@ -2,8 +2,22 @@
 - new coin: Monero (XMR)
 - new coin: NEM (XEM)
 - new coin: Zilliqa (ZIL)
-    - Legacy address zil1... supported
+    - Legacy address zil... supported
     - New V2 address 0x... supported
+- cargo update:
+    - egui (0.34.3 -> 0.36.0)
+    - eframe (0.34.3 -> 0.36.0)
+    - egui_extras (0.34.3 -> 0.36.0)
+    - egui_commonmark (0.23.0 -> 0.25.0)
+    - sysinfo (0.29.3 -> 0.39.6)
+    - ed25519-dalek (2.2.0 -> 3.0.0)
+    - curve25519-dalek (4.1.3 -> 5.0.0)
+    - num-bigint (0.4.6 -> 0.5.1)
+    - base64 (0.22.1 -> 0.23.1)
+    - serde (1.0.228 -> 1.0.229)
+    - serde_json (1.0.150 -> 1.0.151)
+    - egui_keyboard (0.6.0 -> 0.7.0)
+
 
 ---
 

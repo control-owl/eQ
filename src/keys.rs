@@ -230,7 +230,18 @@ pub fn generate_mnemonic_words(
       .collect(),
   );
 
-  let mnemonic_decimal: Zeroizing<Vec<u32>> = Zeroizing::new(chunks.iter().map(|chunk| u32::from_str_radix(chunk, 2).unwrap()).collect());
+  let mnemonic_decimal: Zeroizing<Vec<u32>> = {
+    let mut decoded = Vec::new();
+    for chunk in chunks.iter() {
+      match u32::from_str_radix(chunk, 2) {
+        Ok(num) => decoded.push(num),
+        Err(err) => {
+          return Err(AppError::log(format!("Failed to parse binary chunk '{}': {:?}", chunk, err)));
+        }
+      }
+    }
+    Zeroizing::new(decoded)
+  };
 
   let dictionary_file = dictionary.filename();
 
@@ -887,7 +898,15 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
 
     // NEM
     43 => {
-      let pubkey_array: Zeroizing<[u8; 32]> = Zeroizing::new(child_public_key_bytes.as_slice().try_into().unwrap());
+      let pubkey_array: Zeroizing<[u8; 32]> = {
+        match child_public_key_bytes.as_slice().try_into() {
+          Ok(array) => Zeroizing::new(array),
+          Err(err) => {
+            return Err(AppError::log(format!("Failed to convert public key bytes to [u8; 32]: {:?}", err)));
+          }
+        }
+      };
+
       let address = generate_nem_address(pubkey_array, pub_key_hash)?;
       (
         address,
@@ -912,16 +931,36 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
 
       let monero_view_priv: Zeroizing<[u8; 32]> =
         Zeroizing::new(Scalar::from_bytes_mod_order(*cn_fast_hash(&Zeroizing::new(monero_spend_priv.to_vec()))?).to_bytes());
-      let spend_pub: Zeroizing<[u8; 32]> = monero_pubkey(monero_spend_priv.clone())?;
-      let view_pub: Zeroizing<[u8; 32]> = monero_pubkey(monero_view_priv.clone())?;
-      let address: Zeroizing<String> = generate_monero_address(spend_pub.clone(), view_pub.clone())?;
 
-      let public_key_str: Zeroizing<String> = Zeroizing::new(format!("spend: {}\nview: {}", hex::encode(spend_pub), hex::encode(view_pub)));
-      let private_key_str: Zeroizing<String> = Zeroizing::new(format!(
-        "spend: {}\nview: {}",
-        hex::encode(monero_spend_priv),
-        hex::encode(monero_view_priv)
-      ));
+      let address_index: Zeroizing<u32> = wallet.address_components.derivation_path.address.clone();
+
+      let (address, public_key_str, private_key_str) = if *address_index == 0 {
+        let spend_pub: Zeroizing<[u8; 32]> = monero_pubkey(monero_spend_priv.clone())?;
+        let view_pub: Zeroizing<[u8; 32]> = monero_pubkey(monero_view_priv.clone())?;
+        let address: Zeroizing<String> = generate_monero_address(spend_pub.clone(), view_pub.clone())?;
+
+        let public_key_str: Zeroizing<String> = Zeroizing::new(format!("spend: {}\nview: {}", hex::encode(spend_pub), hex::encode(view_pub)));
+
+        let private_key_str: Zeroizing<String> = Zeroizing::new(format!(
+          "spend: {}\nview: {}",
+          hex::encode(monero_spend_priv),
+          hex::encode(monero_view_priv)
+        ));
+
+        (address, public_key_str, private_key_str)
+      } else {
+        let (sub_spend_priv, sub_view_priv, sub_spend_pub, sub_view_pub) =
+          monero_subaddress_keys(monero_spend_priv, monero_view_priv, Zeroizing::new(0), address_index)?;
+
+        let address: Zeroizing<String> = generate_monero_subaddress(sub_spend_pub.clone(), sub_view_pub.clone())?;
+
+        let public_key_str: Zeroizing<String> = Zeroizing::new(format!("spend: {}\nview: {}", hex::encode(sub_spend_pub), hex::encode(sub_view_pub)));
+
+        let private_key_str: Zeroizing<String> =
+          Zeroizing::new(format!("spend: {}\nview: {}", hex::encode(sub_spend_priv), hex::encode(sub_view_priv)));
+
+        (address, public_key_str, private_key_str)
+      };
 
       (address, public_key_str, private_key_str)
     }
@@ -1868,71 +1907,65 @@ pub fn generate_monero_address(
   Ok(address)
 }
 
-// pub fn monero_from_bip39_slip0010(bip39_seed: &[u8]) -> (String, [u8; 32], [u8; 32], [u8; 32], [u8; 32]) {
-//   let spend_priv = monero_slip0010_spend_key(bip39_seed);
-//   let view_priv = Scalar::from_bytes_mod_order(cn_fast_hash(&spend_priv)).to_bytes();
-//
-//   let spend_pub = monero_pubkey(&spend_priv);
-//   let view_pub = monero_pubkey(&view_priv);
-//
-//   let address = generate_monero_address(&spend_pub, &view_pub);
-//
-//   (address, spend_priv, view_priv, spend_pub, view_pub)
-// }
+pub fn monero_subaddress_keys(
+  spend_priv: Zeroizing<[u8; 32]>,
+  view_priv: Zeroizing<[u8; 32]>,
+  major: Zeroizing<u32>,
+  minor: Zeroizing<u32>,
+) -> FunctionOutput<(Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>)> {
+  let mut data = Zeroizing::new(Vec::with_capacity(8 + 32 + 4 + 4));
+  data.extend_from_slice(b"SubAddr\0");
+  data.extend_from_slice(&*view_priv);
+  data.extend_from_slice(&major.to_le_bytes());
+  data.extend_from_slice(&minor.to_le_bytes());
 
-// fn slip10_master(seed: &[u8]) -> (Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>) {
-//   let key = hmac::Key::new(hmac::HMAC_SHA512, b"ed25519 seed");
-//   let tag = hmac::sign(&key, seed);
-//   let result = tag.as_ref();
-//
-//   let mut priv_key = Zeroizing::new([0u8; 32]);
-//   let mut chain = Zeroizing::new([0u8; 32]);
-//
-//   priv_key.copy_from_slice(&result[..32]);
-//   chain.copy_from_slice(&result[32..]);
-//
-//   (priv_key, chain)
-// }
-//
-// fn slip10_child(
-//   parent_priv: &[u8; 32],
-//   parent_chain: &[u8; 32],
-//   index: u32,
-// ) -> (Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>) {
-//   debug_assert!(index >= 0x8000_0000);
-//
-//   let mut data = [0u8; 37];
-//   data[0] = 0x00;
-//   data[1..33].copy_from_slice(parent_priv);
-//   data[33..37].copy_from_slice(&index.to_be_bytes());
-//
-//   let key = hmac::Key::new(hmac::HMAC_SHA512, parent_chain);
-//   let tag = hmac::sign(&key, &data);
-//   let result = tag.as_ref();
-//
-//   let mut child_priv = Zeroizing::new([0u8; 32]);
-//   let mut child_chain = Zeroizing::new([0u8; 32]);
-//   child_priv.copy_from_slice(&result[..32]);
-//   child_chain.copy_from_slice(&result[32..]);
-//   (child_priv, child_chain)
-// }
-//
-// pub fn monero_slip0010_spend_key(bip39_seed: &[u8]) -> [u8; 32] {
-//   let (mut priv_key, mut chain) = slip10_master(bip39_seed);
-//
-//   // m/44'
-//   let (p, c) = slip10_child(&priv_key, &chain, 44 | 0x8000_0000);
-//   priv_key = p;
-//   chain = c;
-//
-//   // m/44'/128'
-//   let (p, c) = slip10_child(&priv_key, &chain, 128 | 0x8000_0000);
-//   priv_key = p;
-//   chain = c;
-//
-//   // m/44'/128'/0'
-//   let (p, _) = slip10_child(&priv_key, &chain, 0 | 0x8000_0000);
-//   priv_key = p;
-//
-//   Scalar::from_bytes_mod_order(*priv_key).to_bytes()
-// }
+  let m_hash: Zeroizing<[u8; 32]> = cn_fast_hash(&data)?;
+  let m: Zeroizing<Scalar> = Zeroizing::new(Scalar::from_bytes_mod_order(*m_hash));
+
+  let spend_scalar: Zeroizing<Scalar> = Zeroizing::new(Scalar::from_bytes_mod_order(*spend_priv));
+  let view_scalar: Zeroizing<Scalar> = Zeroizing::new(Scalar::from_bytes_mod_order(*view_priv));
+  let spend_pub: Zeroizing<[u8; 32]> = monero_pubkey(spend_priv.clone())?;
+
+  let d_point: Zeroizing<EdwardsPoint> = {
+    let decompressed = match curve25519_dalek::edwards::CompressedEdwardsY(*spend_pub).decompress() {
+      Some(point) => point,
+      None => {
+        return Err(AppError::log(format!("Failed to decompress Edwards point from spend_pub")));
+      }
+    };
+    Zeroizing::new(ED25519_BASEPOINT_POINT * *m + decompressed)
+  };
+
+  let d: Zeroizing<[u8; 32]> = Zeroizing::new(d_point.compress().to_bytes());
+
+  let c_point: Zeroizing<EdwardsPoint> = Zeroizing::new(*d_point * *view_scalar);
+  let c: Zeroizing<[u8; 32]> = Zeroizing::new(c_point.compress().to_bytes());
+
+  let sub_spend_priv: Zeroizing<[u8; 32]> = Zeroizing::new((*spend_scalar + *m).to_bytes());
+  let sub_view_priv: Zeroizing<[u8; 32]> = view_priv;
+
+  Ok((sub_spend_priv, sub_view_priv, d, c))
+}
+
+pub fn generate_monero_subaddress(
+  spend_pub: Zeroizing<[u8; 32]>,
+  view_pub: Zeroizing<[u8; 32]>,
+) -> FunctionOutput<Zeroizing<String>> {
+  let mut data: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(69));
+  data.push(0x2A);
+
+  data.extend_from_slice(&*spend_pub);
+  data.extend_from_slice(&*view_pub);
+
+  let checksum: Zeroizing<[u8; 32]> = cn_fast_hash(&data)?;
+  data.extend_from_slice(&checksum[..4]);
+
+  let address: Zeroizing<String> = match base58_monero::encode(&data) {
+    Ok(addr) => Zeroizing::new(addr),
+    Err(err) => {
+      return Err(AppError::log(format!("Problem with Monero base58 encoding: {:?}", err)));
+    }
+  };
+
+  Ok(address)
+}

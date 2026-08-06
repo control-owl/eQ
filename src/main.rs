@@ -880,8 +880,7 @@ impl EgoQuantum {
       .min_scrolled_height(0.0)
       .auto_shrink([false, false])
       .max_scroll_height(available_height)
-      .animate_scrolling(true)
-      .drag_to_scroll(true);
+      .animate_scrolling(true);
 
     // Index
     #[cfg(feature = "dev")]
@@ -1498,7 +1497,7 @@ impl eframe::App for EgoQuantum {
 
     self.gui.maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
 
-    egui::Panel::top("header").show_inside(ui, |ui| {
+    egui::Panel::top("header").show(ui, |ui| {
       ui.add_space(GUI_MARGIN);
       self.render_wallet_header(ui);
       ui.add_space(GUI_MARGIN);
@@ -1507,14 +1506,14 @@ impl eframe::App for EgoQuantum {
     egui::Panel::bottom("footer")
       .exact_size(21.0)
       .frame(egui::Frame::new().fill(STATUS_BAR_BACKGROUND_COLOR).inner_margin(2.0).outer_margin(0.0))
-      .show_inside(ui, |ui| {
+      .show(ui, |ui| {
         let _ = self.render_wallet_footer(ui);
       });
 
     let has_addresses = !self.wallet.addresses_by_coin.0.is_empty();
 
     if has_addresses {
-      egui::CentralPanel::default().show_inside(ui, |ui| {
+      egui::CentralPanel::default().show(ui, |ui| {
         egui::ScrollArea::horizontal()
           .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
           .show(ui, |ui| {
@@ -1522,7 +1521,7 @@ impl eframe::App for EgoQuantum {
           });
       });
     } else {
-      egui::CentralPanel::default().show_inside(ui, |ui| {
+      egui::CentralPanel::default().show(ui, |ui| {
         ui.vertical_centered(|ui| {
           ui.vertical_centered(|ui| {
             ui.add_space(GUI_MARGIN);
@@ -1679,16 +1678,17 @@ fn main() -> FunctionOutput<()> {
     ..Default::default()
   };
 
-  eframe::run_native(
+  if let Err(err) = eframe::run_native(
     &app_title,
     options,
     Box::new(|cc| {
       egui_extras::install_image_loaders(&cc.egui_ctx);
-
       Ok(Box::new(EgoQuantum::new()))
     }),
-  )
-  .unwrap();
+  ) {
+    eprintln!("Failed to run native application: {:?}", err);
+    std::process::exit(1);
+  }
 
   Ok(())
 }
@@ -1886,7 +1886,7 @@ impl eframe::App for ShowAboutWindow {
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("About");
       self.show(ui.ctx());
     });
@@ -1998,7 +1998,7 @@ impl eframe::App for ShowCustomMnemonicWindow {
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("Mnemonic Passphrase");
       self.show(ui.ctx());
     });

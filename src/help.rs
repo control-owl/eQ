@@ -105,11 +105,11 @@ impl HelpWindow {
     &mut self,
     ui: &mut Ui,
   ) {
-    egui::Panel::left("help_sidebar").resizable(true).show_inside(ui, |ui| {
+    egui::Panel::left("help_sidebar").resizable(true).show(ui, |ui| {
       self.sidebar(ui);
     });
 
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       self.render_section(ui);
     });
   }
@@ -168,7 +168,7 @@ impl eframe::App for HelpWindow {
     ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
   ) {
-    egui::CentralPanel::default().show_inside(ui, |ui| {
+    egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("Help");
       self.show(ui.ctx());
     });

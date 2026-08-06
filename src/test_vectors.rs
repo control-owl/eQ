@@ -823,6 +823,7 @@ mod tests {
     );
   }
 
+  // TODO: Recreate Monero testing vectors
   //   #[test]
   //   fn test_monero_derivation_slip0010() {
   //     let mut wallet = CryptoWallet::new();
