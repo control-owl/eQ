@@ -629,6 +629,29 @@ mod tests {
         wallet_import_format: "",
         hash: "keccak256",
       },
+      _AddressTestVector {
+        seed: "35c162ae06976248d83fbb82c9c898153a9627490a2d2ccc6230a6e6f43a41fb7326ddf6a244ea7c3c31ccff1a82dd8145744f32040833d3c99a088000ed70b5",
+        derivation_path: DerivationPathData {
+          purpose: Zeroizing::new(86),
+          purpose_hardened: Zeroizing::new(true),
+          coin: Zeroizing::new(2),
+          coin_hardened: Zeroizing::new(true),
+          account: Zeroizing::new(0),
+          account_hardened: Zeroizing::new(true),
+          change: Zeroizing::new(0),
+          change_hardened: Zeroizing::new(false),
+          address: Zeroizing::new(0),
+          address_hardened: Zeroizing::new(false),
+          last_index: Zeroizing::new(0),
+        },
+        coin_name: "Litecoin",
+        expected_address: "ltc1ppfrf2gxdjhnqscxsl3mc6a5wppjavk3yrtxrt6uenw8pqyw9r2tsmq3wt0",
+        expected_public_key: "03eada4d5ee9c7881106c24950e894c3861f2656f0964526be1196c68621d66c26",
+        expected_private_key: "T6k3AKgtmo6DkpJnW2izoEsEXP5c6LDgwd9hj2UBHTqig7npNvXH",
+        public_key_hash: "0x30",
+        wallet_import_format: "0xb0",
+        hash: "sha256",
+      },
     ];
 
     for vector in test_vectors {
@@ -962,6 +985,24 @@ mod tests {
 
       assert_eq!(vector.monero_mnemonic, *monero_words);
     }
+  }
+
+  #[test]
+  fn test_nano_public_key() {
+    // Official example from Nano docs
+    let private_key = "781186FB9EF17DB6E3D1056550D9FAE5D5BBADA6A6BC370E4CBB938B1DC71DA3";
+    let expected_public_key = "3068BB1CA04525BB0E416C485FE6A67FD52540227D267CC8B6E8DA958A7FA039";
+    let expected_address = "nano_1e5aqegc1jb7qe964u4adzmcezyo6o146zb8hm6dft8tkp79za3sxwjym5rx";
+
+    let mut priv_bytes = [0u8; 32];
+    priv_bytes.copy_from_slice(&hex::decode(private_key).unwrap());
+    let private_key: Zeroizing<[u8; 32]> = Zeroizing::new(priv_bytes);
+
+    let pub_key: Zeroizing<[u8; 32]> = crate::keys::generate_nano_public_key(&private_key).unwrap();
+    assert_eq!(hex::encode_upper(pub_key.as_ref()), expected_public_key);
+
+    let address: Zeroizing<String> = crate::keys::generate_nano_address(&Zeroizing::new(pub_key.to_vec())).unwrap();
+    assert_eq!(*address, expected_address);
   }
 }
 

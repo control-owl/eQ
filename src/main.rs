@@ -257,6 +257,7 @@ struct ExtraWalletData {
 
   bitcoin_legacy_addresses: bool,
   zilliqa_legacy_addresses: bool,
+  litecoin_legacy_addresses: bool,
 
   active_bip: u32,
   address_count: u32,
@@ -272,6 +273,7 @@ impl ExtraWalletData {
 
       bitcoin_legacy_addresses: false,
       zilliqa_legacy_addresses: false,
+      litecoin_legacy_addresses: false,
 
       active_bip: 44,
       address_count: 10,
@@ -800,6 +802,29 @@ impl EgoQuantum {
           bitcoin_legacy_resp.on_hover_text(bitcoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
         });
 
+        ui.menu_button("Litecoin", |ui| {
+          let litecoin_legacy_description = [
+            "When enabled:",
+            "Generate Legacy address",
+            "Legacy address (P2PKH) - Start with 'L...'",
+            "\n",
+            "When disabled:",
+            "Generates Taproot addresses",
+            "Taproot address (P2TR) - Start with 'ltc1p...'",
+          ];
+
+          let litecoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.litecoin_legacy_addresses, "Generate legacy addresses"));
+
+          // JUMP: LEGACY CHANGE
+          if litecoin_legacy_resp.changed() && has_addresses {
+            self.wallet.addresses_by_coin.0.clear();
+            let _ = self.generate_addresses_for_all_coins();
+          }
+
+
+          litecoin_legacy_resp.on_hover_text(litecoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
+        });
+
         ui.menu_button("Zilliqa", |ui| {
           let zilliqa_legacy_description = [
             "When enabled:",
@@ -868,7 +893,7 @@ impl EgoQuantum {
   ) {
     let available_height = ui.available_height();
     let font = egui::FontId::monospace(12.0);
-    let row_height = font.size + GUI_MARGIN;
+    let row_height = font.size + (2.0 * GUI_MARGIN);
 
     let filter_lower = self.gui.coin_filter.trim().to_ascii_lowercase();
 
@@ -969,26 +994,20 @@ impl EgoQuantum {
                       .corner_radius(10),
                   );
                 }
-
-                // match e_q::get_file_from_resources(icon_path_str) {
-                //   Ok(file) => {
-                //     ui.add(
-                //       egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
-                //         .fit_to_exact_size(egui::vec2(24.0, 24.0))
-                //         .corner_radius(10),
-                //     );
-                //   }
-                //   Err(_) => {}
-                // }
               });
 
               // Coin
               row.col(|ui| {
-                let collapsing_resp = egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
-                  .id_salt(format!("coin_group:{}", coin))
-                  .default_open(false)
-                  .show(ui, |_ui| {});
-                group_expanded = collapsing_resp.body_returned.is_some();
+                ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                  ui.add_space(row_height / 4.0);
+                  let collapsing_resp = egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
+                    .id_salt(format!("coin_group:{}", coin))
+                    .show_background(true)
+                    .default_open(false)
+                    .show(ui, |_ui| {});
+
+                  group_expanded = collapsing_resp.body_returned.is_some();
+                });
               });
 
               // Path

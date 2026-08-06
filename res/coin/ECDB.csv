@@ -163,7 +163,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,162,BCO,Bridgecoin,,,,,,,,,
 1,163,ELLA,Ellaism,secp256k1,keccak256,,,,,,TRUE,2122
 0,164,PIRL,Pirl,,,,,,,,,
-0,165,XNO,Nano,,,,,,,,,
+1,165,XNO,Nano,ed25519,blake2b,,,,,,,1567
 1,166,VIVO,Vivo,secp256k1,sha256,,,0x46,0x0a,0xc6,,1956
 1,167,FRST,Firstcoin,secp256k1,sha256,,,0x23,,0xa3,,1522
 1,168,HNC,Helleniccoin,secp256k1,sha256,,,0x30,,0xb0,,1004
@@ -1299,5 +1299,9 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1869902945,ATTO,Atto,,,,,,,,,
 2,0,BTC,Bitcoin,secp256k1,sha256,0x0488ADE4,0x0488B21E,0x00,0x05,0x80,,1
 2,2,LTC,Litecoin,secp256k1,sha256,0x019D9CFE,0x019DA462,0x30,0x32,0xb0,,2
-2,3,DOGE,Dogecoin,secp256k1,sha256,0x02FAC398,0x02FACAFD,0x1e,0x16,0x9e,,74
-2,4,RDD,Reddcoin,secp256k1,sha256,,,0x3d,,0xbd,,118
+2,21,OA,Open Assets,secp256k1,sha256,,,0x00,0x05,0x80,,
+2,43,XEM,NEM,ed25519,,,,0x68,,,,873
+2,60,ETH,Ethereum,secp256k1,keccak256,,,,,,,1027
+2,128,XMR,Monero,ed25519,keccak256,,,0x7F,0xC4,0x3F,,328
+2,165,XNO,Nano,ed25519,blake2b,,,,,,,1567
+2,501,SOL,Solana,ed25519,,,,,,,,5426

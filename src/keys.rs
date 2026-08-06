@@ -11,9 +11,12 @@ use base32::Alphabet;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use bech32::{Bech32, Hrp, encode, segwit};
+use blake2::{Blake2b512, Digest as BlakeDigest};
 use crc32fast::Hasher as Crc32;
 use curve25519_dalek::Scalar;
+use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint};
+use digest::consts::U5;
 use ed25519_dalek::SigningKey;
 use num_bigint::BigUint;
 use ring::hmac;
@@ -28,6 +31,7 @@ use zeroize::Zeroize;
 const WALLET_MAX_ADDRESSES: u32 = 2_147_483_647;
 const MNEMONIC_PASSPHRASE_LENGTH: u32 = 128;
 const MONERO_PREFIX_LEN: usize = 3;
+const NANO_ALPHABET: &[u8] = b"13456789abcdefghijkmnopqrstuwxyz";
 
 //                                    SEED
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -277,12 +281,14 @@ pub fn get_derivation_path(
 ) -> FunctionOutput<Zeroizing<String>> {
   let extra_hard = !matches!(curve, "secp256k1");
 
-  let path = wallet.address_components.derivation_path.clone();
+  let path: Zeroizing<crate::DerivationPathData> = wallet.address_components.derivation_path.clone();
 
-  let tap_bip = if *wallet.address_components.derivation_path.coin == 0 && !wallet.wallet_data.bitcoin_legacy_addresses {
-    Some(86)
-  } else {
-    None
+  let coin = *wallet.address_components.derivation_path.coin;
+
+  let tap_bip = match coin {
+    0 if !wallet.wallet_data.bitcoin_legacy_addresses => Some(86),
+    2 if !wallet.wallet_data.litecoin_legacy_addresses => Some(86),
+    _ => None,
   };
 
   let derivation_path: Zeroizing<String> = match *path.purpose {
@@ -604,7 +610,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
     // Bitcoin
     0 => {
       if !wallet.wallet_data.bitcoin_legacy_addresses {
-        return generate_bitcoin_taproot_address(wallet, &public_key, &derivation_path, private_key);
+        return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
@@ -615,7 +621,25 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
           }
         };
 
-        return generate_bitcoin_legacy_address(wallet, &public_key, &old_derivation_path, private_key);
+        return generate_legacy_address(wallet, &public_key, &old_derivation_path, private_key);
+      }
+    }
+
+    // Litecoin
+    2 => {
+      if !wallet.wallet_data.litecoin_legacy_addresses {
+        return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
+      } else {
+        wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
+
+        let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
+          Ok(path) => path,
+          Err(err) => {
+            return Err(AppError::log(format!("Can not parse derivation path: {:?}", err)));
+          }
+        };
+
+        return generate_legacy_address(wallet, &public_key, &old_derivation_path, private_key);
       }
     }
 
@@ -818,15 +842,18 @@ pub fn generate_ed25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<
   let mut master_key: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
   master_key.copy_from_slice(&private_key);
 
-  let mut child_priv32 = Zeroizing::new([0u8; 32]);
+  let mut child_priv32: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
   child_priv32.copy_from_slice(&private_key);
 
-  let child_pub_bytes = if *coin_index == 43 {
-    // NEM/NIS1
-    nem_pubkey_from_child_priv(child_priv32)?.to_vec()
-  } else {
+  let child_pub_bytes = match *coin_index {
+    // NEM (NIS1)
+    43 => nem_pubkey_from_child_priv(child_priv32)?.to_vec(),
+
+    // Nano (Blake2b)
+    165 => generate_nano_public_key(&child_priv32)?.to_vec(),
+
     // RFC8032
-    SigningKey::from_bytes(&child_priv32).verifying_key().to_bytes().to_vec()
+    _ => SigningKey::from_bytes(&child_priv32).verifying_key().to_bytes().to_vec(),
   };
 
   wallet.secret_keys.child_ed25519_keys.child_private_key_bytes = Zeroizing::new(private_key.to_vec());
@@ -886,16 +913,6 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
   };
 
   let (address, public_key, private_key) = match *coin_index {
-    // Solana
-    501 => {
-      let address = bs58::encode(child_public_key_bytes.clone()).into_string();
-      (
-        Zeroizing::new(address),
-        Zeroizing::new(hex::encode(&child_public_key_bytes)),
-        Zeroizing::new(hex::encode(&child_private_key_bytes)),
-      )
-    }
-
     // NEM
     43 => {
       let pubkey_array: Zeroizing<[u8; 32]> = {
@@ -963,6 +980,27 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
       };
 
       (address, public_key_str, private_key_str)
+    }
+
+    // Nano
+    165 => {
+      let address = generate_nano_address(&child_public_key_bytes)?;
+
+      (
+        address,
+        Zeroizing::new(hex::encode(child_public_key_bytes)),
+        Zeroizing::new(hex::encode(&child_private_key_bytes)),
+      )
+    }
+
+    // Solana
+    501 => {
+      let address = bs58::encode(child_public_key_bytes.clone()).into_string();
+      (
+        Zeroizing::new(address),
+        Zeroizing::new(hex::encode(&child_public_key_bytes)),
+        Zeroizing::new(hex::encode(&child_private_key_bytes)),
+      )
     }
 
     _ => {
@@ -1657,16 +1695,22 @@ fn generate_open_assets_address(
   Ok(())
 }
 
-//                            BITCOIN (BTC) - Taproot
+//                                   TAPROOT
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-fn encode_taproot_bech32m(tweaked_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<String>> {
-  let address = segwit::encode(
-    Hrp::parse("bc").map_err(|e| AppError::log(format!("HRP error: {:?}", e)))?,
-    segwit::VERSION_1,
-    &*tweaked_key,
-  )
-  .map_err(|e| AppError::log(format!("Bech32m encoding failed: {:?}", e)))?;
+fn encode_taproot_bech32m(
+  coin_name: &str,
+  tweaked_key: Zeroizing<[u8; 32]>,
+) -> FunctionOutput<Zeroizing<String>> {
+  let hrp_str = match coin_name {
+    "Bitcoin" => "bc",
+    "Litecoin" => "ltc",
+    _ => return Err(AppError::log(format!("Unsupported coin: {}", coin_name))),
+  };
+
+  let hrp = Hrp::parse(hrp_str).map_err(|e| AppError::log(format!("HRP error: {:?}", e)))?;
+
+  let address = segwit::encode(hrp, segwit::VERSION_1, &*tweaked_key).map_err(|e| AppError::log(format!("Bech32m encoding failed: {:?}", e)))?;
 
   Ok(Zeroizing::new(address))
 }
@@ -1701,7 +1745,7 @@ fn tweak_taproot_key(internal_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroiz
   Ok(serialized)
 }
 
-pub fn generate_bitcoin_legacy_address(
+pub fn generate_legacy_address(
   wallet: &mut CryptoWallet,
   public_key: &CryptoPublicKey,
   derivation_path: &Zeroizing<String>,
@@ -1748,7 +1792,7 @@ pub fn generate_bitcoin_legacy_address(
   Ok(())
 }
 
-pub fn generate_bitcoin_taproot_address(
+pub fn generate_taproot_address(
   wallet: &mut CryptoWallet,
   public_key: &CryptoPublicKey,
   derivation_path: &Zeroizing<String>,
@@ -1775,7 +1819,7 @@ pub fn generate_bitcoin_taproot_address(
     Zeroizing::new(<[u8; 32]>::try_from(&pubkey_bytes[1..33]).map_err(|_| AppError::log("Failed to extract x-only internal key"))?);
 
   let tweaked_key: Zeroizing<[u8; 32]> = tweak_taproot_key(internal_key)?;
-  let taproot_address: Zeroizing<String> = encode_taproot_bech32m(tweaked_key)?;
+  let taproot_address: Zeroizing<String> = encode_taproot_bech32m(&coin_name, tweaked_key)?;
 
   let priv_key_wif: Zeroizing<String> = encode_private_key(
     key_derivation.clone(),
@@ -1966,6 +2010,76 @@ pub fn generate_monero_subaddress(
       return Err(AppError::log(format!("Problem with Monero base58 encoding: {:?}", err)));
     }
   };
+
+  Ok(address)
+}
+
+//                                   NANO (XNO)
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn generate_nano_public_key(private_key: &Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<[u8; 32]>> {
+  let mut hasher = Blake2b512::new();
+  hasher.update(private_key.as_ref());
+  let hash = hasher.finalize();
+
+  let mut scalar_bytes: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+  scalar_bytes.copy_from_slice(&hash[..32]);
+
+  scalar_bytes[0] &= 248;
+  scalar_bytes[31] &= 63;
+  scalar_bytes[31] |= 64;
+
+  let scalar: Zeroizing<Scalar> = Zeroizing::new(Scalar::from_bytes_mod_order(*scalar_bytes));
+  let point: Zeroizing<EdwardsPoint> = Zeroizing::new(&*scalar * ED25519_BASEPOINT_TABLE);
+  let public_key: Zeroizing<[u8; 32]> = Zeroizing::new(point.compress().to_bytes());
+
+  Ok(public_key)
+}
+
+fn nano_base32_encode(data: &[u8]) -> FunctionOutput<String> {
+  let mut bits: Vec<bool> = Vec::with_capacity(data.len() * 8);
+
+  for &byte in data {
+    for i in (0..8).rev() {
+      bits.push((byte >> i) & 1 == 1);
+    }
+  }
+
+  if data.len() == 32 {
+    bits.splice(0..0, std::iter::repeat(false).take(4));
+  }
+
+  let mut result = String::with_capacity((bits.len() + 4) / 5);
+
+  for chunk in bits.chunks(5) {
+    let mut value = 0u8;
+    for (i, &bit) in chunk.iter().enumerate() {
+      if bit {
+        value |= 1 << (4 - i);
+      }
+    }
+    result.push(NANO_ALPHABET[value as usize] as char);
+  }
+
+  Ok(result)
+}
+
+pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
+  if public_key.len() != 32 {
+    return Err(AppError::log(format!("Nano public key must be 32 bytes, got {}", public_key.len())));
+  }
+
+  let mut hasher = blake2::Blake2b::<U5>::new();
+  hasher.update(public_key.as_slice());
+  let checksum = hasher.finalize();
+
+  let mut reversed_checksum: Zeroizing<Vec<u8>> = Zeroizing::new(checksum.to_vec());
+  reversed_checksum.reverse();
+
+  let encoded_pubkey: Zeroizing<String> = Zeroizing::new(nano_base32_encode(public_key.as_slice())?);
+  let encoded_checksum: Zeroizing<String> = Zeroizing::new(nano_base32_encode(&reversed_checksum)?);
+
+  let address: Zeroizing<String> = Zeroizing::new(format!("nano_{}{}", *encoded_pubkey, *encoded_checksum));
 
   Ok(address)
 }

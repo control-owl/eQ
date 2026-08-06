@@ -373,7 +373,6 @@ impl SaveWalletDialog {
           ui.group(|ui| {
             ui.label("Wallet name");
             ui.add(egui::TextEdit::singleline(&mut self.wallet_name).desired_width(ui.available_width()));
-            // ui.text_edit_singleline(&mut self.wallet_name);
 
             #[cfg(feature = "osk")]
             self.keyboard.0.show(ui.ctx());
