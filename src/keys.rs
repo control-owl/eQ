@@ -296,7 +296,7 @@ pub fn get_derivation_path(
     "ed25519" => {
       match *path.purpose {
         32 => {
-          // m / account' / change' / address'
+          // m / account' / change' / address{'}
           Zeroizing::new(format!("m/{}'/{}'/{}'", *path.account, *path.change, *path.address,))
         }
 
@@ -316,7 +316,7 @@ pub fn get_derivation_path(
     }
 
     "bip32-ed25519" => {
-      // m / 1852' / 1815' / account' / role / address
+      // m / 1852' / 1815' / account' / role / address{'}
       Zeroizing::new(format!(
         "m/{}'/{}'/{}'/{}/{}{}",
         *path.coin,
@@ -331,7 +331,7 @@ pub fn get_derivation_path(
     "secp256k1" | _ => {
       match *path.purpose {
         32 => {
-          // m / account / change / address
+          // m / account / change / address{'}
           Zeroizing::new(format!(
             "m/{}'/{}'/{}{}",
             *path.account,
@@ -342,7 +342,7 @@ pub fn get_derivation_path(
         }
 
         44 | _ => {
-          // m / purpose' / coin' / account' / change / address
+          // m / purpose' / coin' / account' / change / address{'}
           Zeroizing::new(format!(
             "m/{}'/{}'/{}'/{}/{}{}",
             tap_bip.unwrap_or(*path.purpose),
@@ -356,55 +356,7 @@ pub fn get_derivation_path(
       }
     }
   };
-
-  //   let derivation_path: Zeroizing<String> = match *path.purpose {
-  //     32 => Zeroizing::new(format!(
-  //       "m/{}{}/{}{}/{}{}",
-  //       *path.account,
-  //       if *path.account_hardened || extra_hard { "'" } else { "" },
-  //       *path.change,
-  //       if *path.change_hardened || extra_hard { "'" } else { "" },
-  //       *path.address,
-  //       if *path.address_hardened || extra_hard { "'" } else { "" },
-  //     )),
-  //
-  //     _ => match curve {
-  //       "secp256k1" => Zeroizing::new(format!(
-  //         "m/{}{}/{}{}/{}{}/{}{}/{}{}",
-  //         tap_bip.unwrap_or(*path.purpose),
-  //         if *path.purpose_hardened || extra_hard { "'" } else { "" },
-  //         *path.coin,
-  //         if *path.coin_hardened || extra_hard { "'" } else { "" },
-  //         *path.account,
-  //         if *path.account_hardened || extra_hard { "'" } else { "" },
-  //         *path.change,
-  //         if *path.change_hardened || extra_hard { "'" } else { "" },
-  //         *path.address,
-  //         if *path.address_hardened || extra_hard { "'" } else { "" },
-  //       )),
-  //
-  //       _ => {
-  //         if wallet.wallet_data.slip_derivation_path {
-  //           Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
-  //         } else {
-  //           Zeroizing::new(format!(
-  //             "m/{}{}/{}{}/{}{}/{}{}/{}{}",
-  //             wallet.wallet_data.active_bip,
-  //             if *path.purpose_hardened || extra_hard { "'" } else { "" },
-  //             *path.coin,
-  //             if *path.coin_hardened || extra_hard { "'" } else { "" },
-  //             *path.account,
-  //             if *path.account_hardened || extra_hard { "'" } else { "" },
-  //             *path.change,
-  //             if *path.change_hardened || extra_hard { "'" } else { "" },
-  //             *path.address,
-  //             if *path.address_hardened || extra_hard { "'" } else { "" },
-  //           ))
-  //         }
-  //       }
-  //     },
-  //   };
-
+  
   Ok(derivation_path)
 }
 
