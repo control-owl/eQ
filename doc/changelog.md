@@ -2,6 +2,8 @@
 - new coin: Monero (XMR)
 - new coin: Nano (XNO)
 - new coin: NEM (XEM)
+- new coin: Cardano (ADA)
+    - Shelly address only supported
 - new coin: Zilliqa (ZIL)
     - Legacy address zil... supported
     - New V2 address 0x... supported
@@ -10,9 +12,9 @@
     - New supporting protocol BIP86
     - Legacy  address support L...
 - cargo update:
-    - egui (0.34.3 -> 0.36.0)
-    - eframe (0.34.3 -> 0.36.0)
-    - egui_extras (0.34.3 -> 0.36.0)
+    - egui (0.34.3 -> 0.36.1)
+    - eframe (0.34.3 -> 0.36.1)
+    - egui_extras (0.34.3 -> 0.36.1)
     - egui_commonmark (0.23.0 -> 0.25.0)
     - sysinfo (0.29.3 -> 0.39.6)
     - ed25519-dalek (2.2.0 -> 3.0.0)

@@ -199,16 +199,16 @@ type MoneroKeys = (Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 pub struct CardanoKeySecretData {
-  pub payment_private_key_bytes: Zeroizing<Vec<u8>>,
-  pub payment_chain_code_bytes: Zeroizing<Vec<u8>>,
-  pub payment_public_key_bytes: Zeroizing<Vec<u8>>,
+  pub payment_private_key: Zeroizing<String>,
+  pub payment_chain_code: Zeroizing<String>,
+  pub payment_public_key: Zeroizing<String>,
 
-  pub stake_private_key_bytes: Zeroizing<Vec<u8>>,
-  pub stake_chain_code_bytes: Zeroizing<Vec<u8>>,
-  pub stake_public_key_bytes: Zeroizing<Vec<u8>>,
+  pub stake_private_key: Zeroizing<String>,
+  pub stake_chain_code: Zeroizing<String>,
+  pub stake_public_key: Zeroizing<String>,
 }
 
-type CardanoKeys = (Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>);
+// type CardanoKeys = (Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>);
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -899,20 +899,23 @@ impl EgoQuantum {
 
               let byron = self.wallet.wallet_data.cardano_byron_derivation;
 
-              if self.draw_address_option(
-                ui,
-                byron,
-                "Byron (Legacy)",
-                "Example: m/44'/1815'/0'/0/0",
-              ) {
-                self.wallet.wallet_data.cardano_byron_derivation = true;
-                if has_addresses {
-                  self.wallet.addresses_by_coin.0.clear();
-                  let _ = self.generate_addresses_for_all_coins();
+              #[cfg(feature = "dev")]
+              {
+                if self.draw_address_option(
+                  ui,
+                  byron,
+                  "Byron (Legacy)",
+                  "Example: m/44'/1815'/0'/0/0",
+                ) {
+                  self.wallet.wallet_data.cardano_byron_derivation = true;
+                  if has_addresses {
+                    self.wallet.addresses_by_coin.0.clear();
+                    let _ = self.generate_addresses_for_all_coins();
+                  }
                 }
-              }
 
-              ui.add_space(GUI_MARGIN);
+                ui.add_space(GUI_MARGIN);
+              }
 
               if self.draw_address_option(
                 ui,

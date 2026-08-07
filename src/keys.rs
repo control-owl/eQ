@@ -4,7 +4,7 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use crate::{
-  AddressPrivateData, AppError, CardanoKeys, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput,
+  AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput,
   MnemonicLanguage, MoneroKeys, Zeroizing,
 };
 use base32::Alphabet;
@@ -279,9 +279,6 @@ pub fn get_derivation_path(
   curve: &str,
   wallet: &mut CryptoWallet,
 ) -> FunctionOutput<Zeroizing<String>> {
-  // let extra_hard = !matches!(curve, "secp256k1");
-  let extra_hard = wallet.wallet_data.hardened_address;
-
   let path: Zeroizing<crate::DerivationPathData> = wallet.address_components.derivation_path.clone();
 
   let coin = *wallet.address_components.derivation_path.coin;
@@ -325,7 +322,7 @@ pub fn get_derivation_path(
         *path.account,
         *path.change,
         *path.address,
-        if *path.address_hardened || extra_hard { "'" } else { "" },
+        if *path.address_hardened { "'" } else { "" },
       ))
     }
 
@@ -339,11 +336,11 @@ pub fn get_derivation_path(
             *path.account,
             *path.change,
             *path.address,
-            if *path.address_hardened || extra_hard { "'" } else { "" },
+            if *path.address_hardened { "'" } else { "" },
           ))
         }
 
-        // 44
+        // 44 & 86
         _ => {
           // m / purpose' / coin' / account' / change / address{'}
           Zeroizing::new(format!(
@@ -353,7 +350,7 @@ pub fn get_derivation_path(
             *path.account,
             *path.change,
             *path.address,
-            if *path.address_hardened || extra_hard { "'" } else { "" },
+            if *path.address_hardened { "'" } else { "" },
           ))
         }
       }
@@ -633,7 +630,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       if !wallet.wallet_data.bitcoin_legacy_addresses {
         return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
-        wallet.address_components.coin_name = Zeroizing::new(String::from("Bitcoin (Legacy)"));
+        // wallet.address_components.coin_name = Zeroizing::new(String::from("Bitcoin (Legacy)"));
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
         let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
@@ -652,7 +649,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       if !wallet.wallet_data.litecoin_legacy_addresses {
         return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
-        wallet.address_components.coin_name = Zeroizing::new(String::from("Litecoin (Legacy)"));
+        // wallet.address_components.coin_name = Zeroizing::new(String::from("Litecoin (Legacy)"));
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
         let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
@@ -1476,8 +1473,7 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
               }
 
               "bip32-ed25519" => {
-                generate_cardano_child_keys(wallet)?;
-                generate_cardano_address(wallet)?;
+                let _ = derive_cardano_address_from_seed_bytes(wallet);
               }
 
               _ => {
@@ -2115,207 +2111,143 @@ pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<
 //                                Cardano (ADA)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-fn derive_cardano_child(
-  parent_key: &Zeroizing<Vec<u8>>,
-  parent_chain_code: &Zeroizing<Vec<u8>>,
+use blake2b_simd::Params;
+use ed25519_bip32::{DerivationScheme, XPrv, XPub};
+use hex;
+use std::num::NonZeroU32;
+
+fn blake2b_224(input: &[u8]) -> Vec<u8> {
+  let out = Params::new().hash_length(28).to_state().update(input).finalize().as_bytes().to_vec();
+  out
+}
+
+fn derive_child(
+  prv: &XPrv,
   index: u32,
-) -> FunctionOutput<CardanoKeys> {
-  let hardened_index = index | 0x8000_0000;
+  hardened: bool,
+) -> XPrv {
+  let idx = if hardened { index | 0x8000_0000 } else { index };
+  let child = prv.derive(DerivationScheme::V2, idx);
 
-  if parent_key.len() != 32 || parent_chain_code.len() != 32 {
-    return Err(AppError::log("Cardano parent key/chain code must be 32 bytes".to_string()));
-  }
-
-  let data: Zeroizing<Vec<u8>> = Zeroizing::new(
-    std::iter::once(0x00u8)
-      .chain(parent_key.iter().copied())
-      .chain(hardened_index.to_be_bytes())
-      .collect(),
-  );
-
-  let hmac: Zeroizing<Vec<u8>> = e_q::calculate_hmac_sha512_hash(parent_chain_code.clone(), data);
-
-  if hmac.len() != 64 {
-    return Err(AppError::log("Cardano HMAC output len != 64".to_string()));
-  }
-
-  let child_priv = Zeroizing::new(hmac[..32].to_vec());
-  let child_chain = Zeroizing::new(hmac[32..].to_vec());
-
-  Ok((child_priv, child_chain))
+  child
 }
 
-pub fn generate_cardano_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  use ed25519_dalek::SigningKey;
+pub fn derive_payment_and_stake_xpubs_from_seed(wallet: &mut CryptoWallet) -> FunctionOutput<(XPub, XPub)> {
+  let entropy = binary_string_to_bytes(wallet.seed_secret.raw_entropy.as_str()).unwrap();
+  let master = xprv_from_entropy(entropy.as_slice()).unwrap();
 
-  let master_priv = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_private_key_bytes.to_vec());
-  let master_chain = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes.to_vec());
+  let account = *wallet.address_components.derivation_path.account;
+  let address_index = *wallet.address_components.derivation_path.address;
 
-  if master_priv.len() != 32 || master_chain.len() != 32 {
-    return Err(AppError::log("Cardano master key/chain code must be 32 bytes".to_string()));
-  }
+  // m / 1852' / 1815' / account'
+  let purpose = derive_child(&master, 1852, true);
+  let coin = derive_child(&purpose, 1815, true);
+  let account_prv = derive_child(&coin, account, true);
 
-  let address_index: u32 = *wallet.address_components.derivation_path.address;
+  // payment: role 0 / address_index
+  let pay_role = derive_child(&account_prv, 0, false);
+  let pay_prv = derive_child(&pay_role, address_index, wallet.wallet_data.hardened_address);
+  let pay_xpub = pay_prv.public();
 
-  // CIP-1852: m / 1852' / 1815' / 0'
-  let mut priv_key = master_priv.clone();
-  let mut chain_code = master_chain.clone();
+  // stake: role 2 / 0
+  let stake_role = derive_child(&account_prv, 2, false);
+  let stake_prv = derive_child(&stake_role, 0, false);
+  let stake_xpub = stake_prv.public();
 
-  // 1852'
-  let (p1852, c1852) = derive_cardano_child(&priv_key, &chain_code, 1852)?;
-  priv_key = p1852;
-  chain_code = c1852;
+  let pay_xprv_bytes = pay_prv.as_ref(); // &[u8; 96]
+  let pay_xpub_bytes = pay_xpub.as_ref(); // &[u8; 64]
+  let stake_xprv_bytes = stake_prv.as_ref();
+  let stake_xpub_bytes = stake_xpub.as_ref();
 
-  // 1815'
-  let (p1815, c1815) = derive_cardano_child(&priv_key, &chain_code, 1815)?;
-  priv_key = p1815;
-  chain_code = c1815;
+  wallet.secret_keys.cardano_keys.payment_private_key = Zeroizing::new(hex::encode(&pay_xprv_bytes[..64])); // 64-byte extended secret
+  wallet.secret_keys.cardano_keys.payment_chain_code = Zeroizing::new(hex::encode(&pay_xprv_bytes[64..])); // 32-byte chain code
+  wallet.secret_keys.cardano_keys.payment_public_key = Zeroizing::new(hex::encode(&pay_xpub_bytes[..32])); // 32-byte public key
 
-  // account 0'
-  let (p_acc, c_acc) = derive_cardano_child(&priv_key, &chain_code, 0)?;
-  priv_key = p_acc;
-  chain_code = c_acc;
+  wallet.secret_keys.cardano_keys.stake_private_key = Zeroizing::new(hex::encode(&stake_xprv_bytes[..64]));
+  wallet.secret_keys.cardano_keys.stake_chain_code = Zeroizing::new(hex::encode(&stake_xprv_bytes[64..]));
+  wallet.secret_keys.cardano_keys.stake_public_key = Zeroizing::new(hex::encode(&stake_xpub_bytes[..32]));
 
-  // payment key: role = 0, index = address_index
-  let (p_pay_role, c_pay_role) = derive_cardano_child(&priv_key, &chain_code, 0)?; // role 0
-  let (p_pay, c_pay) = derive_cardano_child(&p_pay_role, &c_pay_role, address_index)?; // index
-
-  let mut pay_priv32: [u8; 32] = [0u8; 32];
-  pay_priv32.copy_from_slice(&p_pay);
-
-  let pay_signing = SigningKey::from_bytes(&pay_priv32);
-  let pay_pub = pay_signing.verifying_key().to_bytes().to_vec();
-
-  // stake keys: role = 2, index = 0
-  let (p_stake_role, c_stake_role) = derive_cardano_child(&priv_key, &chain_code, 2)?; // role 2
-  let (p_stake, c_stake) = derive_cardano_child(&p_stake_role, &c_stake_role, 0)?; // index 0
-
-  let mut stake_priv32: [u8; 32] = [0u8; 32];
-  stake_priv32.copy_from_slice(&p_stake);
-
-  let stake_signing = SigningKey::from_bytes(&stake_priv32);
-  let stake_pub = stake_signing.verifying_key().to_bytes().to_vec();
-
-  wallet.secret_keys.cardano_keys.payment_private_key_bytes = p_pay;
-  wallet.secret_keys.cardano_keys.payment_chain_code_bytes = c_pay;
-  wallet.secret_keys.cardano_keys.payment_public_key_bytes = Zeroizing::new(pay_pub);
-
-  wallet.secret_keys.cardano_keys.stake_private_key_bytes = p_stake;
-  wallet.secret_keys.cardano_keys.stake_chain_code_bytes = c_stake;
-  wallet.secret_keys.cardano_keys.stake_public_key_bytes = Zeroizing::new(stake_pub);
-
-  Ok(())
+  Ok((pay_xpub, stake_xpub))
 }
 
-fn convert_bits(
-  data: &[u8],
-  from: u32,
-  to: u32,
-  pad: bool,
-) -> Result<Vec<u8>, String> {
-  if from == 0 || to == 0 || from > 32 || to > 32 {
-    return Err("Invalid bit sizes".to_string());
-  }
-  let mut acc: u32 = 0;
-  let mut bits: u32 = 0;
-  let maxv: u32 = (1u32 << to) - 1;
-  let mut ret: Vec<u8> = Vec::new();
+pub fn build_shelley_base_address_from_xpubs(
+  payment_xpub: &XPub,
+  stake_xpub: &XPub,
+) -> String {
+  let payment_pub = &payment_xpub.as_ref()[..32];
+  let stake_pub = &stake_xpub.as_ref()[..32];
 
-  for value in data {
-    let v = *value as u32;
-    if (v >> from) != 0 {
-      return Err("Input value exceeds from bit size".to_string());
-    }
-    acc = (acc << from) | v;
-    bits += from;
-    while bits >= to {
-      bits -= to;
-      let out = ((acc >> bits) & maxv) as u8;
-      ret.push(out);
-    }
-  }
+  let payment_hash = blake2b_224(payment_pub);
+  let stake_hash = blake2b_224(stake_pub);
 
-  if pad {
-    if bits > 0 {
-      let out = ((acc << (to - bits)) & maxv) as u8;
-      ret.push(out);
-    }
-  } else if bits >= from || ((acc << (to - bits)) & maxv) != 0 {
-    return Err("Invalid padding in convert_bits".to_string());
-  }
+  let header: u8 = 0x01;
 
-  Ok(ret)
-}
-
-fn blake2b_224(input: &[u8]) -> FunctionOutput<Vec<u8>> {
-  use blake2b_simd::Params;
-
-  let hash = Params::new().hash_length(28).to_state().update(input).finalize();
-  Ok(hash.as_bytes().to_vec())
-}
-
-pub fn generate_cardano_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zeroizing<String>> {
-  use bech32::{Hrp, encode};
-
-  let coin_index = wallet.address_components.derivation_path.coin.clone();
-  let coin_name = wallet.address_components.coin_name.clone();
-
-  // network id: 1 = mainnet, 0 = testnet
-  let network_id: u8 = 1;
-  let addr_type: u8 = 0; // base address (payment + stake)
-
-  let payment_pub = wallet.secret_keys.cardano_keys.payment_public_key_bytes.clone();
-  let stake_pub = wallet.secret_keys.cardano_keys.stake_public_key_bytes.clone();
-
-  if payment_pub.is_empty() || stake_pub.is_empty() {
-    return Err(AppError::log("Missing Cardano payment or stake public key".to_string()));
-  }
-
-  let payment_hash = blake2b_224(&payment_pub)?;
-  let stake_hash = blake2b_224(&stake_pub)?;
-
-  let header: u8 = (addr_type << 4) | network_id;
-  let mut payload: Vec<u8> = Vec::with_capacity(1 + 28 + 28);
+  let mut payload = Vec::with_capacity(57);
   payload.push(header);
   payload.extend_from_slice(&payment_hash);
   payload.extend_from_slice(&stake_hash);
 
-  let _data_5bit = convert_bits(&payload, 8, 5, true).map_err(|e| AppError::log(format!("Bech32 convert_bits error: {}", e)))?;
+  println!("[build] payload = {}", hex::encode(&payload));
 
-  let hrp_str = if network_id == 1 { "addr" } else { "addr_test" };
-  let hrp = Hrp::parse(hrp_str).map_err(|e| AppError::log(format!("Invalid HRP: {:?}", e)))?;
+  let hrp = Hrp::parse("addr").unwrap();
+  encode::<Bech32>(hrp, &payload).unwrap()
+}
 
-  let bech = encode::<bech32::Bech32>(hrp, &payload).map_err(|err| AppError::log(format!("Cardano Bech32 encode error: {:?}", err)))?;
+pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> FunctionOutput<String> {
+  let (pay, stake) = derive_payment_and_stake_xpubs_from_seed(wallet).unwrap();
 
-  let address = Zeroizing::new(bech.clone());
+  let address = build_shelley_base_address_from_xpubs(&pay, &stake);
 
-  let public_key_str = Zeroizing::new(format!("payment: {}\nstake: {}", hex::encode(&*payment_pub), hex::encode(&*stake_pub)));
-
-  let private_key_str = Zeroizing::new(format!(
-    "payment: {}\nstake: {}",
-    hex::encode(&*wallet.secret_keys.cardano_keys.payment_private_key_bytes),
-    hex::encode(&*wallet.secret_keys.cardano_keys.stake_private_key_bytes),
-  ));
-
-  let derivation_path = match get_derivation_path("bip32-ed25519", wallet) {
-    Ok(path) => path,
-    Err(err) => {
-      return Err(AppError::log(format!("Can not parse Cardano derivation path: {:?}", err)));
-    }
-  };
+  let path = get_derivation_path("bip32-ed25519", wallet).unwrap();
 
   wallet
     .addresses_by_coin
     .0
-    .entry(coin_name.to_string())
+    .entry("Cardano".to_string())
     .or_default()
     .push(AddressPrivateData {
-      coin_index,
-      path: derivation_path,
-      address: address.clone(),
-      public_key: public_key_str,
-      private_key: private_key_str,
+      coin_index: Zeroizing::new(1815 as u32),
+      path,
+      address: Zeroizing::new(address.clone()),
+      public_key: wallet.secret_keys.cardano_keys.payment_public_key.clone(),
+      private_key: wallet.secret_keys.cardano_keys.payment_private_key.clone(),
     });
 
   Ok(address)
+}
+
+fn xprv_from_entropy(entropy: &[u8]) -> Result<XPrv, String> {
+  let mut data = [0u8; 96];
+  let iters = NonZeroU32::new(4096).unwrap();
+  pbkdf2::derive(pbkdf2::PBKDF2_HMAC_SHA512, iters, entropy, b"", &mut data);
+
+  data[0] &= 0xf8;
+  data[31] &= 0x1f;
+  data[31] |= 0x40;
+
+  let mut sk = [0u8; 64];
+  let mut cc = [0u8; 32];
+  sk.copy_from_slice(&data[..64]);
+  cc.copy_from_slice(&data[64..]);
+
+  Ok(XPrv::from_extended_and_chaincode(&sk, &cc))
+}
+
+fn binary_string_to_bytes(bits: &str) -> Result<Vec<u8>, String> {
+  if bits.is_empty() || bits.len() % 8 != 0 {
+    return Err(format!("entropy bit length must be a multiple of 8, got {}", bits.len()));
+  }
+  let mut bytes = Vec::with_capacity(bits.len() / 8);
+  for chunk in bits.as_bytes().chunks(8) {
+    let mut byte = 0u8;
+    for (i, &b) in chunk.iter().enumerate() {
+      match b {
+        b'1' => byte |= 1 << (7 - i),
+        b'0' => {}
+        _ => return Err(format!("invalid bit character: {}", b as char)),
+      }
+    }
+    bytes.push(byte);
+  }
+  Ok(bytes)
 }
