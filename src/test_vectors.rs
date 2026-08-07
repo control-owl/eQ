@@ -1264,9 +1264,6 @@ mod cardano_vectors {
   }
 }
 
-
-
-
 // CARDANO KEYS
 // WORDS:   pole paper orchard average hip flip oxygen edge virtual wait safe empower tiny glimpse rose blood normal strategy chase fold describe strong repeat lion
 // PATH:    m/1852'/1815'/0'/0/0
@@ -1282,7 +1279,6 @@ mod cardano_vectors {
 // Staking key hash hex
 // e125b64a8702deb29ffe9ef211df259575c749e80727a45bfbfe0de518
 
-
 // WORDS:   together safe day faith sail roast obey gown eager idle vessel daring learn claw dizzy
 // PATH:    m/1852'/1815'/0'/0/10
 // ADDRESS: addr1qxa4juhuvevhce998k42vzr3vqvg8287auq5lh5ytcettl5x3mj83mnw7t3p34p50uahwruradutt6wcf6epn7hrszqsnxacs6
@@ -1296,4 +1292,3 @@ mod cardano_vectors {
 // stake1uxrgaercaeh09csc6s687wmhp7p7k794a8vyavselt3cpqg8wamm6
 // Staking key hash hex
 // e1868ee478ee6ef2e218d4347f3b770f83eb78b5e9d84eb219fae38081
-

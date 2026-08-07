@@ -1346,19 +1346,18 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   Ok(WalletPayload {
     payload_version,
     seed_secret: SeedSecretData {
-      full_entropy,
-      mnemonic_dictionary,
-      mnemonic_words: Zeroizing::new(String::new()),
-      mnemonic_passphrase,
       entropy_source: Zeroizing::new(String::from("SVG")),
       entropy_length: Zeroizing::new(entropy_len),
-      raw_entropy: Zeroizing::new(String::new()),
-      mnemonic_passphrase_source: Zeroizing::new(String::from("SVG")),
-      entropy_checksum: Zeroizing::new(String::new()),
-      seed: Zeroizing::new(String::new()),
+      full_entropy,
 
-      monero_mnemonic_words: Zeroizing::new(String::new()),
-      monero_spend_key: Zeroizing::new(String::new()),
+      mnemonic_passphrase_source: Zeroizing::new(String::from("SVG")),
+      mnemonic_dictionary,
+      mnemonic_passphrase,
+
+      raw_entropy: Zeroizing::new(String::new()),
+      entropy_checksum: Zeroizing::new(String::new()),
+      mnemonic_words: Zeroizing::new(String::new()),
+      seed: Zeroizing::new(String::new()),
     },
     bip,
     last_index,

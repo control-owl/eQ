@@ -124,9 +124,6 @@ struct SeedSecretData {
   mnemonic_passphrase_source: Zeroizing<String>,
   mnemonic_dictionary: Zeroizing<MnemonicLanguage>,
   pub seed: Zeroizing<String>,
-
-  monero_mnemonic_words: Zeroizing<String>,
-  monero_spend_key: Zeroizing<String>,
 }
 
 impl SeedSecretData {
@@ -143,9 +140,6 @@ impl SeedSecretData {
       full_entropy: Zeroizing::new(String::new()),
       entropy_checksum: Zeroizing::new(String::new()),
       raw_entropy: Zeroizing::new(String::new()),
-
-      monero_mnemonic_words: Zeroizing::new(String::new()),
-      monero_spend_key: Zeroizing::new(String::new()),
     }
   }
 }
@@ -158,18 +152,9 @@ struct SecretKeyData {
   child_secp256k1_keys: Zeroizing<ChildSecp256k1KeySecretData>,
   master_ed25519_keys: Zeroizing<MasterEd25519KeySecretData>,
   child_ed25519_keys: Zeroizing<ChildEd25519KeySecretData>,
+
+  monero_keys: Zeroizing<MoneroKeySecretData>,
   cardano_keys: Zeroizing<CardanoKeySecretData>,
-}
-
-#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
-pub struct CardanoKeySecretData {
-  pub payment_private_key_bytes: Zeroizing<Vec<u8>>,
-  pub payment_chain_code_bytes: Zeroizing<Vec<u8>>,
-  pub payment_public_key_bytes: Zeroizing<Vec<u8>>,
-
-  pub stake_private_key_bytes: Zeroizing<Vec<u8>>,
-  pub stake_chain_code_bytes: Zeroizing<Vec<u8>>,
-  pub stake_public_key_bytes: Zeroizing<Vec<u8>>,
 }
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
@@ -202,6 +187,23 @@ struct ChildEd25519KeySecretData {
   child_private_key_bytes: Zeroizing<Vec<u8>>,
   child_public_key_bytes: Zeroizing<Vec<u8>>,
   child_chain_code_bytes: Zeroizing<Vec<u8>>,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct MoneroKeySecretData {
+  monero_mnemonic_words: Zeroizing<String>,
+  monero_spend_key: Zeroizing<String>,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct CardanoKeySecretData {
+  pub payment_private_key_bytes: Zeroizing<Vec<u8>>,
+  pub payment_chain_code_bytes: Zeroizing<Vec<u8>>,
+  pub payment_public_key_bytes: Zeroizing<Vec<u8>>,
+
+  pub stake_private_key_bytes: Zeroizing<Vec<u8>>,
+  pub stake_chain_code_bytes: Zeroizing<Vec<u8>>,
+  pub stake_public_key_bytes: Zeroizing<Vec<u8>>,
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -775,7 +777,7 @@ impl EgoQuantum {
           self.gui.secrets_dialog.entropy_checksum = self.wallet.seed_secret.entropy_checksum.clone();
 
           self.gui.secrets_dialog.mnemonic_words = self.wallet.seed_secret.mnemonic_words.clone();
-          self.gui.secrets_dialog.monero_mnemonic_words = self.wallet.seed_secret.monero_mnemonic_words.clone();
+          self.gui.secrets_dialog.monero_mnemonic_words = self.wallet.secret_keys.monero_keys.monero_mnemonic_words.clone();
 
           self.gui.secrets_dialog.mnemonic_passphrase = self.wallet.seed_secret.mnemonic_passphrase.clone();
           self.gui.secrets_dialog.seed = self.wallet.seed_secret.seed.clone();

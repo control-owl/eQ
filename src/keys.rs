@@ -151,8 +151,8 @@ pub fn generate_seed(
   let spend_key: Zeroizing<[u8; 32]> = Zeroizing::new(monero_sc_reduce32(hashed)?.to_bytes());
   let monero_words: Zeroizing<String> = monero_seed_to_mnemonic(spend_key.clone(), &wordlist)?;
 
-  wallet.seed_secret.monero_mnemonic_words = monero_words;
-  wallet.seed_secret.monero_spend_key = Zeroizing::new(hex::encode(spend_key).to_string());
+  wallet.secret_keys.monero_keys.monero_mnemonic_words = monero_words;
+  wallet.secret_keys.monero_keys.monero_spend_key = Zeroizing::new(hex::encode(spend_key).to_string());
 
   Ok(())
 }
@@ -294,15 +294,24 @@ pub fn get_derivation_path(
 
   let derivation_path: Zeroizing<String> = match curve {
     "ed25519" => {
-      if wallet.wallet_data.slip_derivation_path {
-        // m / purpose' / coin' / address'
-        Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
-      } else {
-        // m / purpose' / coin' / account' / change' / address'
-        Zeroizing::new(format!(
-          "m/{}'/{}'/{}'/{}'/{}'",
-          wallet.wallet_data.active_bip, *path.coin, *path.account, *path.change, *path.address,
-        ))
+      match *path.purpose {
+        32 => {
+          // m / account' / change' / address'
+          Zeroizing::new(format!("m/{}'/{}'/{}'", *path.account, *path.change, *path.address,))
+        }
+
+        44 | _ => {
+          if wallet.wallet_data.slip_derivation_path {
+            // m / purpose' / coin' / address'
+            Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
+          } else {
+            // m / purpose' / coin' / account' / change' / address'
+            Zeroizing::new(format!(
+              "m/{}'/{}'/{}'/{}'/{}'",
+              wallet.wallet_data.active_bip, *path.coin, *path.account, *path.change, *path.address,
+            ))
+          }
+        }
       }
     }
 
@@ -991,7 +1000,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
 
     // Monero
     128 => {
-      let monero_spend_priv: Zeroizing<[u8; 32]> = match hex::decode(wallet.seed_secret.monero_spend_key.clone()) {
+      let monero_spend_priv: Zeroizing<[u8; 32]> = match hex::decode(wallet.secret_keys.monero_keys.monero_spend_key.clone()) {
         Ok(decoded) => match decoded.try_into() {
           Ok(array) => Zeroizing::new(array),
           Err(_) => {
