@@ -4,8 +4,8 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use crate::{
-  AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput,
-  MnemonicLanguage, Zeroizing,
+  AddressPrivateData, AppError, CardanoKeys, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput,
+  MnemonicLanguage, MoneroKeys, Zeroizing,
 };
 use base32::Alphabet;
 use base64::Engine;
@@ -300,7 +300,8 @@ pub fn get_derivation_path(
           Zeroizing::new(format!("m/{}'/{}'/{}'", *path.account, *path.change, *path.address,))
         }
 
-        44 | _ => {
+        // 44
+        _ => {
           if wallet.wallet_data.slip_derivation_path {
             // m / purpose' / coin' / address'
             Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
@@ -328,7 +329,8 @@ pub fn get_derivation_path(
       ))
     }
 
-    "secp256k1" | _ => {
+    // "secp256k1"
+    _ => {
       match *path.purpose {
         32 => {
           // m / account / change / address{'}
@@ -341,7 +343,8 @@ pub fn get_derivation_path(
           ))
         }
 
-        44 | _ => {
+        // 44
+        _ => {
           // m / purpose' / coin' / account' / change / address{'}
           Zeroizing::new(format!(
             "m/{}'/{}'/{}'/{}/{}{}",
@@ -356,7 +359,7 @@ pub fn get_derivation_path(
       }
     }
   };
-  
+
   Ok(derivation_path)
 }
 
@@ -630,6 +633,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       if !wallet.wallet_data.bitcoin_legacy_addresses {
         return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
+        wallet.address_components.coin_name = Zeroizing::new(String::from("Bitcoin (Legacy)"));
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
         let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
@@ -648,6 +652,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       if !wallet.wallet_data.litecoin_legacy_addresses {
         return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
+        wallet.address_components.coin_name = Zeroizing::new(String::from("Litecoin (Legacy)"));
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
         let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
@@ -730,7 +735,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
 
         return Ok(());
       } else {
-        coin_name = Zeroizing::new(String::from("Zilliqa 2.0"));
+        coin_name = Zeroizing::new(String::from("Zilliqa"));
         hash = Zeroizing::new(String::from("keccak256"));
       }
     }
@@ -1979,7 +1984,7 @@ pub fn monero_subaddress_keys(
   view_priv: Zeroizing<[u8; 32]>,
   major: Zeroizing<u32>,
   minor: Zeroizing<u32>,
-) -> FunctionOutput<(Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>)> {
+) -> FunctionOutput<MoneroKeys> {
   let mut data = Zeroizing::new(Vec::with_capacity(8 + 32 + 4 + 4));
   data.extend_from_slice(b"SubAddr\0");
   data.extend_from_slice(&*view_priv);
@@ -1997,7 +2002,7 @@ pub fn monero_subaddress_keys(
     let decompressed = match curve25519_dalek::edwards::CompressedEdwardsY(*spend_pub).decompress() {
       Some(point) => point,
       None => {
-        return Err(AppError::log(format!("Failed to decompress Edwards point from spend_pub")));
+        return Err(AppError::log("Failed to decompress Edwards point from spend_pub"));
       }
     };
     Zeroizing::new(ED25519_BASEPOINT_POINT * *m + decompressed)
@@ -2069,10 +2074,10 @@ fn nano_base32_encode(data: &[u8]) -> FunctionOutput<String> {
   }
 
   if data.len() == 32 {
-    bits.splice(0..0, std::iter::repeat(false).take(4));
+    bits.splice(0..0, std::iter::repeat_n(false, 4));
   }
 
-  let mut result = String::with_capacity((bits.len() + 4) / 5);
+  let mut result = String::with_capacity(bits.len().div_ceil(5));
 
   for chunk in bits.chunks(5) {
     let mut value = 0u8;
@@ -2114,7 +2119,7 @@ fn derive_cardano_child(
   parent_key: &Zeroizing<Vec<u8>>,
   parent_chain_code: &Zeroizing<Vec<u8>>,
   index: u32,
-) -> FunctionOutput<(Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>)> {
+) -> FunctionOutput<CardanoKeys> {
   let hardened_index = index | 0x8000_0000;
 
   if parent_key.len() != 32 || parent_chain_code.len() != 32 {
@@ -2275,7 +2280,7 @@ pub fn generate_cardano_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zer
   payload.extend_from_slice(&payment_hash);
   payload.extend_from_slice(&stake_hash);
 
-  let data_5bit = convert_bits(&payload, 8, 5, true).map_err(|e| AppError::log(format!("Bech32 convert_bits error: {}", e)))?;
+  let _data_5bit = convert_bits(&payload, 8, 5, true).map_err(|e| AppError::log(format!("Bech32 convert_bits error: {}", e)))?;
 
   let hrp_str = if network_id == 1 { "addr" } else { "addr_test" };
   let hrp = Hrp::parse(hrp_str).map_err(|e| AppError::log(format!("Invalid HRP: {:?}", e)))?;

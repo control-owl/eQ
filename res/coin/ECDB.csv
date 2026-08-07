@@ -1303,5 +1303,6 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 2,60,ETH,Ethereum,secp256k1,keccak256,,,,,,,1027
 2,128,XMR,Monero,ed25519,keccak256,,,0x7F,0xC4,0x3F,,328
 2,165,XNO,Nano,ed25519,blake2b,,,,,,,1567
+2,313,ZIL,Zilliqa,secp256k1,sha256,,,,,,,2469
 2,501,SOL,Solana,ed25519,,,,,,,,5426
 2,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,,,2010

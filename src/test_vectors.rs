@@ -1103,7 +1103,6 @@ fn check_wallet_save_open_function() {
 mod cardano_vectors {
   use bech32::Hrp;
   use blake2b_simd::Params;
-  use hex;
   use zeroize::Zeroizing;
 
   // Manual Bech32 charset and reverse map

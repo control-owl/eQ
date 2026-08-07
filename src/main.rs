@@ -195,6 +195,8 @@ pub struct MoneroKeySecretData {
   monero_spend_key: Zeroizing<String>,
 }
 
+type MoneroKeys = (Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>, Zeroizing<[u8; 32]>);
+
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 pub struct CardanoKeySecretData {
   pub payment_private_key_bytes: Zeroizing<Vec<u8>>,
@@ -205,6 +207,8 @@ pub struct CardanoKeySecretData {
   pub stake_chain_code_bytes: Zeroizing<Vec<u8>>,
   pub stake_public_key_bytes: Zeroizing<Vec<u8>>,
 }
+
+type CardanoKeys = (Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>);
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -272,6 +276,7 @@ struct ExtraWalletData {
   bitcoin_legacy_addresses: bool,
   zilliqa_legacy_addresses: bool,
   litecoin_legacy_addresses: bool,
+  cardano_byron_derivation: bool,
 
   active_bip: u32,
   address_count: u32,
@@ -288,6 +293,7 @@ impl ExtraWalletData {
       bitcoin_legacy_addresses: false,
       zilliqa_legacy_addresses: false,
       litecoin_legacy_addresses: false,
+      cardano_byron_derivation: false,
 
       active_bip: 44,
       address_count: 10,
@@ -562,6 +568,58 @@ impl EgoQuantum {
     Ok(())
   }
 
+  fn draw_address_option(
+    &mut self,
+    ui: &mut egui::Ui,
+    active: bool,
+    label: &str,
+    example: &str,
+  ) -> bool {
+    let active_text = &mut self.get_text_color();
+    let inactive_text = ui.style().visuals.text_color();
+    let example_text = inactive_text.gamma_multiply(0.7);
+    let row_height = 40.0;
+    let left_icon_x = 17.0;
+    let text_x_offset = left_icon_x * 2.0;
+    let radio_outer_radius = 7.0;
+    let radio_inner_radius = 4.0;
+    let menu_width: f32 = 350.0;
+
+    let (rect, resp) = ui.allocate_exact_size(egui::Vec2::new(menu_width, row_height), egui::Sense::click());
+
+    if resp.hovered() {
+      let hover_fill = ui.style().visuals.widgets.hovered.bg_fill;
+      ui.painter().rect_filled(rect.shrink(2.0), 6.0, hover_fill);
+    }
+
+    let center = rect.left_center();
+    let icon_center = egui::pos2(center.x + left_icon_x, center.y);
+
+    ui.painter().circle_stroke(
+      icon_center,
+      radio_outer_radius,
+      egui::Stroke::new(1.0, inactive_text.linear_multiply(0.18)),
+    );
+    if active {
+      ui.painter().circle_filled(icon_center, radio_inner_radius, *active_text);
+    }
+
+    let text_pos = egui::pos2(center.x + text_x_offset, rect.top() + 6.0);
+    ui.painter().text(
+      text_pos,
+      egui::Align2::LEFT_TOP,
+      label,
+      egui::FontId::proportional(13.0),
+      if active { *active_text } else { inactive_text },
+    );
+
+    let example_pos = egui::pos2(center.x + text_x_offset, rect.top() + 22.0);
+    ui.painter()
+      .text(example_pos, egui::Align2::LEFT_TOP, example, egui::FontId::monospace(10.0), example_text);
+
+    resp.clicked() && !active
+  }
+
   fn render_wallet_header(
     &mut self,
     ui: &mut egui::Ui,
@@ -792,78 +850,165 @@ impl EgoQuantum {
         }
       });
 
+      // JUMP: COIN MENU
       ui.menu_button("Coins", |ui| {
         ui.menu_button("Bitcoin", |ui| {
-          let bitcoin_legacy_description = [
-            "When enabled:",
-            "Generate Legacy address",
-            "Legacy address (P2PKH) - Start with '1...'",
-            "\n",
-            "When disabled:",
-            "Generates Taproot addresses",
-            "Taproot address (P2TR) - Start with 'bc1p...'",
-          ];
+          egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.vertical(|ui| {
+              ui.heading(egui::RichText::new("Address format").size(16.0).strong());
+              ui.add_space(GUI_MARGIN);
 
-          let bitcoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.bitcoin_legacy_addresses, "Generate legacy addresses"));
+              let legacy = self.wallet.wallet_data.bitcoin_legacy_addresses;
 
-          // JUMP: LEGACY CHANGE
-          if bitcoin_legacy_resp.changed() && has_addresses {
-            self.wallet.addresses_by_coin.0.clear();
-            let _ = self.generate_addresses_for_all_coins();
-          }
+              if self.draw_address_option(
+                ui,
+                legacy,
+                "Legacy (P2PKH) - starts with '1...'",
+                "Example: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+              ) {
+                self.wallet.wallet_data.bitcoin_legacy_addresses = true;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
 
+              ui.add_space(GUI_MARGIN);
 
-          bitcoin_legacy_resp.on_hover_text(bitcoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
+              if self.draw_address_option(
+                ui,
+                !legacy,
+                "Taproot (P2TR) - starts with 'bc1p...'",
+                "Example: bc1p5cyxnuxmeuwuvkwfem96l5x7k9q0v4z0x7gqv",
+              ) {
+                self.wallet.wallet_data.bitcoin_legacy_addresses = false;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
+            });
+          });
+        });
+
+        ui.menu_button("Cardano", |ui| {
+          egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.vertical(|ui| {
+              ui.heading(egui::RichText::new("Derivation scheme").size(16.0).strong());
+              ui.add_space(GUI_MARGIN);
+
+              let byron = self.wallet.wallet_data.cardano_byron_derivation;
+
+              if self.draw_address_option(
+                ui,
+                byron,
+                "Byron (Legacy)",
+                "Example: m/44'/1815'/0'/0/0",
+              ) {
+                self.wallet.wallet_data.cardano_byron_derivation = true;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
+
+              ui.add_space(GUI_MARGIN);
+
+              if self.draw_address_option(
+                ui,
+                !byron,
+                "Shelley (Default)",
+                "Example: m/1852'/1815'/0'/0/0",
+              ) {
+                self.wallet.wallet_data.cardano_byron_derivation = false;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
+            });
+          });
         });
 
         ui.menu_button("Litecoin", |ui| {
-          let litecoin_legacy_description = [
-            "When enabled:",
-            "Generate Legacy address",
-            "Legacy address (P2PKH) - Start with 'L...'",
-            "\n",
-            "When disabled:",
-            "Generates Taproot addresses",
-            "Taproot address (P2TR) - Start with 'ltc1p...'",
-          ];
+          egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.vertical(|ui| {
+              ui.heading(egui::RichText::new("Address format").size(16.0).strong());
+              ui.add_space(GUI_MARGIN);
 
-          let litecoin_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.litecoin_legacy_addresses, "Generate legacy addresses"));
+              let legacy = self.wallet.wallet_data.litecoin_legacy_addresses;
 
-          // JUMP: LEGACY CHANGE
-          if litecoin_legacy_resp.changed() && has_addresses {
-            self.wallet.addresses_by_coin.0.clear();
-            let _ = self.generate_addresses_for_all_coins();
-          }
+              if self.draw_address_option(
+                ui,
+                legacy,
+                "Legacy (P2PKH) - starts with 'L...'",
+                "Example: Ld1q2w3e4r5t6y7u8i9o0pASDFGHJKL",
 
+              ) {
+                self.wallet.wallet_data.litecoin_legacy_addresses = true;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
 
-          litecoin_legacy_resp.on_hover_text(litecoin_legacy_description.join("\n")).on_disabled_hover_text(&devel);
+              ui.add_space(GUI_MARGIN);
+
+              if self.draw_address_option(
+                ui,
+                !legacy,
+                "Taproot (P2TR) - starts with 'ltc1p...'",
+                "Example: ltc1pqxyz0abcdefghijklmnopqrstuvwx",
+              ) {
+                self.wallet.wallet_data.litecoin_legacy_addresses = false;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
+            });
+          });
         });
 
         ui.menu_button("Zilliqa", |ui| {
-          let zilliqa_legacy_description = [
-            "When enabled:",
-            "Generate Legacy address",
-            "Legacy address start with 'zil...'",
-            "\n",
-            "When disabled:",
-            "Generate new Zilliqa 2.0 address ",
-            "Address is EVM compatible",
-            "EVM addresses start with '0x...'",
-          ];
+          egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.vertical(|ui| {
+              ui.heading(egui::RichText::new("Address format").size(16.0).strong());
+              ui.add_space(GUI_MARGIN);
 
-          let zilliqa_legacy_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.zilliqa_legacy_addresses, "Generate legacy addresses"));
+              let legacy = self.wallet.wallet_data.zilliqa_legacy_addresses;
 
-          if zilliqa_legacy_resp.changed() && has_addresses {
-            self.wallet.addresses_by_coin.0.clear();
-            let _ = self.generate_addresses_for_all_coins();
-          }
+              if self.draw_address_option(
+                ui,
+                legacy,
+                "Legacy - starts with 'zil...'",
+                "Example: zil1q2w3e4r5t6y7u8i9o0pASDFGHJKL",
+              ) {
+                self.wallet.wallet_data.zilliqa_legacy_addresses = true;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
 
+              ui.add_space(GUI_MARGIN);
 
-          zilliqa_legacy_resp.on_hover_text(zilliqa_legacy_description.join("\n")).on_disabled_hover_text(&devel);
+              if self.draw_address_option(
+                ui,
+                !legacy,
+                "Zilliqa 2.0 (EVM) - starts with '0x...'",
+                "Example: 0x4bbeEB066eD09B7AEd07bF39EEe0460DFa261520",
+              ) {
+                self.wallet.wallet_data.zilliqa_legacy_addresses = false;
+                if has_addresses {
+                  self.wallet.addresses_by_coin.0.clear();
+                  let _ = self.generate_addresses_for_all_coins();
+                }
+              }
+            });
+          });
         });
       });
-
-
 
       ui.menu_button("Help", |ui| {
         if ui.add_enabled(true, egui::Button::new("Help"))
@@ -1407,7 +1552,7 @@ impl EgoQuantum {
         {
           let remove_count = self.wallet.wallet_data.address_count as usize;
 
-          for (_coin, addresses) in self.wallet.addresses_by_coin.0.iter_mut() {
+          for addresses in self.wallet.addresses_by_coin.0.values_mut() {
             if addresses.len() <= 1 {
               continue;
             }
