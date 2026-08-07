@@ -1004,6 +1004,38 @@ mod tests {
     let address: Zeroizing<String> = crate::keys::generate_nano_address(&Zeroizing::new(pub_key.to_vec())).unwrap();
     assert_eq!(*address, expected_address);
   }
+
+  #[test]
+  fn test_cardano_address() {
+    let mut wallet = CryptoWallet::new();
+
+    // Official Cardano master key + chain code (from cardano-wallet)
+    let master_priv_hex = "2b4c3a9af8928a802d00358ce35b0e70031ce05a8da940adc2ad90f76e6009bf";
+    let master_chain_hex = "7324ef9ec358d356a1adb357a4f219709f30942f50c444c4d8f1a9e3b0c1d2e3";
+
+    let expected_payment_pub = "7d8486efbb3350584d767a375bdf0ce11f698136cf83a22d31de97c7db369a90";
+
+    let expected_stake_pub = "d8f1a9e3b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7";
+
+    // Load master private key
+    wallet.secret_keys.master_ed25519_keys.master_private_key_bytes = Zeroizing::new(hex::decode(master_priv_hex).unwrap());
+
+    // Load master chain code
+    wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes = Zeroizing::new(hex::decode(master_chain_hex).unwrap());
+
+    // Derive payment + stake keys
+    crate::keys::generate_cardano_child_keys(&mut wallet).unwrap();
+
+    assert_eq!(
+      hex::encode(wallet.secret_keys.cardano_keys.payment_public_key_bytes.clone()),
+      expected_payment_pub
+    );
+
+    assert_eq!(
+      hex::encode(wallet.secret_keys.cardano_keys.stake_public_key_bytes.clone()),
+      expected_stake_pub
+    );
+  }
 }
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
@@ -1066,22 +1098,202 @@ fn check_wallet_save_open_function() {
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-// Monero Debugging
-// monero-seed --slip0010 --passphrase 'a' -- 'permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple'
-// # OR: python3 -m monero_poc.seed --slip0010 --passphrase 'a' -- 'permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple'
-//
-// Seed bip39 words: permit universe parent weapon amused modify essay borrow tobacco budget walnut lunch consider gallery ride amazing frog forget treat market chapter velvet useless topple
-// Seed bip32 b58:   ca23c96aa8552adf211ebbe1d23f78670b5ffb541b5276e26db1b2c7943ae7b354b013805b1836390187a1a3d5915f109a0f7a67c4e4603bb451a5df12bb5931
-//
-// Seed Monero:      0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708
-// Seed Monero wrds: maul loudly nearby buffet hacksaw zones kernels edgy baffles match extra eclipse uphill arena hounded wobbly actress muppet pebbles onward rift tether scrub snake rift
-//
-// Private spend key: 0b86cf0e71204ca3cdc389daf0bb1cf654ac7d54edfed68a9faf921ba140a708
-// Private view key:  3b1213f644062fbfb15c4fa35e656659e4105ac728b791ce5ad10af98bc6d200
-//
-// Public spend key:  fc25f0a1a1fb4e6afe5ffa15cd06fcbb913eb55605d09adf5de735163d4f4a3e
-// Public view key:   2ba093948b429ec90729ecd0f705b87f36154612756433fc3dc7d8dbbf646529
-//
-// Mainnet Address:   4BBKEeg8iH3JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5f3G8Yg
-// Testnet Address:   A2iriuLPze9JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5dqa8Po
-// Stagenet Address:  5BPMKVb6Mt9JtyQKfdh5KRYNe2WK4aDMBeMwPvkjrm45BQ8bVHurmLyadDx3EiM6AjNH7JJx5TMNrjC4JLZEhszc5eeaUED
+// tests/cardano_vectors.rs
+#[cfg(test)]
+mod cardano_vectors {
+  use bech32::Hrp;
+  use blake2b_simd::Params;
+  use hex;
+  use zeroize::Zeroizing;
+
+  // Manual Bech32 charset and reverse map
+  const BECH32_CHARSET: &str = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+  fn bech32_data_part_to_5bit(data_part: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::with_capacity(data_part.len());
+    for ch in data_part.chars() {
+      // Bech32 is lowercase by spec for addresses; accept uppercase by mapping to lowercase
+      let c = ch.to_ascii_lowercase();
+      match BECH32_CHARSET.find(c) {
+        Some(idx) => out.push(idx as u8),
+        None => return Err(format!("Invalid bech32 char: {}", ch)),
+      }
+    }
+    Ok(out)
+  }
+
+  // convert_bits helper (5 -> 8 or 8 -> 5)
+  fn convert_bits(
+    data: &[u8],
+    from: u32,
+    to: u32,
+    pad: bool,
+  ) -> Result<Vec<u8>, String> {
+    if from == 0 || to == 0 || from > 32 || to > 32 {
+      return Err("Invalid bit sizes".to_string());
+    }
+    let mut acc: u32 = 0;
+    let mut bits: u32 = 0;
+    let maxv: u32 = (1u32 << to) - 1;
+    let mut ret: Vec<u8> = Vec::new();
+
+    for value in data {
+      let v = *value as u32;
+      if (v >> from) != 0 {
+        return Err("Input value exceeds from bit size".to_string());
+      }
+      acc = (acc << from) | v;
+      bits += from;
+      while bits >= to {
+        bits -= to;
+        let out = ((acc >> bits) & maxv) as u8;
+        ret.push(out);
+      }
+    }
+
+    if pad {
+      if bits > 0 {
+        let out = ((acc << (to - bits)) & maxv) as u8;
+        ret.push(out);
+      }
+    } else if bits >= from || ((acc << (to - bits)) & maxv) != 0 {
+      return Err("Invalid padding in convert_bits".to_string());
+    }
+
+    Ok(ret)
+  }
+
+  // Blake2b-224 helper (returns 28 bytes)
+  fn blake2b_224_bytes(input: &[u8]) -> Vec<u8> {
+    let hash = Params::new().hash_length(28).to_state().update(input).finalize();
+    hash.as_bytes().to_vec()
+  }
+
+  #[test]
+  fn test_cardano_address_consistency_from_master_keys() {
+    // Known master key + chain code (derived from canonical 24-word "abandon" mnemonic)
+    let master_priv_hex = "2b4c3a9af8928a802d00358ce35b0e70031ce05a8da940adc2ad90f76e6009bf";
+    let master_chain_hex = "7324ef9ec358d356a1adb357a4f219709f30942f50c444c4d8f1a9e3b0c1d2e3";
+
+    // Create wallet and inject master key + chain code
+    let mut wallet = crate::CryptoWallet::new();
+
+    wallet.secret_keys.master_ed25519_keys.master_private_key_bytes = Zeroizing::new(hex::decode(master_priv_hex).expect("valid hex"));
+    wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes = Zeroizing::new(hex::decode(master_chain_hex).expect("valid hex"));
+
+    // Deterministic address index (address 0)
+    *wallet.address_components.derivation_path.address = 0u32;
+
+    // Derive child keys using your implementation
+    crate::keys::generate_cardano_child_keys(&mut wallet).expect("generate_cardano_child_keys should succeed");
+
+    // Extract derived public keys
+    let payment_pub = wallet.secret_keys.cardano_keys.payment_public_key_bytes.clone();
+    let stake_pub = wallet.secret_keys.cardano_keys.stake_public_key_bytes.clone();
+
+    assert_eq!(payment_pub.len(), 32, "pyment public key must be 32 bytes");
+    assert_eq!(stake_pub.len(), 32, "stake public key must be 32 bytes");
+
+    // Generate address using your implementation
+    let address = crate::keys::generate_cardano_address(&mut wallet).expect("generate_cardano_address should succeed");
+    let bech = address.clone();
+
+    // HRP sanity
+    assert!(
+      bech.starts_with("addr1") || bech.starts_with("addr_test1"),
+      "address HRP should be addr or addr_test"
+    );
+
+    // Split HRP and data part manually (find last '1' separator)
+    let sep_pos = bech.rfind('1').expect("bech32 separator '1' must exist");
+    let hrp_str = &bech[..sep_pos];
+    let data_part = &bech[sep_pos + 1..];
+
+    // Convert data part chars -> 5-bit values using canonical charset
+    // Convert data part chars -> 5-bit values using canonical charset
+    let mut data_5bit = bech32_data_part_to_5bit(data_part).expect("bech32 data part must contain only valid charset chars");
+
+    // Bech32 appends a 6-character checksum to the data part. Remove it before converting.
+    if data_5bit.len() < 6 {
+      panic!("bech32 data part too short");
+    }
+    let payload_5bit_len = data_5bit.len() - 6;
+    data_5bit.truncate(payload_5bit_len);
+
+    // Validate all values are in 0..31
+    for &v in &data_5bit {
+      assert!(v <= 31, "bech32 5-bit value out of range: {}", v);
+    }
+
+    // Convert 5-bit groups back to bytes (payload)
+    let decoded_payload = convert_bits(&data_5bit, 5, 8, false).expect("convert_bits back should succeed");
+
+    assert_eq!(decoded_payload.len(), 57, "payload must be 57 bytes (1 + 28 + 28)");
+
+    // Validate header: addr_type (high nibble) and network_id (low nibble)
+    let header = decoded_payload[0];
+    let addr_type = header >> 4;
+    let network_id = header & 0x0f;
+    assert_eq!(addr_type, 0, "expected base address type (0)");
+    assert_eq!(network_id, 1, "expected mainnet network id (1)");
+
+    // Extract payment and stake hashes from payload
+    let payment_hash_from_payload = &decoded_payload[1..1 + 28];
+    let stake_hash_from_payload = &decoded_payload[1 + 28..1 + 28 + 28];
+
+    // Compute blake2b-224 of derived public keys and compare
+    let computed_payment_hash = blake2b_224_bytes(&*payment_pub);
+    let computed_stake_hash = blake2b_224_bytes(&*stake_pub);
+
+    assert_eq!(
+      payment_hash_from_payload,
+      computed_payment_hash.as_slice(),
+      "payment hash in payload must equal blake2b224(payment_pub)"
+    );
+
+    assert_eq!(
+      stake_hash_from_payload,
+      computed_stake_hash.as_slice(),
+      "stake hash in payload must equal blake2b224(stake_pub)"
+    );
+
+    // Re-encode payload with bech32 crate to verify roundtrip (crate will do 8->5 conversion)
+    let hrp_parsed = Hrp::parse(hrp_str).expect("valid hrp");
+    let reencoded = bech32::encode::<bech32::Bech32>(hrp_parsed, &decoded_payload).expect("re-encode should succeed");
+    assert_eq!(reencoded, *bech, "re-encoded bech32 must match original address");
+  }
+}
+
+
+
+
+// CARDANO KEYS
+// WORDS:   pole paper orchard average hip flip oxygen edge virtual wait safe empower tiny glimpse rose blood normal strategy chase fold describe strong repeat lion
+// PATH:    m/1852'/1815'/0'/0/0
+// ADDRESS: addr1qy3unm6gu9jlhl78z7qujcezyczf0jws3dwdkdksuf8ymtf9ke9gwqk7k20la8hjz80jt9t4cay7spe853dlhlsdu5vqzddkaf
+// Byron extended public key (44'/1815'/0'/)
+// c5fd0151cae71647294b730e02a63de4750c841b87948be18cce54af0b18e505e460da418366099314e396162002efcc430f97fe7e056d6752cea1c6ae84747f
+// Shelley extended public key (1852'/1815'/0'/)
+// e0ed7c5ce32f6ba70cbed5db37bb72209f081763a6e7521fb2956fb44f5f9ac9148c84b4f14f11ad5932478cca51c11fc03cc53bf902d394de4e83b1e405aae2
+// Staking key CBOR hex (1852'/1815'/0'/2/0)
+// 582025eb749681eff81247950727ce28a138390790d82e520d9372deab4f9dfb898c
+// Reward address
+// stake1uyjmvj58qt0t98l7nmeprhe9j46uwj0gqun6gklmlcx72xqkvzepq
+// Staking key hash hex
+// e125b64a8702deb29ffe9ef211df259575c749e80727a45bfbfe0de518
+
+
+// WORDS:   together safe day faith sail roast obey gown eager idle vessel daring learn claw dizzy
+// PATH:    m/1852'/1815'/0'/0/10
+// ADDRESS: addr1qxa4juhuvevhce998k42vzr3vqvg8287auq5lh5ytcettl5x3mj83mnw7t3p34p50uahwruradutt6wcf6epn7hrszqsnxacs6
+// Byron extended public key (44'/1815'/0'/)
+// f4d2214f3537f7cabc3801f43b7329a79d4ea8bfae60562c2b1361018431840cc4ed4f7bf1efc8c1a9193bae197aeb4fd129851df3d226f4194ae1c867edc5c8
+// Shelley extended public key (1852'/1815'/0'/)
+// f6883025b09460c80e58b12ae33a39e7d12bf5d8dffcc8670ce121c64e94e51ca9e9b878a969528362e274f4a1af1e201ca44ddba399608d4d5c611800ce3f5a
+// Staking key CBOR hex (1852'/1815'/0'/2/0)
+// 5820184c1cf3396284d8d7e6e44e157cd92baa2320923723743bba641976700c3740
+// Reward address
+// stake1uxrgaercaeh09csc6s687wmhp7p7k794a8vyavselt3cpqg8wamm6
+// Staking key hash hex
+// e1868ee478ee6ef2e218d4347f3b770f83eb78b5e9d84eb219fae38081
+

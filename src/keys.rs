@@ -279,7 +279,8 @@ pub fn get_derivation_path(
   curve: &str,
   wallet: &mut CryptoWallet,
 ) -> FunctionOutput<Zeroizing<String>> {
-  let extra_hard = !matches!(curve, "secp256k1");
+  // let extra_hard = !matches!(curve, "secp256k1");
+  let extra_hard = wallet.wallet_data.hardened_address;
 
   let path: Zeroizing<crate::DerivationPathData> = wallet.address_components.derivation_path.clone();
 
@@ -291,53 +292,109 @@ pub fn get_derivation_path(
     _ => None,
   };
 
-  let derivation_path: Zeroizing<String> = match *path.purpose {
-    32 => Zeroizing::new(format!(
-      "m/{}{}/{}{}/{}{}",
-      *path.account,
-      if *path.account_hardened || extra_hard { "'" } else { "" },
-      *path.change,
-      if *path.change_hardened || extra_hard { "'" } else { "" },
-      *path.address,
-      if *path.address_hardened || extra_hard { "'" } else { "" },
-    )),
+  let derivation_path: Zeroizing<String> = match curve {
+    "ed25519" => {
+      if wallet.wallet_data.slip_derivation_path {
+        // m / purpose' / coin' / address'
+        Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
+      } else {
+        // m / purpose' / coin' / account' / change' / address'
+        Zeroizing::new(format!(
+          "m/{}'/{}'/{}'/{}'/{}'",
+          wallet.wallet_data.active_bip, *path.coin, *path.account, *path.change, *path.address,
+        ))
+      }
+    }
 
-    _ => match curve {
-      "secp256k1" => Zeroizing::new(format!(
-        "m/{}{}/{}{}/{}{}/{}{}/{}{}",
-        tap_bip.unwrap_or(*path.purpose),
-        if *path.purpose_hardened || extra_hard { "'" } else { "" },
+    "bip32-ed25519" => {
+      // m / 1852' / 1815' / account' / role / address
+      Zeroizing::new(format!(
+        "m/{}'/{}'/{}'/{}/{}{}",
         *path.coin,
-        if *path.coin_hardened || extra_hard { "'" } else { "" },
+        *path.coin,
         *path.account,
-        if *path.account_hardened || extra_hard { "'" } else { "" },
         *path.change,
-        if *path.change_hardened || extra_hard { "'" } else { "" },
         *path.address,
         if *path.address_hardened || extra_hard { "'" } else { "" },
-      )),
+      ))
+    }
 
-      _ => {
-        if wallet.wallet_data.slip_derivation_path {
-          Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
-        } else {
+    "secp256k1" | _ => {
+      match *path.purpose {
+        32 => {
+          // m / account / change / address
           Zeroizing::new(format!(
-            "m/{}{}/{}{}/{}{}/{}{}/{}{}",
-            wallet.wallet_data.active_bip,
-            if *path.purpose_hardened || extra_hard { "'" } else { "" },
-            *path.coin,
-            if *path.coin_hardened || extra_hard { "'" } else { "" },
+            "m/{}'/{}'/{}{}",
             *path.account,
-            if *path.account_hardened || extra_hard { "'" } else { "" },
             *path.change,
-            if *path.change_hardened || extra_hard { "'" } else { "" },
+            *path.address,
+            if *path.address_hardened || extra_hard { "'" } else { "" },
+          ))
+        }
+
+        44 | _ => {
+          // m / purpose' / coin' / account' / change / address
+          Zeroizing::new(format!(
+            "m/{}'/{}'/{}'/{}/{}{}",
+            tap_bip.unwrap_or(*path.purpose),
+            *path.coin,
+            *path.account,
+            *path.change,
             *path.address,
             if *path.address_hardened || extra_hard { "'" } else { "" },
           ))
         }
       }
-    },
+    }
   };
+
+  //   let derivation_path: Zeroizing<String> = match *path.purpose {
+  //     32 => Zeroizing::new(format!(
+  //       "m/{}{}/{}{}/{}{}",
+  //       *path.account,
+  //       if *path.account_hardened || extra_hard { "'" } else { "" },
+  //       *path.change,
+  //       if *path.change_hardened || extra_hard { "'" } else { "" },
+  //       *path.address,
+  //       if *path.address_hardened || extra_hard { "'" } else { "" },
+  //     )),
+  //
+  //     _ => match curve {
+  //       "secp256k1" => Zeroizing::new(format!(
+  //         "m/{}{}/{}{}/{}{}/{}{}/{}{}",
+  //         tap_bip.unwrap_or(*path.purpose),
+  //         if *path.purpose_hardened || extra_hard { "'" } else { "" },
+  //         *path.coin,
+  //         if *path.coin_hardened || extra_hard { "'" } else { "" },
+  //         *path.account,
+  //         if *path.account_hardened || extra_hard { "'" } else { "" },
+  //         *path.change,
+  //         if *path.change_hardened || extra_hard { "'" } else { "" },
+  //         *path.address,
+  //         if *path.address_hardened || extra_hard { "'" } else { "" },
+  //       )),
+  //
+  //       _ => {
+  //         if wallet.wallet_data.slip_derivation_path {
+  //           Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
+  //         } else {
+  //           Zeroizing::new(format!(
+  //             "m/{}{}/{}{}/{}{}/{}{}/{}{}",
+  //             wallet.wallet_data.active_bip,
+  //             if *path.purpose_hardened || extra_hard { "'" } else { "" },
+  //             *path.coin,
+  //             if *path.coin_hardened || extra_hard { "'" } else { "" },
+  //             *path.account,
+  //             if *path.account_hardened || extra_hard { "'" } else { "" },
+  //             *path.change,
+  //             if *path.change_hardened || extra_hard { "'" } else { "" },
+  //             *path.address,
+  //             if *path.address_hardened || extra_hard { "'" } else { "" },
+  //           ))
+  //         }
+  //       }
+  //     },
+  //   };
 
   Ok(derivation_path)
 }
@@ -1111,6 +1168,7 @@ fn encode_public_key(
         hash
       ))),
     },
+
     "keccak256" => match public_key {
       CryptoPublicKey::Secp256k1(pk) => {
         let serialized: Zeroizing<[u8; 33]> = Zeroizing::new(pk.serialize());
@@ -1126,10 +1184,7 @@ fn encode_public_key(
         hash
       ))),
     },
-    // "ed25519" | "sha3-256" => match public_key {
-    //   CryptoPublicKey::Ed25519(pk) => Ok(Zeroizing::new(bs58::encode(pk.to_bytes()).into_string())),
-    //   _ => Err(AppError::log(format!("Problem with ed25519 public key and hash in encode_public_key: {:?}", hash))),
-    // },
+
     _ => Err(AppError::log(format!("Unsupported hash method: {:?}", hash))),
   }
 }
@@ -1437,6 +1492,7 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
                   }
                 };
               }
+
               "ed25519" => {
                 match generate_ed25519_child_keys(wallet) {
                   Ok(_) => {}
@@ -1452,6 +1508,12 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
                   }
                 };
               }
+
+              "bip32-ed25519" => {
+                generate_cardano_child_keys(wallet)?;
+                generate_cardano_address(wallet)?;
+              }
+
               _ => {
                 return Err(AppError::log(format!(
                   "Unsupported key derivation: {:?}",
@@ -2080,6 +2142,214 @@ pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<
   let encoded_checksum: Zeroizing<String> = Zeroizing::new(nano_base32_encode(&reversed_checksum)?);
 
   let address: Zeroizing<String> = Zeroizing::new(format!("nano_{}{}", *encoded_pubkey, *encoded_checksum));
+
+  Ok(address)
+}
+
+//                                Cardano (ADA)
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+fn derive_cardano_child(
+  parent_key: &Zeroizing<Vec<u8>>,
+  parent_chain_code: &Zeroizing<Vec<u8>>,
+  index: u32,
+) -> FunctionOutput<(Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>)> {
+  let hardened_index = index | 0x8000_0000;
+
+  if parent_key.len() != 32 || parent_chain_code.len() != 32 {
+    return Err(AppError::log("Cardano parent key/chain code must be 32 bytes".to_string()));
+  }
+
+  let data: Zeroizing<Vec<u8>> = Zeroizing::new(
+    std::iter::once(0x00u8)
+      .chain(parent_key.iter().copied())
+      .chain(hardened_index.to_be_bytes())
+      .collect(),
+  );
+
+  let hmac: Zeroizing<Vec<u8>> = e_q::calculate_hmac_sha512_hash(parent_chain_code.clone(), data);
+
+  if hmac.len() != 64 {
+    return Err(AppError::log("Cardano HMAC output len != 64".to_string()));
+  }
+
+  let child_priv = Zeroizing::new(hmac[..32].to_vec());
+  let child_chain = Zeroizing::new(hmac[32..].to_vec());
+
+  Ok((child_priv, child_chain))
+}
+
+pub fn generate_cardano_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  use ed25519_dalek::SigningKey;
+
+  let master_priv = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_private_key_bytes.to_vec());
+  let master_chain = Zeroizing::new(wallet.secret_keys.master_ed25519_keys.master_chain_code_bytes.to_vec());
+
+  if master_priv.len() != 32 || master_chain.len() != 32 {
+    return Err(AppError::log("Cardano master key/chain code must be 32 bytes".to_string()));
+  }
+
+  let address_index: u32 = *wallet.address_components.derivation_path.address;
+
+  // CIP-1852: m / 1852' / 1815' / 0'
+  let mut priv_key = master_priv.clone();
+  let mut chain_code = master_chain.clone();
+
+  // 1852'
+  let (p1852, c1852) = derive_cardano_child(&priv_key, &chain_code, 1852)?;
+  priv_key = p1852;
+  chain_code = c1852;
+
+  // 1815'
+  let (p1815, c1815) = derive_cardano_child(&priv_key, &chain_code, 1815)?;
+  priv_key = p1815;
+  chain_code = c1815;
+
+  // account 0'
+  let (p_acc, c_acc) = derive_cardano_child(&priv_key, &chain_code, 0)?;
+  priv_key = p_acc;
+  chain_code = c_acc;
+
+  // payment key: role = 0, index = address_index
+  let (p_pay_role, c_pay_role) = derive_cardano_child(&priv_key, &chain_code, 0)?; // role 0
+  let (p_pay, c_pay) = derive_cardano_child(&p_pay_role, &c_pay_role, address_index)?; // index
+
+  let mut pay_priv32: [u8; 32] = [0u8; 32];
+  pay_priv32.copy_from_slice(&p_pay);
+
+  let pay_signing = SigningKey::from_bytes(&pay_priv32);
+  let pay_pub = pay_signing.verifying_key().to_bytes().to_vec();
+
+  // stake keys: role = 2, index = 0
+  let (p_stake_role, c_stake_role) = derive_cardano_child(&priv_key, &chain_code, 2)?; // role 2
+  let (p_stake, c_stake) = derive_cardano_child(&p_stake_role, &c_stake_role, 0)?; // index 0
+
+  let mut stake_priv32: [u8; 32] = [0u8; 32];
+  stake_priv32.copy_from_slice(&p_stake);
+
+  let stake_signing = SigningKey::from_bytes(&stake_priv32);
+  let stake_pub = stake_signing.verifying_key().to_bytes().to_vec();
+
+  wallet.secret_keys.cardano_keys.payment_private_key_bytes = p_pay;
+  wallet.secret_keys.cardano_keys.payment_chain_code_bytes = c_pay;
+  wallet.secret_keys.cardano_keys.payment_public_key_bytes = Zeroizing::new(pay_pub);
+
+  wallet.secret_keys.cardano_keys.stake_private_key_bytes = p_stake;
+  wallet.secret_keys.cardano_keys.stake_chain_code_bytes = c_stake;
+  wallet.secret_keys.cardano_keys.stake_public_key_bytes = Zeroizing::new(stake_pub);
+
+  Ok(())
+}
+
+fn convert_bits(
+  data: &[u8],
+  from: u32,
+  to: u32,
+  pad: bool,
+) -> Result<Vec<u8>, String> {
+  if from == 0 || to == 0 || from > 32 || to > 32 {
+    return Err("Invalid bit sizes".to_string());
+  }
+  let mut acc: u32 = 0;
+  let mut bits: u32 = 0;
+  let maxv: u32 = (1u32 << to) - 1;
+  let mut ret: Vec<u8> = Vec::new();
+
+  for value in data {
+    let v = *value as u32;
+    if (v >> from) != 0 {
+      return Err("Input value exceeds from bit size".to_string());
+    }
+    acc = (acc << from) | v;
+    bits += from;
+    while bits >= to {
+      bits -= to;
+      let out = ((acc >> bits) & maxv) as u8;
+      ret.push(out);
+    }
+  }
+
+  if pad {
+    if bits > 0 {
+      let out = ((acc << (to - bits)) & maxv) as u8;
+      ret.push(out);
+    }
+  } else if bits >= from || ((acc << (to - bits)) & maxv) != 0 {
+    return Err("Invalid padding in convert_bits".to_string());
+  }
+
+  Ok(ret)
+}
+
+fn blake2b_224(input: &[u8]) -> FunctionOutput<Vec<u8>> {
+  use blake2b_simd::Params;
+
+  let hash = Params::new().hash_length(28).to_state().update(input).finalize();
+  Ok(hash.as_bytes().to_vec())
+}
+
+pub fn generate_cardano_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zeroizing<String>> {
+  use bech32::{Hrp, encode};
+
+  let coin_index = wallet.address_components.derivation_path.coin.clone();
+  let coin_name = wallet.address_components.coin_name.clone();
+
+  // network id: 1 = mainnet, 0 = testnet
+  let network_id: u8 = 1;
+  let addr_type: u8 = 0; // base address (payment + stake)
+
+  let payment_pub = wallet.secret_keys.cardano_keys.payment_public_key_bytes.clone();
+  let stake_pub = wallet.secret_keys.cardano_keys.stake_public_key_bytes.clone();
+
+  if payment_pub.is_empty() || stake_pub.is_empty() {
+    return Err(AppError::log("Missing Cardano payment or stake public key".to_string()));
+  }
+
+  let payment_hash = blake2b_224(&payment_pub)?;
+  let stake_hash = blake2b_224(&stake_pub)?;
+
+  let header: u8 = (addr_type << 4) | network_id;
+  let mut payload: Vec<u8> = Vec::with_capacity(1 + 28 + 28);
+  payload.push(header);
+  payload.extend_from_slice(&payment_hash);
+  payload.extend_from_slice(&stake_hash);
+
+  let data_5bit = convert_bits(&payload, 8, 5, true).map_err(|e| AppError::log(format!("Bech32 convert_bits error: {}", e)))?;
+
+  let hrp_str = if network_id == 1 { "addr" } else { "addr_test" };
+  let hrp = Hrp::parse(hrp_str).map_err(|e| AppError::log(format!("Invalid HRP: {:?}", e)))?;
+
+  let bech = encode::<bech32::Bech32>(hrp, &payload).map_err(|err| AppError::log(format!("Cardano Bech32 encode error: {:?}", err)))?;
+
+  let address = Zeroizing::new(bech.clone());
+
+  let public_key_str = Zeroizing::new(format!("payment: {}\nstake: {}", hex::encode(&*payment_pub), hex::encode(&*stake_pub)));
+
+  let private_key_str = Zeroizing::new(format!(
+    "payment: {}\nstake: {}",
+    hex::encode(&*wallet.secret_keys.cardano_keys.payment_private_key_bytes),
+    hex::encode(&*wallet.secret_keys.cardano_keys.stake_private_key_bytes),
+  ));
+
+  let derivation_path = match get_derivation_path("bip32-ed25519", wallet) {
+    Ok(path) => path,
+    Err(err) => {
+      return Err(AppError::log(format!("Can not parse Cardano derivation path: {:?}", err)));
+    }
+  };
+
+  wallet
+    .addresses_by_coin
+    .0
+    .entry(coin_name.to_string())
+    .or_default()
+    .push(AddressPrivateData {
+      coin_index,
+      path: derivation_path,
+      address: address.clone(),
+      public_key: public_key_str,
+      private_key: private_key_str,
+    });
 
   Ok(address)
 }

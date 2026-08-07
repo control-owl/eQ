@@ -42,6 +42,7 @@ ring = "0.17.14"
 # Curve libraries
 secp256k1 = "0.31.1"
 ed25519-dalek = "3.0.0"
+ed25519-bip32 = "0.4.3"
 curve25519-dalek = "5.0.0"
 num-bigint = "0.5.1"
 
@@ -54,7 +55,9 @@ base64 = "0.23.1"
 base58-monero = "2.1.0" 
 crc32fast ="1.5.0"
 blake2 = "0.10.6"
+blake2b_simd = "1.0.4"
 digest = "0.11.3"
+ciborium = "0.2.2"
 
 # Secrets
 shamir_share = "0.2.1"

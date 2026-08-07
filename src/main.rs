@@ -158,6 +158,18 @@ struct SecretKeyData {
   child_secp256k1_keys: Zeroizing<ChildSecp256k1KeySecretData>,
   master_ed25519_keys: Zeroizing<MasterEd25519KeySecretData>,
   child_ed25519_keys: Zeroizing<ChildEd25519KeySecretData>,
+  cardano_keys: Zeroizing<CardanoKeySecretData>,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct CardanoKeySecretData {
+  pub payment_private_key_bytes: Zeroizing<Vec<u8>>,
+  pub payment_chain_code_bytes: Zeroizing<Vec<u8>>,
+  pub payment_public_key_bytes: Zeroizing<Vec<u8>>,
+
+  pub stake_private_key_bytes: Zeroizing<Vec<u8>>,
+  pub stake_chain_code_bytes: Zeroizing<Vec<u8>>,
+  pub stake_public_key_bytes: Zeroizing<Vec<u8>>,
 }
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
