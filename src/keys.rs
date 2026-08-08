@@ -2187,8 +2187,6 @@ pub fn build_shelley_base_address_from_xpubs(
   payload.extend_from_slice(&payment_hash);
   payload.extend_from_slice(&stake_hash);
 
-  println!("[build] payload = {}", hex::encode(&payload));
-
   let hrp = Hrp::parse("addr").unwrap();
   encode::<Bech32>(hrp, &payload).unwrap()
 }

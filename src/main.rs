@@ -445,8 +445,8 @@ impl GuiSettings {
       version_dialog: ShowAboutWindow::default(),
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
 
-      hide_private_keys: true,
-      hide_public_keys: true,
+      hide_private_keys: if cfg!(feature = "dev") { false } else { true },
+      hide_public_keys: if cfg!(feature = "dev") { false } else { true },
 
       show_disclaimer: false,
 
