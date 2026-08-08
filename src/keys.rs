@@ -2198,6 +2198,18 @@ pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> Func
 
   let path = get_derivation_path("bip32-ed25519", wallet).unwrap();
 
+  let public_keys_str: Zeroizing<String> = Zeroizing::new(format!(
+    "payment: {}\nstake: {}",
+    *wallet.secret_keys.cardano_keys.payment_public_key.clone(),
+    *wallet.secret_keys.cardano_keys.stake_public_key.clone()
+  ));
+
+  let private_keys_str: Zeroizing<String> = Zeroizing::new(format!(
+    "payment: {}\nstake: {}",
+    *wallet.secret_keys.cardano_keys.payment_private_key.clone(),
+    *wallet.secret_keys.cardano_keys.stake_private_key.clone()
+  ));
+
   wallet
     .addresses_by_coin
     .0
@@ -2207,8 +2219,8 @@ pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> Func
       coin_index: Zeroizing::new(1815 as u32),
       path,
       address: Zeroizing::new(address.clone()),
-      public_key: wallet.secret_keys.cardano_keys.payment_public_key.clone(),
-      private_key: wallet.secret_keys.cardano_keys.payment_private_key.clone(),
+      public_key: public_keys_str,
+      private_key: private_keys_str,
     });
 
   Ok(address)
