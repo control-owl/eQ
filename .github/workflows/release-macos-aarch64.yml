@@ -133,7 +133,7 @@ jobs:
           shasum -a 256 "${OUTPUT_DIR}/${TAR_FILE}" > "${OUTPUT_DIR}/${TAR_FILE}.sha256"
 
       - name: "Upload to GitHub Releases"
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
