@@ -150,8 +150,12 @@ impl SeedSecretData {
 struct SecretKeyData {
   master_secp256k1_keys: Zeroizing<MasterSecp256k1KeySecretData>,
   child_secp256k1_keys: Zeroizing<ChildSecp256k1KeySecretData>,
+
   master_ed25519_keys: Zeroizing<MasterEd25519KeySecretData>,
   child_ed25519_keys: Zeroizing<ChildEd25519KeySecretData>,
+
+  master_sr25519_keys: Zeroizing<MasterSr25519KeySecretData>,
+  child_sr25519_keys: Zeroizing<ChildSr25519KeySecretData>,
 
   monero_keys: Zeroizing<MoneroKeySecretData>,
   cardano_keys: Zeroizing<CardanoKeySecretData>,
@@ -190,6 +194,22 @@ struct ChildEd25519KeySecretData {
 }
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+struct MasterSr25519KeySecretData {
+  master_private_key_encoded: Zeroizing<String>,
+  master_private_key_bytes: Zeroizing<Vec<u8>>,
+
+  master_public_key_encoded: Zeroizing<String>,
+  master_public_key_bytes: Zeroizing<Vec<u8>>,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Clone, Debug, Default)]
+struct ChildSr25519KeySecretData {
+  child_private_key_bytes: Zeroizing<Vec<u8>>,
+  child_public_key_bytes: Zeroizing<Vec<u8>>,
+  child_chain_code_bytes: Zeroizing<Vec<u8>>,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 pub struct MoneroKeySecretData {
   monero_mnemonic_words: Zeroizing<String>,
   monero_spend_key: Zeroizing<String>,
@@ -206,6 +226,13 @@ pub struct CardanoKeySecretData {
   pub stake_private_key: Zeroizing<String>,
   pub stake_chain_code: Zeroizing<String>,
   pub stake_public_key: Zeroizing<String>,
+}
+
+#[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
+pub struct PolkadotKeySecretData {
+  pub payment_private_key: Zeroizing<String>,
+  pub payment_chain_code: Zeroizing<String>,
+  pub payment_public_key: Zeroizing<String>,
 }
 
 // type CardanoKeys = (Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>);
@@ -558,6 +585,15 @@ impl EgoQuantum {
       };
     };
 
+    if self.wallet.secret_keys.master_sr25519_keys.master_private_key_encoded.is_empty() {
+      match keys::generate_sr25519_master_keys(&mut self.wallet) {
+        Ok(_) => {}
+        Err(err) => {
+          return Err(AppError::log(format!("Problem with generating sr25519 master keys: {}", err)));
+        }
+      };
+    };
+
     Ok(())
   }
 
@@ -824,6 +860,7 @@ impl EgoQuantum {
 
         let slip_derivation_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.slip_derivation_path, "Use SLIP-0010 derivation"));
 
+        // BUG: Monero words needs to be re-generated with new path!
         if slip_derivation_resp.changed() && has_addresses {
           self.wallet.addresses_by_coin.0.clear();
           let _ = self.generate_addresses_for_all_coins();

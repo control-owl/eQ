@@ -281,7 +281,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,280,HTR,Hathor Network,,,,,,,,,
 0,281,ACME,Accumulate,,,,,,,,,
 0,282,BRAVO,BRAVO,,,,,,,,,
-0,283,ALGO,Algorand,ed25519,,,,,,,,
+1,283,ALGO,Algorand,ed25519,,,,,,,,4030
 0,284,BZX,Bitcoinzero,,,,,,,,,
 0,285,GXX,GravityCoin,,,,,,,,,
 0,286,HEAT,HEAT,,,,,,,,,
@@ -352,7 +352,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,351,MDM,Medium,,,,,,,,,
 0,352,CYB,Cybex,,,,,,,,,
 0,353,LTO,LTO Network,,,,,,,,,
-0,354,DOT,Polkadot,ed25519,,,,,,,,
+1,354,DOT,Polkadot,sr25519,,,,,,,,6636
 0,355,AEON,Aeon,,,,,,,,,
 0,356,RES,Resistance,,,,,,,,,
 1,357,AYA,Aryacoin,secp256k1,sha256,,,0x17,0x6f,0x97,,3973
@@ -590,7 +590,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,592,GRIN,Grin,,,,,,,,,
 0,593,MWC,MimbleWimbleCoin,,,,,,,,,
 0,594,DOCK,Dock,,,,,,,,,
-0,595,POLYX,Polymesh,secp256k1,blake2b,,,,,,,
+0,595,POLYX,Polymesh,,,,,,,,,20362
 0,596,DIVER,Divergenti,,,,,,,,,
 0,597,XEP,Electra Protocol,,,,,,,,,
 0,598,APN,Apron,,,,,,,,,
@@ -602,7 +602,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,604,DYN,Dynamo,,,,,,,,,
 0,605,BUFS,Buffer,,,,,,,,,
 1,606,STOS,Stratos,secp256k1,keccak256,,,,,,TRUE,9760
-0,607,TON,TON,secp256k1,sha256,,,,,,,
+0,607,TON,TON,,,,,,,,,
 0,608,TAFT,TAFT,,,,,,,,,
 1,609,HYDRA,HYDRA,secp256k1,keccak256,,,,,,TRUE,8245
 0,610,NOR,Noir,,,,,,,,,
@@ -1303,6 +1303,8 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 2,60,ETH,Ethereum,secp256k1,keccak256,,,,,,,1027
 2,128,XMR,Monero,ed25519,keccak256,,,0x7F,0xC4,0x3F,,328
 2,165,XNO,Nano,ed25519,blake2b,,,,,,,1567
+2,283,ALGO,Algorand,ed25519,,,,,,,,4030
 2,313,ZIL,Zilliqa,secp256k1,sha256,,,,,,,2469
+2,354,DOT,Polkadot,sr25519,,,,,,,,6636
 2,501,SOL,Solana,ed25519,,,,,,,,5426
 2,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,,,2010

@@ -1,17 +1,23 @@
 # version 1.6.0
 - new coin: Monero (XMR)
+- new coin: Algorand (ALGO)
+- new coin: Polkadot (DOT)
 - new coin: Nano (XNO)
 - new coin: NEM (XEM)
 - new coin: Cardano (ADA)
     - Shelly address only supported
+    - Byron (legacy) will be added later
 - new coin: Zilliqa (ZIL)
     - Legacy address zil... supported
     - New V2 address 0x... supported
 - Litecoin:
-    - Taproot address support ltc1p... (default)
     - New supporting protocol BIP86
+    - Taproot address support ltc1p... (default)
     - Legacy  address support L...
 - new option: Standardize EVM addresses (optional)
+- new curve: 
+    - sr25519
+    - ed25519-bip32
 - cargo update:
     - egui (0.34.3 -> 0.36.1)
     - eframe (0.34.3 -> 0.36.1)

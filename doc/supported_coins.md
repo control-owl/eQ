@@ -1,294 +1,295 @@
 # All supported coins
 
-| Index | Symbol | Coin                       |
-| ----- | ------ | -------------------------- |
-| 1     | ACA    | Acala Token                |
-| 2     | ACC    | Adcoin                     |
-| 3     | ADIL   | ADIL Chain                 |
-| 4     | AIOZ   | AIOZ Network               |
-| 5     | AKA    | Akroma                     |
-| 6     | ANON   | ANON                       |
-| 7     | ARB1   | Arbitrum One               |
-| 8     | AGM    | Argoneum                   |
-| 9     | AMAX   | Armonia Meta Chain         |
-| 10    | XAX    | Artax                      |
-| 11    | AA     | Arthera                    |
-| 12    | ATS    | ARTIS sigma1               |
-| 13    | AYA    | Aryacoin                   |
-| 14    | AC     | Asiacoin                   |
-| 15    | ASTR   | Astar Network              |
-| 16    | ATH    | Atheios                    |
-| 17    | AUR    | Auroracoin                 |
-| 18    | AVAXC  | Avalanche C-Chain          |
-| 19    | AXE    | Axe                        |
-| 20    | BASE   | Base                       |
-| 21    | BTA    | Bata                       |
-| 22    | BEAM   | Beam                       |
-| 23    | BEET   | Beetle Coin                |
-| 24    | BELA   | BelaCoin                   |
-| 25    | BOC    | BeOne Chain                |
-| 26    | BERA   | Berachain                  |
-| 27    | BNB    | Binance Smart Chain        |
-| 28    | BITCI  | Bitcicoin                  |
-| 29    | BTDX   | BitCloud                   |
-| 30    | BTC    | Bitcoin                    |
-| 31    | BCA    | Bitcoin Atom               |
-| 32    | BCH    | Bitcoin Cash               |
-| 33    | BTG    | Bitcoin Gold               |
-| 34    | BITG   | Bitcoin Green              |
-| 35    | XBC    | Bitcoin Plus               |
-| 36    | BTCP   | Bitcoin Private            |
-| 37    | BSV    | Bitcoin SV                 |
-| 38    | BTCZ   | BitcoinZ                   |
-| 39    | BTX    | Bitcore                    |
-| 40    | BTR    | Bitlayer                   |
-| 41    | BSD    | BitSend                    |
-| 42    | BTY    | BitYuan                    |
-| 43    | BLK    | Blackcoin                  |
-| 44    | BXN    | BlackFort Exchange Network |
-| 45    | BND    | Blocknode                  |
-| 46    | BLU    | BluCrates                  |
-| 47    | BOLI   | Bolivarcoin                |
-| 48    | BRIT   | BritCoin                   |
-| 49    | BTA    | Btachain                   |
-| 50    | RYO    | c0ban                      |
-| 51    | C4EI   | c4ei                       |
-| 52    | CLO    | Callisto                   |
-| 53    | CDN    | Canada eCoin               |
-| 54    | CNDL   | Candle                     |
-| 55    | ADA    | Cardano                    |
-| 56    | CELO   | Celo                       |
-| 57    | CFG    | Centrifuge                 |
-| 58    | CIC    | CIC Chain                  |
-| 59    | CITY   | City Coin                  |
-| 60    | CLAM   | Clams                      |
-| 61    | CLUB   | ClubCoin                   |
-| 62    | CET    | CoinEx Chain               |
-| 63    | CMP    | Compcoin                   |
-| 64    | CPV    | Compverse                  |
-| 65    | CONET  | CONET Holesky Network      |
-| 66    | CFX    | Conflux                    |
-| 67    | CORE   | Core                       |
-| 68    | ATOM   | Cosmos                     |
-| 69    | XCP    | Counterparty               |
-| 70    | CPU    | CPUchain                   |
-| 71    | CRP    | CranePay                   |
-| 72    | CRAVE  | Crave                      |
-| 73    | CRO    | Cronos (Crypto Chain)      |
-| 74    | CUBE   | Cube Chain Native Token    |
-| 75    | DASH   | Dash                       |
-| 76    | ONION  | DeepOnion                  |
-| 77    | DFC    | Defcoin                    |
-| 78    | DFI    | DeFiChain EVM Network      |
-| 79    | DNR    | Denarius                   |
-| 80    | DMD    | Diamond                    |
-| 81    | DGB    | DigiByte                   |
-| 82    | DGC    | Digitalcoin                |
-| 83    | DIVI   | Divi Project               |
-| 84    | DOGE   | Dogecoin                   |
-| 85    | AAC    | Double-A Chain             |
-| 86    | DUSK   | Dusk Network               |
-| 87    | DX     | DxChain Token              |
-| 88    | ECN    | E-coin                     |
-| 89    | EFL    | e-Gulden                   |
-| 90    | EDG    | Edgeware                   |
-| 91    | EDRC   | EDRCoin                    |
-| 92    | EMC2   | Einsteinium                |
-| 93    | ELA    | Elastos                    |
-| 94    | ELLA   | Ella the heart             |
-| 95    | ELLA   | Ellaism                    |
-| 96    | ACE    | Endurance                  |
-| 97    | NRG    | Energi                     |
-| 98    | NRG    | Energi (Legacy)            |
-| 99    | EWT    | Energy Web Token           |
-| 100   | ETH    | Ethereum                   |
-| 101   | ETC    | Ethereum Classic           |
-| 102   | EGEM   | EtherGem                   |
-| 103   | ETHO   | Etho Protocol              |
-| 104   | ERC    | EuropeCoin                 |
-| 105   | EVC    | Evrice                     |
-| 106   | EXCL   | ExclusiveCoin              |
-| 107   | SAMA   | Exosama Network            |
-| 108   | EXP    | Expanse                    |
-| 109   | FTM    | Fantom (Old)               |
-| 110   | FTC    | Feathercoin                |
-| 111   | FIL    | Filecoin                   |
-| 112   | FRA    | Findora                    |
-| 113   | FRST   | Firstcoin                  |
-| 114   | FIX    | FIX                        |
-| 115   | FLASH  | Flashcoin                  |
-| 116   | FLUX   | Flux                       |
-| 117   | FJC    | FujiCoin                   |
-| 118   | FSN    | FUSION                     |
-| 119   | GAME   | GameCredits                |
-| 120   | GC     | GateChain                  |
-| 121   | GCR    | Global Currency Reserve    |
-| 122   | GBX    | GoByte                     |
-| 123   | GO     | GoChain                    |
-| 124   | GGX    | Golden Gate                |
-| 125   | GGXT   | Golden Gate Sydney         |
-| 126   | GRC    | Gridcoin                   |
-| 127   | GRS    | Groestlcoin                |
-| 128   | NLG    | Gulden                     |
-| 129   | HBAR   | Hedera                     |
-| 130   | HNC    | Helleniccoin               |
-| 131   | HTH    | Help The Homeless Coin     |
-| 132   | THC    | Hempcoin                   |
-| 133   | FURY   | Highbury                   |
-| 134   | HOO    | Hoo Smart Chain            |
-| 135   | ZEN    | Horizen                    |
-| 136   | HTML   | HTML Coin                  |
-| 137   | HT     | Huobi Token                |
-| 138   | HUSH   | HUSH                       |
-| 139   | HYDRA  | HYDRA                      |
-| 140   | HYPE   | Hyperliquid                |
-| 141   | INJ    | Injective                  |
-| 142   | INSN   | InsaneCoin                 |
-| 143   | IOP    | Internet of People         |
-| 144   | IOTX   | IoTeX                      |
-| 145   | IXC    | IXCoin                     |
-| 146   | JOC    | Japan Open Chain           |
-| 147   | JFIN   | JFIN Coin                  |
-| 148   | JBS    | Jumbucks                   |
-| 149   | KAIA   | KAIA                       |
-| 150   | KAR    | Karura Network             |
-| 151   | KAVA   | Kava                       |
-| 152   | KLY    | KLYNTAR                    |
-| 153   | KOBO   | Kobocoin                   |
-| 154   | KMD    | Komodo                     |
-| 155   | LDCN   | Landcoin                   |
-| 156   | LBC    | LBRY Credits               |
-| 157   | LINX   | Linx                       |
-| 158   | LTC    | Litecoin                   |
-| 159   | LCC    | LitecoinCash               |
-| 160   | LTZ    | LitecoinZ                  |
-| 161   | LKR    | Lkrcoin                    |
-| 162   | LYNX   | Lynx                       |
-| 163   | MAZA   | Mazacoin                   |
-| 164   | MEC    | Megacoin                   |
-| 165   | MTC    | Metachain                  |
-| 166   | META   | Metadium                   |
-| 167   | MTR    | Meter Stable               |
-| 168   | MEV    | MEVerse                    |
-| 169   | MNX    | Minexcoin                  |
-| 170   | MIX    | MIX                        |
-| 171   | MONA   | Monacoin                   |
-| 172   | MON    | Monad                      |
-| 173   | XMR    | Monero                     |
-| 174   | MONK   | Monkey Project             |
-| 175   | GLMR   | Moonbeam                   |
-| 176   | MOVR   | Moonriver                  |
-| 177   | SAMA   | Moonsama Network           |
-| 178   | MOVO   | Movo Smart Chain           |
-| 179   | XMY    | Myriadcoin                 |
-| 180   | NMC    | Namecoin                   |
-| 181   | XNO    | Nano                       |
-| 182   | NAV    | NavCoin (Legacy)           |
-| 183   | NEAR   | NEAR Protocol              |
-| 184   | NEBL   | Neblio                     |
-| 185   | XEM    | NEM                        |
-| 186   | NEOS   | Neoscoin                   |
-| 187   | NRO    | Neurocoin                  |
-| 188   | NEW    | Newton                     |
-| 189   | NYC    | NewYorkCoin                |
-| 190   | NEXI   | Nexi                       |
-| 191   | NIX    | NIX                        |
-| 192   | NVC    | Novacoin                   |
-| 193   | NBT    | NuBits                     |
-| 194   | NUM    | Numbers Protocol           |
-| 195   | NSR    | NuShares                   |
-| 196   | ROSE   | Oasis Network              |
-| 197   | OAS    | Oasys                      |
-| 198   | OK     | OKCash                     |
-| 199   | OKT    | OKT Chain                  |
-| 200   | OMNI   | Omni                       |
-| 201   | ONT    | Ontology                   |
-| 202   | OA     | Open Assets                |
-| 203   | PART   | Particl                    |
-| 204   | PEAQ   | Peaq                       |
-| 205   | PPC    | Peercoin                   |
-| 206   | PSB    | Pesobit                    |
-| 207   | PHX    | Phoenix                    |
-| 208   | PHR    | Phore                      |
-| 209   | PINK   | Pinkcoin                   |
-| 210   | PIVX   | Pivx                       |
-| 211   | LAT    | PlatON                     |
-| 212   | POA    | Poa                        |
-| 213   | MATIC  | Polygon                    |
-| 214   | POSW   | Posw coin                  |
-| 215   | POT    | Potcoin                    |
-| 216   | PRJ    | ProjectCoin                |
-| 217   | PLS    | Pulse Chain                |
-| 218   | PUT    | Putincoin                  |
-| 219   | MEER   | Qitmeer Network            |
-| 220   | QTUM   | QTUM                       |
-| 221   | QKC    | QuarkChain                 |
-| 222   | QTZ    | Quartz                     |
-| 223   | RPD    | Rapids                     |
-| 224   | RVN    | Ravencoin                  |
-| 225   | RBNT   | Redbelly Network           |
-| 226   | RDD    | Reddcoin                   |
-| 227   | RITO   | Ritocoin                   |
-| 228   | RBTC   | Rootstock Bitcoin          |
-| 229   | RBY    | Rubycoin                   |
-| 230   | RUPX   | Rupaya                     |
-| 231   | SAFE   | Safecoin                   |
-| 232   | SLS    | Saluscoin                  |
-| 233   | SCRIBE | Scribe                     |
-| 234   | SCR    | Scroll                     |
-| 235   | SEELE  | Seele                      |
-| 236   | SEI    | SEI                        |
-| 237   | SDC    | ShadowCash                 |
-| 238   | SDN    | Shiden Network             |
-| 239   | SMR    | Shimmer                    |
-| 240   | SMLY   | Smileycoin                 |
-| 241   | SOL    | Solana                     |
-| 242   | SLR    | Solarcoin                  |
-| 243   | S      | SONIC                      |
-| 244   | STRAT  | Stratis                    |
-| 245   | STOS   | Stratos                    |
-| 246   | SUGAR  | Sugarchain                 |
-| 247   | SYS    | Syscoin                    |
-| 248   | TAFECO | Taf ECO Chain              |
-| 249   | TNT    | Tangle                     |
-| 250   | TARA   | Taraxa                     |
-| 251   | TLOS   | Telos                      |
-| 252   | XTZ    | Tezos (tz2)                |
-| 253   | TFUEL  | Theta Fuel                 |
-| 254   | THETA  | Theta Network              |
-| 255   | THT    | ThoughtAI                  |
-| 256   | TOA    | TOACoin                    |
-| 257   | OLO    | Tool Global                |
-| 258   | TRX    | Tron                       |
-| 259   | UBQ    | Ubiq                       |
-| 260   | USC    | Ultimate Secure Cash       |
-| 261   | UNQ    | Unique Network             |
-| 262   | UNO    | Unobtanium                 |
-| 263   | VAL    | Valorbit                   |
-| 264   | XVC    | Vcash                      |
-| 265   | VET    | VeChain                    |
-| 266   | VLX    | Velas                      |
-| 267   | XVM    | Venidium                   |
-| 268   | XVG    | Verge                      |
-| 269   | VTC    | Vertcoin                   |
-| 270   | VIA    | Viacoin                    |
-| 271   | VIVO   | Vivo                       |
-| 272   | WGR    | Wagerr                     |
-| 273   | WAN    | Wanchain                   |
-| 274   | XWC    | Whitecoin                  |
-| 275   | TWINS  | win.win                    |
-| 276   | WC     | Wincoin                    |
-| 277   | X42    | x42 Protocol               |
-| 278   | XDAI   | xDai                       |
-| 279   | XERO   | Xerom                      |
-| 280   | XRP    | XRP                        |
-| 281   | XSC    | XT Smart Chain             |
-| 282   | XUEZ   | XUEZ                       |
-| 283   | YCC    | Yuan Chain Coin            |
-| 284   | ZEC    | Zcash                      |
-| 285   | ZCL    | ZClassic                   |
-| 286   | XZC    | Zcoin                      |
-| 287   | ZETA   | ZetaChain                  |
-| 288   | ZET    | Zetacoin                   |
-| 289   | ZIL    | Zilliqa                    |
-| 290   | ZKS    | zkSync                     |
+| Index | coin_symbol | coin_name                  |
+| ----- | ----------- | -------------------------- |
+| 1     | ACA         | Acala Token                |
+| 2     | ACC         | Adcoin                     |
+| 3     | ADIL        | ADIL Chain                 |
+| 4     | AIOZ        | AIOZ Network               |
+| 5     | AKA         | Akroma                     |
+| 6     | ALGO        | Algorand                   |
+| 7     | ANON        | ANON                       |
+| 8     | ARB1        | Arbitrum One               |
+| 9     | AGM         | Argoneum                   |
+| 10    | AMAX        | Armonia Meta Chain         |
+| 11    | XAX         | Artax                      |
+| 12    | AA          | Arthera                    |
+| 13    | ATS         | ARTIS sigma1               |
+| 14    | AYA         | Aryacoin                   |
+| 15    | AC          | Asiacoin                   |
+| 16    | ASTR        | Astar Network              |
+| 17    | ATH         | Atheios                    |
+| 18    | AUR         | Auroracoin                 |
+| 19    | AVAXC       | Avalanche C-Chain          |
+| 20    | AXE         | Axe                        |
+| 21    | BASE        | Base                       |
+| 22    | BTA         | Bata                       |
+| 23    | BEAM        | Beam                       |
+| 24    | BEET        | Beetle Coin                |
+| 25    | BELA        | BelaCoin                   |
+| 26    | BOC         | BeOne Chain                |
+| 27    | BERA        | Berachain                  |
+| 28    | BNB         | Binance Smart Chain        |
+| 29    | BITCI       | Bitcicoin                  |
+| 30    | BTDX        | BitCloud                   |
+| 31    | BTC         | Bitcoin                    |
+| 32    | BCA         | Bitcoin Atom               |
+| 33    | BCH         | Bitcoin Cash               |
+| 34    | BTG         | Bitcoin Gold               |
+| 35    | BITG        | Bitcoin Green              |
+| 36    | XBC         | Bitcoin Plus               |
+| 37    | BTCP        | Bitcoin Private            |
+| 38    | BSV         | Bitcoin SV                 |
+| 39    | BTCZ        | BitcoinZ                   |
+| 40    | BTX         | Bitcore                    |
+| 41    | BTR         | Bitlayer                   |
+| 42    | BSD         | BitSend                    |
+| 43    | BTY         | BitYuan                    |
+| 44    | BLK         | Blackcoin                  |
+| 45    | BXN         | BlackFort Exchange Network |
+| 46    | BND         | Blocknode                  |
+| 47    | BLU         | BluCrates                  |
+| 48    | BOLI        | Bolivarcoin                |
+| 49    | BRIT        | BritCoin                   |
+| 50    | BTA         | Btachain                   |
+| 51    | RYO         | c0ban                      |
+| 52    | C4EI        | c4ei                       |
+| 53    | CLO         | Callisto                   |
+| 54    | CDN         | Canada eCoin               |
+| 55    | CNDL        | Candle                     |
+| 56    | ADA         | Cardano                    |
+| 57    | CELO        | Celo                       |
+| 58    | CFG         | Centrifuge                 |
+| 59    | CIC         | CIC Chain                  |
+| 60    | CITY        | City Coin                  |
+| 61    | CLAM        | Clams                      |
+| 62    | CLUB        | ClubCoin                   |
+| 63    | CET         | CoinEx Chain               |
+| 64    | CMP         | Compcoin                   |
+| 65    | CPV         | Compverse                  |
+| 66    | CONET       | CONET Holesky Network      |
+| 67    | CFX         | Conflux                    |
+| 68    | CORE        | Core                       |
+| 69    | ATOM        | Cosmos                     |
+| 70    | XCP         | Counterparty               |
+| 71    | CPU         | CPUchain                   |
+| 72    | CRP         | CranePay                   |
+| 73    | CRAVE       | Crave                      |
+| 74    | CRO         | Cronos (Crypto Chain)      |
+| 75    | CUBE        | Cube Chain Native Token    |
+| 76    | DASH        | Dash                       |
+| 77    | ONION       | DeepOnion                  |
+| 78    | DFC         | Defcoin                    |
+| 79    | DFI         | DeFiChain EVM Network      |
+| 80    | DNR         | Denarius                   |
+| 81    | DMD         | Diamond                    |
+| 82    | DGB         | DigiByte                   |
+| 83    | DGC         | Digitalcoin                |
+| 84    | DIVI        | Divi Project               |
+| 85    | DOGE        | Dogecoin                   |
+| 86    | AAC         | Double-A Chain             |
+| 87    | DUSK        | Dusk Network               |
+| 88    | DX          | DxChain Token              |
+| 89    | ECN         | E-coin                     |
+| 90    | EFL         | e-Gulden                   |
+| 91    | EDG         | Edgeware                   |
+| 92    | EDRC        | EDRCoin                    |
+| 93    | EMC2        | Einsteinium                |
+| 94    | ELA         | Elastos                    |
+| 95    | ELLA        | Ella the heart             |
+| 96    | ELLA        | Ellaism                    |
+| 97    | ACE         | Endurance                  |
+| 98    | NRG         | Energi                     |
+| 99    | NRG         | Energi (Legacy)            |
+| 100   | EWT         | Energy Web Token           |
+| 101   | ETH         | Ethereum                   |
+| 102   | ETC         | Ethereum Classic           |
+| 103   | EGEM        | EtherGem                   |
+| 104   | ETHO        | Etho Protocol              |
+| 105   | ERC         | EuropeCoin                 |
+| 106   | EVC         | Evrice                     |
+| 107   | EXCL        | ExclusiveCoin              |
+| 108   | SAMA        | Exosama Network            |
+| 109   | EXP         | Expanse                    |
+| 110   | FTM         | Fantom (Old)               |
+| 111   | FTC         | Feathercoin                |
+| 112   | FIL         | Filecoin                   |
+| 113   | FRA         | Findora                    |
+| 114   | FRST        | Firstcoin                  |
+| 115   | FIX         | FIX                        |
+| 116   | FLASH       | Flashcoin                  |
+| 117   | FLUX        | Flux                       |
+| 118   | FJC         | FujiCoin                   |
+| 119   | FSN         | FUSION                     |
+| 120   | GAME        | GameCredits                |
+| 121   | GC          | GateChain                  |
+| 122   | GCR         | Global Currency Reserve    |
+| 123   | GBX         | GoByte                     |
+| 124   | GO          | GoChain                    |
+| 125   | GGX         | Golden Gate                |
+| 126   | GGXT        | Golden Gate Sydney         |
+| 127   | GRC         | Gridcoin                   |
+| 128   | GRS         | Groestlcoin                |
+| 129   | NLG         | Gulden                     |
+| 130   | HBAR        | Hedera                     |
+| 131   | HNC         | Helleniccoin               |
+| 132   | HTH         | Help The Homeless Coin     |
+| 133   | THC         | Hempcoin                   |
+| 134   | FURY        | Highbury                   |
+| 135   | HOO         | Hoo Smart Chain            |
+| 136   | ZEN         | Horizen                    |
+| 137   | HTML        | HTML Coin                  |
+| 138   | HT          | Huobi Token                |
+| 139   | HUSH        | HUSH                       |
+| 140   | HYDRA       | HYDRA                      |
+| 141   | HYPE        | Hyperliquid                |
+| 142   | INJ         | Injective                  |
+| 143   | INSN        | InsaneCoin                 |
+| 144   | IOP         | Internet of People         |
+| 145   | IOTX        | IoTeX                      |
+| 146   | IXC         | IXCoin                     |
+| 147   | JOC         | Japan Open Chain           |
+| 148   | JFIN        | JFIN Coin                  |
+| 149   | JBS         | Jumbucks                   |
+| 150   | KAIA        | KAIA                       |
+| 151   | KAR         | Karura Network             |
+| 152   | KAVA        | Kava                       |
+| 153   | KLY         | KLYNTAR                    |
+| 154   | KOBO        | Kobocoin                   |
+| 155   | KMD         | Komodo                     |
+| 156   | LDCN        | Landcoin                   |
+| 157   | LBC         | LBRY Credits               |
+| 158   | LINX        | Linx                       |
+| 159   | LTC         | Litecoin                   |
+| 160   | LCC         | LitecoinCash               |
+| 161   | LTZ         | LitecoinZ                  |
+| 162   | LKR         | Lkrcoin                    |
+| 163   | LYNX        | Lynx                       |
+| 164   | MAZA        | Mazacoin                   |
+| 165   | MEC         | Megacoin                   |
+| 166   | MTC         | Metachain                  |
+| 167   | META        | Metadium                   |
+| 168   | MTR         | Meter Stable               |
+| 169   | MEV         | MEVerse                    |
+| 170   | MNX         | Minexcoin                  |
+| 171   | MIX         | MIX                        |
+| 172   | MONA        | Monacoin                   |
+| 173   | MON         | Monad                      |
+| 174   | XMR         | Monero                     |
+| 175   | MONK        | Monkey Project             |
+| 176   | GLMR        | Moonbeam                   |
+| 177   | MOVR        | Moonriver                  |
+| 178   | SAMA        | Moonsama Network           |
+| 179   | MOVO        | Movo Smart Chain           |
+| 180   | XMY         | Myriadcoin                 |
+| 181   | NMC         | Namecoin                   |
+| 182   | XNO         | Nano                       |
+| 183   | NAV         | NavCoin (Legacy)           |
+| 184   | NEAR        | NEAR Protocol              |
+| 185   | NEBL        | Neblio                     |
+| 186   | XEM         | NEM                        |
+| 187   | NEOS        | Neoscoin                   |
+| 188   | NRO         | Neurocoin                  |
+| 189   | NEW         | Newton                     |
+| 190   | NYC         | NewYorkCoin                |
+| 191   | NEXI        | Nexi                       |
+| 192   | NIX         | NIX                        |
+| 193   | NVC         | Novacoin                   |
+| 194   | NBT         | NuBits                     |
+| 195   | NUM         | Numbers Protocol           |
+| 196   | NSR         | NuShares                   |
+| 197   | ROSE        | Oasis Network              |
+| 198   | OAS         | Oasys                      |
+| 199   | OK          | OKCash                     |
+| 200   | OKT         | OKT Chain                  |
+| 201   | OMNI        | Omni                       |
+| 202   | ONT         | Ontology                   |
+| 203   | OA          | Open Assets                |
+| 204   | PART        | Particl                    |
+| 205   | PEAQ        | Peaq                       |
+| 206   | PPC         | Peercoin                   |
+| 207   | PSB         | Pesobit                    |
+| 208   | PHX         | Phoenix                    |
+| 209   | PHR         | Phore                      |
+| 210   | PINK        | Pinkcoin                   |
+| 211   | PIVX        | Pivx                       |
+| 212   | LAT         | PlatON                     |
+| 213   | POA         | Poa                        |
+| 214   | MATIC       | Polygon                    |
+| 215   | POSW        | Posw coin                  |
+| 216   | POT         | Potcoin                    |
+| 217   | PRJ         | ProjectCoin                |
+| 218   | PLS         | Pulse Chain                |
+| 219   | PUT         | Putincoin                  |
+| 220   | MEER        | Qitmeer Network            |
+| 221   | QTUM        | QTUM                       |
+| 222   | QKC         | QuarkChain                 |
+| 223   | QTZ         | Quartz                     |
+| 224   | RPD         | Rapids                     |
+| 225   | RVN         | Ravencoin                  |
+| 226   | RBNT        | Redbelly Network           |
+| 227   | RDD         | Reddcoin                   |
+| 228   | RITO        | Ritocoin                   |
+| 229   | RBTC        | Rootstock Bitcoin          |
+| 230   | RBY         | Rubycoin                   |
+| 231   | RUPX        | Rupaya                     |
+| 232   | SAFE        | Safecoin                   |
+| 233   | SLS         | Saluscoin                  |
+| 234   | SCRIBE      | Scribe                     |
+| 235   | SCR         | Scroll                     |
+| 236   | SEELE       | Seele                      |
+| 237   | SEI         | SEI                        |
+| 238   | SDC         | ShadowCash                 |
+| 239   | SDN         | Shiden Network             |
+| 240   | SMR         | Shimmer                    |
+| 241   | SMLY        | Smileycoin                 |
+| 242   | SOL         | Solana                     |
+| 243   | SLR         | Solarcoin                  |
+| 244   | S           | SONIC                      |
+| 245   | STRAT       | Stratis                    |
+| 246   | STOS        | Stratos                    |
+| 247   | SUGAR       | Sugarchain                 |
+| 248   | SYS         | Syscoin                    |
+| 249   | TAFECO      | Taf ECO Chain              |
+| 250   | TNT         | Tangle                     |
+| 251   | TARA        | Taraxa                     |
+| 252   | TLOS        | Telos                      |
+| 253   | XTZ         | Tezos (tz2)                |
+| 254   | TFUEL       | Theta Fuel                 |
+| 255   | THETA       | Theta Network              |
+| 256   | THT         | ThoughtAI                  |
+| 257   | TOA         | TOACoin                    |
+| 258   | OLO         | Tool Global                |
+| 259   | TRX         | Tron                       |
+| 260   | UBQ         | Ubiq                       |
+| 261   | USC         | Ultimate Secure Cash       |
+| 262   | UNQ         | Unique Network             |
+| 263   | UNO         | Unobtanium                 |
+| 264   | VAL         | Valorbit                   |
+| 265   | XVC         | Vcash                      |
+| 266   | VET         | VeChain                    |
+| 267   | VLX         | Velas                      |
+| 268   | XVM         | Venidium                   |
+| 269   | XVG         | Verge                      |
+| 270   | VTC         | Vertcoin                   |
+| 271   | VIA         | Viacoin                    |
+| 272   | VIVO        | Vivo                       |
+| 273   | WGR         | Wagerr                     |
+| 274   | WAN         | Wanchain                   |
+| 275   | XWC         | Whitecoin                  |
+| 276   | TWINS       | win.win                    |
+| 277   | WC          | Wincoin                    |
+| 278   | X42         | x42 Protocol               |
+| 279   | XDAI        | xDai                       |
+| 280   | XERO        | Xerom                      |
+| 281   | XRP         | XRP                        |
+| 282   | XSC         | XT Smart Chain             |
+| 283   | XUEZ        | XUEZ                       |
+| 284   | YCC         | Yuan Chain Coin            |
+| 285   | ZEC         | Zcash                      |
+| 286   | ZCL         | ZClassic                   |
+| 287   | XZC         | Zcoin                      |
+| 288   | ZETA        | ZetaChain                  |
+| 289   | ZET         | Zetacoin                   |
+| 290   | ZIL         | Zilliqa                    |
+| 291   | ZKS         | zkSync                     |
