@@ -23,7 +23,7 @@ CC-BY-NC-ND-4.0
 Control Owl [2023-2026]
 ```
 
-**eQ** is a **high-performance, security-focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero-dependency key generation for **288 cryptocurrencies**, with optional **quantum-grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
+**eQ** is a **high-performance, security-focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero-dependency key generation for **290 cryptocurrencies**, with optional **quantum-grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
 
 This is the second generation of our key generator, following [QR2M](https://github.com/control-owl/QR2M).
 
@@ -95,7 +95,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 
 ## Features
 
-- Generate keys for **288** [coins](./doc/supported-coins.md) in one click
+- Generate keys for **290** [coins](./doc/supported-coins.md) in one click
 - **Ultra-fast performance** powered by Rust
 - **Minimalistic UI** built with egui
 - **Cross-platform** support: Windows, Linux, macOS
