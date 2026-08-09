@@ -602,6 +602,8 @@ impl OpenWalletDialog {
     &mut self,
     ctx: &egui::Context,
   ) -> FunctionOutput<()> {
+    use ring::hmac;
+
     if self.decoded_shares.is_empty() {
       return Err(AppError::log("No valid shares decoded"));
     }
@@ -636,10 +638,49 @@ impl OpenWalletDialog {
       }
     };
 
+    // Monero
+    let wordlist: Vec<&str> = e_q::load_monero_wordlist();
+    let key = hmac::Key::new(hmac::HMAC_SHA512, b"Bitcoin seed");
+    let tag = hmac::sign(&key, hex::decode(payload.seed_secret.seed.clone()).unwrap().as_slice());
+
+    let mut priv_key = Zeroizing::new([0u8; 32]);
+    let mut chain = Zeroizing::new([0u8; 32]);
+
+    priv_key.copy_from_slice(&tag.as_ref()[..32]);
+    chain.copy_from_slice(&tag.as_ref()[32..]);
+
+    let path: Vec<(u32, bool)> = match *payload.bip {
+      32 => {
+        vec![(0, true), (0, true), (0, true)]
+      }
+      _ => {
+        vec![(*payload.bip, true), (128, true), (0, true)]
+      }
+    };
+
+    for (index, hardened) in path {
+      let parent_priv_vec = Zeroizing::new(priv_key.to_vec());
+      let parent_chain_vec = Zeroizing::new(chain.to_vec());
+      let hardened_z = Zeroizing::new(hardened);
+      let index_z = Zeroizing::new(index);
+
+      let derived =
+        crate::keys::derive_secp256k1_child(parent_priv_vec, parent_chain_vec, index_z, hardened_z).expect("BIP32 child derivation failed");
+
+      priv_key.copy_from_slice(&derived.child_private_key_bytes);
+      chain.copy_from_slice(&derived.child_chain_code_bytes);
+    }
+
+    let hashed: Zeroizing<[u8; 32]> = crate::keys::cn_fast_hash(&Zeroizing::new(priv_key.to_vec()))?;
+    let spend_key: Zeroizing<[u8; 32]> = Zeroizing::new(crate::keys::monero_sc_reduce32(hashed)?.to_bytes());
+    let monero_words: Zeroizing<String> = crate::keys::monero_seed_to_mnemonic(spend_key.clone(), &wordlist)?;
+
     let mut wallet = CryptoWallet::new();
     wallet.seed_secret = Zeroizing::new(payload.seed_secret.clone());
     wallet.address_components.derivation_path.purpose = payload.bip.clone();
     wallet.address_components.derivation_path.last_index = payload.last_index.clone();
+    wallet.secret_keys.monero_keys.monero_mnemonic_words = monero_words;
+    wallet.secret_keys.monero_keys.monero_spend_key = Zeroizing::new(hex::encode(spend_key).to_string());
 
     ctx.data_mut(|d| {
       d.insert_temp(egui::Id::new("loaded_wallet"), Zeroizing::new(wallet));
@@ -1195,6 +1236,7 @@ pub fn create_payload(wallet: &CryptoWallet) -> FunctionOutput<Zeroizing<Vec<u8>
 }
 
 pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload> {
+  use ring::pbkdf2;
   let mut off = 0usize;
 
   // 1 Payload version
@@ -1240,6 +1282,13 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
   };
 
   let full_entropy = Zeroizing::new(entropy);
+
+  let (raw_entropy, entropy_checksum) = match split_entropy_zeroizing(&full_entropy) {
+    Ok(pair) => pair,
+    Err(e) => {
+      return Err(AppError::log(format!("splitting entropy failed: {}", e)));
+    }
+  };
 
   // 3 Mnemonic dictionary
   let dict_len_bytes = match take(&plain, &mut off, 2) {
@@ -1311,6 +1360,26 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
     }
   };
 
+  let mnemonic_words: Zeroizing<String> = match crate::keys::generate_mnemonic_words(full_entropy.clone(), mnemonic_dictionary.clone()) {
+    Ok(words) => words,
+    Err(err) => {
+      return Err(AppError::log(format!("Problem with generating mnemonic words: {}", err)));
+    }
+  };
+
+  let salt: Zeroizing<String> = Zeroizing::new(format!("mnemonic{}", *mnemonic_passphrase));
+  let mut seed: Zeroizing<[u8; 64]> = Zeroizing::new([0u8; 64]);
+  let iter = match std::num::NonZeroU32::new(2048) {
+    Some(number) => number,
+    _ => {
+      return Err(AppError::log(String::from("Problem with pbkdf2 iter")));
+    }
+  };
+
+  pbkdf2::derive(pbkdf2::PBKDF2_HMAC_SHA512, iter, salt.as_bytes(), mnemonic_words.as_bytes(), &mut *seed);
+
+  let seed_hex: Zeroizing<String> = Zeroizing::new(hex::encode(&seed[..]));
+
   // 5 Derivation path purpose (u32 LE)
   let bip_bytes = match take(&plain, &mut off, 4) {
     Ok(byte) => byte,
@@ -1353,15 +1422,39 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
       mnemonic_passphrase_source: Zeroizing::new(String::from("SVG")),
       mnemonic_dictionary,
       mnemonic_passphrase,
+      raw_entropy,
+      entropy_checksum,
 
-      raw_entropy: Zeroizing::new(String::new()),
-      entropy_checksum: Zeroizing::new(String::new()),
-      mnemonic_words: Zeroizing::new(String::new()),
-      seed: Zeroizing::new(String::new()),
+      mnemonic_words,
+      seed: seed_hex,
     },
     bip,
     last_index,
   })
+}
+
+pub fn split_entropy(full: &str) -> Result<(String, String), String> {
+  let total = full.len();
+
+  if total % 33 != 0 {
+    return Err(format!("invalid entropy bit length {}, expected a multiple of 33", total));
+  }
+
+  let checksum_len = total / 33; // 4 … 8
+  if !(4..=8).contains(&checksum_len) {
+    return Err(format!("unsupported checksum length {}", checksum_len));
+  }
+
+  let entropy_len = total - checksum_len;
+  let raw_entropy = full[..entropy_len].to_string();
+  let checksum = full[entropy_len..].to_string();
+
+  Ok((raw_entropy, checksum))
+}
+
+pub fn split_entropy_zeroizing(full: &Zeroizing<String>) -> Result<(Zeroizing<String>, Zeroizing<String>), String> {
+  let (raw, cs) = split_entropy(full)?;
+  Ok((Zeroizing::new(raw), Zeroizing::new(cs)))
 }
 
 fn derive_pbkdf2_key(

@@ -1029,6 +1029,8 @@ fn check_wallet_save_open_function() {
     new_wallet.seed_secret.mnemonic_passphrase.clone()
   );
 
+  // TODO: Add more checks, at least address and private key!
+
   let _ = std::fs::remove_file(wallet_file);
 }
 

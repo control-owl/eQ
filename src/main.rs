@@ -235,6 +235,7 @@ struct DerivationPathData {
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 struct AddressPublicData {
   coin_name: Zeroizing<String>,
+  symbol: Zeroizing<String>,
   derivation_path: Zeroizing<DerivationPathData>,
   public_key_hash: Zeroizing<String>,
   key_derivation: Zeroizing<String>,
@@ -246,6 +247,7 @@ struct AddressPublicData {
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone)]
 struct AddressPrivateData {
   coin_index: Zeroizing<u32>,
+  symbol: Zeroizing<String>,
   path: Zeroizing<String>,
   address: Zeroizing<String>,
   public_key: Zeroizing<String>,
@@ -268,7 +270,6 @@ impl Zeroize for Addresses {
 
 #[derive(Zeroize, ZeroizeOnDrop, Debug, Clone, Default)]
 struct ExtraWalletData {
-  unify_evm: bool,
   unify_master_keys: bool,
   hardened_address: bool,
   slip_derivation_path: bool,
@@ -280,12 +281,13 @@ struct ExtraWalletData {
 
   active_bip: u32,
   address_count: u32,
+
+  unify_evm: bool,
 }
 
 impl ExtraWalletData {
   fn new() -> Self {
     ExtraWalletData {
-      unify_evm: false,
       unify_master_keys: true,
       hardened_address: true,
       slip_derivation_path: true,
@@ -297,6 +299,8 @@ impl ExtraWalletData {
 
       active_bip: 44,
       address_count: 10,
+
+      unify_evm: false,
     }
   }
 }
@@ -600,6 +604,7 @@ impl EgoQuantum {
       radio_outer_radius,
       egui::Stroke::new(1.0, inactive_text.linear_multiply(0.18)),
     );
+
     if active {
       ui.painter().circle_filled(icon_center, radio_inner_radius, *active_text);
     }
@@ -790,7 +795,12 @@ impl EgoQuantum {
           "Show addresses exactly as derived for each chain, preserving native formatting and reducing cross-chain linkability for greater privacy.",
         ];
 
-        let evm_resp: egui::Response = ui.add_enabled(false,egui::Checkbox::new(&mut self.wallet.wallet_data.unify_evm, "Standardize EVM Addresses"));
+        let evm_resp: egui::Response = ui.add_enabled(true, egui::Checkbox::new(&mut self.wallet.wallet_data.unify_evm, "Standardize EVM Addresses"));
+        if evm_resp.changed() && has_addresses {
+          self.wallet.addresses_by_coin.0.clear();
+          let _ = self.generate_addresses_for_all_coins();
+        }
+
         evm_resp.on_hover_text(evm_label.join("\n")).on_disabled_hover_text(&devel);
 
         let master_label = ["When enabled:",
@@ -1049,6 +1059,421 @@ impl EgoQuantum {
     }
   }
 
+  // Working
+  //   fn render_wallet_table(
+  //     &mut self,
+  //     ui: &mut egui::Ui,
+  //   ) {
+  //     let available_height = ui.available_height();
+  //     let font = egui::FontId::monospace(12.0);
+  //     let row_height = font.size + (2.0 * GUI_MARGIN);
+  //     let ctx = ui.ctx().clone();
+  //
+  //     let filter_lower = self.gui.coin_filter.trim().to_ascii_lowercase();
+  //
+  //     let mut builder = TableBuilder::new(ui)
+  //       .striped(true)
+  //       .resizable(true)
+  //       .scroll_bar_visibility(egui::containers::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
+  //       .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+  //       .min_scrolled_height(0.0)
+  //       .auto_shrink([false, false])
+  //       .max_scroll_height(available_height)
+  //       .animate_scrolling(true);
+  //
+  //     // Index
+  //     #[cfg(feature = "dev")]
+  //     {
+  //       builder = builder.column(Column::auto().resizable(true).at_least(40.0));
+  //     }
+  //
+  //     // Icon
+  //     builder = builder.column(Column::exact(24.0).resizable(false));
+  //
+  //     // Symbol
+  //     builder = builder.column(Column::exact(48.0).resizable(false));
+  //
+  //     // Coin
+  //     builder = builder.column(Column::auto().resizable(true).at_least(80.0));
+  //
+  //     // Path
+  //     builder = builder.column(Column::auto().resizable(true).at_least(100.0));
+  //
+  //     // Address
+  //     builder = builder.column(Column::initial(500.0).resizable(true).clip(true).at_least(140.0));
+  //
+  //     // Public key
+  //     if !self.gui.hide_public_keys {
+  //       builder = builder.column(Column::initial(500.0).resizable(true).clip(true).at_least(140.0));
+  //     }
+  //
+  //     // Private key
+  //     builder = builder.column(Column::remainder().clip(true).at_least(180.0).resizable(false));
+  //
+  //     builder
+  //       .header(row_height, |mut header| {
+  //         #[cfg(feature = "dev")]
+  //         header.col(|ui| {
+  //           ui.strong("Index");
+  //         });
+  //
+  //         header.col(|ui| {
+  //           if cfg!(feature = "dev") {
+  //             ui.strong("Icon");
+  //           }
+  //         });
+  //
+  //         header.col(|ui| {
+  //           if cfg!(feature = "dev") {
+  //             ui.strong("Symbol");
+  //           }
+  //         });
+  //
+  //         header.col(|ui| {
+  //           if cfg!(feature = "dev") {
+  //             ui.strong("Coin");
+  //           } else {
+  //             ui.heading("Coin");
+  //           }
+  //         });
+  //
+  //         header.col(|ui| {
+  //           if cfg!(feature = "dev") {
+  //             ui.strong("Path");
+  //           } else {
+  //             ui.heading("Path");
+  //           }
+  //         });
+  //
+  //         header.col(|ui| {
+  //           if cfg!(feature = "dev") {
+  //             ui.strong("Address");
+  //           } else {
+  //             ui.heading("Address");
+  //           }
+  //         });
+  //
+  //         if !self.gui.hide_public_keys {
+  //           header.col(|ui| {
+  //             if cfg!(feature = "dev") {
+  //               ui.strong("Public key");
+  //             } else {
+  //               ui.heading("Public key");
+  //             }
+  //           });
+  //         }
+  //
+  //         header.col(|ui| {
+  //           if cfg!(feature = "dev") {
+  //             ui.strong("Private key");
+  //           } else {
+  //             ui.heading("Private key");
+  //           }
+  //         });
+  //       })
+  //       .body(|mut body| {
+  //         for (coin, addresses) in &self.wallet.addresses_by_coin.0 {
+  //           if !filter_lower.is_empty() && !coin.to_ascii_lowercase().contains(&filter_lower) {
+  //             continue;
+  //           }
+  //
+  //           if let Some(first) = addresses.first().cloned() {
+  //             let mut group_expanded = false;
+  //
+  //             body.row(row_height, |mut row| {
+  //               // Index
+  //               #[cfg(feature = "dev")]
+  //               row.col(|ui| {
+  //                 ui.label(first.coin_index.to_string());
+  //               });
+  //
+  //               // Icon
+  //               row.col(|ui| {
+  //                 // TODO: When EVM is active, load coin icon, not Ethereum icon
+  //                 let icon_path = std::path::Path::new("coin").join("logo").join(format!("{}.svg", *first.coin_index));
+  //                 let icon_path_str: Zeroizing<String> = Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
+  //
+  //                 if let Ok(file) = e_q::get_file_from_resources(icon_path_str) {
+  //                   ui.add(
+  //                     egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
+  //                       .fit_to_exact_size(egui::vec2(24.0, 24.0))
+  //                       .corner_radius(10),
+  //                   );
+  //                 }
+  //               });
+  //
+  //               // Symbol
+  //               row.col(|ui| {
+  //                 ui.label(&*first.symbol);
+  //               });
+  //
+  //               // Coin
+  //               row.col(|ui| {
+  //                 ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+  //                   ui.add_space(row_height / 4.0);
+  //                   let collapsing_resp = egui::CollapsingHeader::new(format!("{} ({})", coin, addresses.len()))
+  //                     .id_salt(format!("coin_group:{}", coin))
+  //                     .show_background(true)
+  //                     .default_open(false)
+  //                     .show(ui, |_ui| {});
+  //
+  //                   group_expanded = collapsing_resp.body_returned.is_some();
+  //                 });
+  //               });
+  //
+  //               // Path
+  //               row.col(|ui| {
+  //                 ui.label(&*first.path);
+  //               });
+  //
+  //               // Address
+  //               row.col(|ui| {
+  //                 ui.horizontal(|ui| {
+  //                   if ui.button("📋").on_hover_text("Copy address").clicked() {
+  //                     ui.ctx().copy_text(first.address.to_string());
+  //                   }
+  //                   ui.label(&*first.address);
+  //                 });
+  //               });
+  //
+  //               // Public key
+  //               if !self.gui.hide_public_keys {
+  //                 row.col(|ui| {
+  //                   if first.public_key.as_str().contains('\n') {
+  //                     let lines: Vec<&str> = first.public_key.lines().collect();
+  //                     let id = egui::Id::new(format!("pub_select:{}:{}", coin, *first.address));
+  //                     let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+  //                     selected = selected.min(lines.len().saturating_sub(1));
+  //
+  //                     ui.horizontal(|ui| {
+  //                       if ui.button("📋").on_hover_text("Copy selected public key").clicked() {
+  //                         if let Some(line) = lines.get(selected) {
+  //                           let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+  //                           ui.ctx().copy_text(clean.to_string());
+  //                         }
+  //                       }
+  //
+  //                       egui::ComboBox::from_id_salt(id)
+  //                         .selected_text(lines.get(selected).copied().unwrap_or(""))
+  //                         .width(ui.available_width() - 30.0)
+  //                         .show_ui(ui, |ui| {
+  //                           for (i, line) in lines.iter().enumerate() {
+  //                             ui.selectable_value(&mut selected, i, *line);
+  //                           }
+  //                         });
+  //                     });
+  //
+  //                     ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+  //                   } else {
+  //                     ui.horizontal(|ui| {
+  //                       if ui.button("📋").on_hover_text("Copy public key").clicked() {
+  //                         ui.ctx().copy_text(first.public_key.to_string());
+  //                       }
+  //                       ui.label(&*first.public_key);
+  //                     });
+  //                   }
+  //                 });
+  //               }
+  //
+  //               // Private key
+  //               row.col(|ui| {
+  //                 let mut hover_rect = ui.max_rect();
+  //                 hover_rect = hover_rect.expand(80.0);
+  //
+  //                 let id = egui::Id::new(format!("priv_select:{}:{}", coin, *first.address));
+  //                 let combo_open = ui.ctx().data(|d| d.get_temp::<bool>(id.with("open")).unwrap_or(false));
+  //                 let is_visible = ui.rect_contains_pointer(hover_rect) || combo_open || !self.gui.hide_private_keys;
+  //
+  //                 if first.private_key.as_str().contains('\n') {
+  //                   let lines: Vec<&str> = first.private_key.lines().collect();
+  //                   let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+  //                   selected = selected.min(lines.len().saturating_sub(1));
+  //
+  //                   ui.horizontal(|ui| {
+  //                     if ui.button("📋").on_hover_text("Copy selected private key").clicked() {
+  //                       if let Some(line) = lines.get(selected) {
+  //                         let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+  //                         ui.ctx().copy_text(clean.to_string());
+  //                       }
+  //                     }
+  //
+  //                     if is_visible {
+  //                       let response = egui::ComboBox::from_id_salt(id)
+  //                         .selected_text(lines.get(selected).copied().unwrap_or(""))
+  //                         .width(ui.available_width() - 30.0)
+  //                         .show_ui(ui, |ui| {
+  //                           for (i, line) in lines.iter().enumerate() {
+  //                             ui.selectable_value(&mut selected, i, *line);
+  //                           }
+  //                         });
+  //
+  //                       let open = response.inner.is_some();
+  //                       ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), open));
+  //                     } else {
+  //                       ui.monospace("•••••••");
+  //                       ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), false));
+  //                     }
+  //                   });
+  //
+  //                   ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+  //                 } else {
+  //                   ui.horizontal(|ui| {
+  //                     if ui.button("📋").on_hover_text("Copy private key").clicked() {
+  //                       ui.ctx().copy_text(first.private_key.to_string());
+  //                     }
+  //                     if is_visible {
+  //                       ui.monospace(&*first.private_key);
+  //                     } else {
+  //                       ui.monospace("•••••••");
+  //                     }
+  //                   });
+  //                 }
+  //               });
+  //             });
+  //
+  //             if group_expanded {
+  //               for addr in addresses.iter().skip(1) {
+  //                 body.row(row_height, |mut row| {
+  //                   // Index
+  //                   #[cfg(feature = "dev")]
+  //                   row.col(|ui| {
+  //                     ui.label(addr.coin_index.to_string());
+  //                   });
+  //
+  //                   // No icon
+  //                   row.col(|ui| {
+  //                     ui.label("");
+  //                   });
+  //
+  //                   // Symbol
+  //                   row.col(|ui| {
+  //                     ui.label(addr.symbol.to_string());
+  //                   });
+  //
+  //                   // Coin name
+  //                   row.col(|ui| {
+  //                     ui.label(coin);
+  //                   });
+  //
+  //                   // Path
+  //                   row.col(|ui| {
+  //                     ui.label(addr.path.to_string());
+  //                   });
+  //
+  //                   // Address
+  //                   row.col(|ui| {
+  //                     ui.horizontal(|ui| {
+  //                       if ui.button("📋").on_hover_text("Copy address").clicked() {
+  //                         ui.ctx().copy_text(addr.address.to_string());
+  //                       }
+  //                       ui.label(addr.address.to_string());
+  //                     });
+  //                   });
+  //
+  //                   // Public key
+  //                   if !self.gui.hide_public_keys {
+  //                     row.col(|ui| {
+  //                       if addr.public_key.as_str().contains('\n') {
+  //                         let lines: Vec<&str> = addr.public_key.lines().collect();
+  //                         let id = egui::Id::new(format!("pub_sel:{}:{}", coin, *addr.address));
+  //                         let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+  //                         selected = selected.min(lines.len().saturating_sub(1));
+  //
+  //                         ui.horizontal(|ui| {
+  //                           if ui.button("📋").on_hover_text("Copy selected public key").clicked() {
+  //                             if let Some(line) = lines.get(selected) {
+  //                               let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+  //                               ui.ctx().copy_text(clean.to_string());
+  //                             }
+  //                           }
+  //
+  //                           egui::ComboBox::from_id_salt(id)
+  //                             .selected_text(lines.get(selected).copied().unwrap_or(""))
+  //                             .width(ui.available_width() - 30.0)
+  //                             .show_ui(ui, |ui| {
+  //                               for (i, line) in lines.iter().enumerate() {
+  //                                 ui.selectable_value(&mut selected, i, *line);
+  //                               }
+  //                             });
+  //                         });
+  //
+  //                         ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+  //                       } else {
+  //                         ui.horizontal(|ui| {
+  //                           if ui.button("📋").on_hover_text("Copy public key").clicked() {
+  //                             ui.ctx().copy_text(addr.public_key.to_string());
+  //                           }
+  //                           ui.label(&*addr.public_key);
+  //                         });
+  //                       }
+  //                     });
+  //                   }
+  //
+  //                   // Private key
+  //                   row.col(|ui| {
+  //                     let mut hover_rect = ui.max_rect();
+  //                     hover_rect = hover_rect.expand(80.0);
+  //
+  //                     let id = egui::Id::new(format!("priv_sel:{}:{}", coin, *addr.address));
+  //                     let combo_open = ui.ctx().data(|d| d.get_temp::<bool>(id.with("open")).unwrap_or(false));
+  //                     let is_visible = ui.rect_contains_pointer(hover_rect) || combo_open || !self.gui.hide_private_keys;
+  //
+  //                     if addr.private_key.as_str().contains('\n') {
+  //                       let lines: Vec<&str> = addr.private_key.lines().collect();
+  //                       let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+  //                       selected = selected.min(lines.len().saturating_sub(1));
+  //
+  //                       ui.horizontal(|ui| {
+  //                         if ui.button("📋").on_hover_text("Copy selected private key").clicked() {
+  //                           if let Some(line) = lines.get(selected) {
+  //                             let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+  //                             ui.ctx().copy_text(clean.to_string());
+  //                           }
+  //                         }
+  //
+  //                         if is_visible {
+  //                           let response = egui::ComboBox::from_id_salt(id)
+  //                             .selected_text(lines.get(selected).copied().unwrap_or(""))
+  //                             .width(ui.available_width() - 30.0)
+  //                             .show_ui(ui, |ui| {
+  //                               for (i, line) in lines.iter().enumerate() {
+  //                                 ui.selectable_value(&mut selected, i, *line);
+  //                               }
+  //                             });
+  //
+  //                           // keep revealed while the dropdown is open
+  //                           let open = response.inner.is_some();
+  //                           ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), open));
+  //                         } else {
+  //                           ui.monospace("•••••••");
+  //                           ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), false));
+  //                         }
+  //                       });
+  //
+  //                       ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+  //                     } else {
+  //                       ui.horizontal(|ui| {
+  //                         if ui.button("📋").on_hover_text("Copy private key").clicked() {
+  //                           ui.ctx().copy_text(addr.private_key.to_string());
+  //                         }
+  //                         if is_visible {
+  //                           ui.monospace(&*addr.private_key);
+  //                         } else {
+  //                           ui.monospace("•••••••");
+  //                         }
+  //                       });
+  //                     }
+  //                   });
+  //                 });
+  //               }
+  //             }
+  //           }
+  //         }
+  //       });
+  //   }
+
+  // New
+  //
   fn render_wallet_table(
     &mut self,
     ui: &mut egui::Ui,
@@ -1056,8 +1481,13 @@ impl EgoQuantum {
     let available_height = ui.available_height();
     let font = egui::FontId::monospace(12.0);
     let row_height = font.size + (2.0 * GUI_MARGIN);
+    let ctx = ui.ctx().clone();
 
     let filter_lower = self.gui.coin_filter.trim().to_ascii_lowercase();
+
+    // sort: 0 = none, 1 = symbol, 2 = coin name
+    let sort_id = egui::Id::new("wallet_table_sort");
+    let (mut sort_by, mut ascending) = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(sort_id, || (0u8, true)));
 
     let mut builder = TableBuilder::new(ui)
       .striped(true)
@@ -1077,6 +1507,9 @@ impl EgoQuantum {
 
     // Icon
     builder = builder.column(Column::exact(24.0).resizable(false));
+
+    // Symbol
+    builder = builder.column(Column::exact(48.0).resizable(false));
 
     // Coin
     builder = builder.column(Column::auto().resizable(true).at_least(80.0));
@@ -1103,37 +1536,134 @@ impl EgoQuantum {
         });
 
         header.col(|ui| {
-          ui.strong("Icon");
+          if cfg!(feature = "dev") {
+            ui.strong("Icon");
+          }
+        });
+
+        // Symbol
+        header.col(|ui| {
+          let icon_name = if self.gui.theme == "Dark" { "sort-dark.svg" } else { "sort-light.svg" };
+          let icon_path = std::path::Path::new("icons").join("ui").join(icon_name);
+          let icon_path_str: Zeroizing<String> = Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
+
+          if let Ok(file) = e_q::get_file_from_resources(icon_path_str) {
+            let response = ui.add(
+              egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
+                .fit_to_exact_size(egui::vec2(16.0, 16.0))
+                .sense(egui::Sense::click()),
+            );
+
+            if response.clicked() {
+              if sort_by == 1 {
+                ascending = !ascending;
+              } else {
+                sort_by = 1;
+                ascending = true;
+              }
+            }
+          }
+        });
+
+        // Coin
+        header.col(|ui| {
+          ui.horizontal(|ui| {
+            if cfg!(feature = "dev") {
+              ui.strong("Coin");
+            } else {
+              ui.heading("Coin");
+            }
+
+            let icon_name = if self.gui.theme == "Dark" { "sort-dark.svg" } else { "sort-light.svg" };
+            let icon_path = std::path::Path::new("icons").join("ui").join(icon_name);
+            let icon_path_str: Zeroizing<String> = Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
+
+            if let Ok(file) = e_q::get_file_from_resources(icon_path_str) {
+              let response = ui.add(
+                egui::Image::from_bytes(file.path().to_string_lossy(), file.contents())
+                  .fit_to_exact_size(egui::vec2(16.0, 16.0))
+                  .sense(egui::Sense::click()),
+              );
+
+              if response.clicked() {
+                if sort_by == 2 {
+                  ascending = !ascending;
+                } else {
+                  sort_by = 2;
+                  ascending = true;
+                }
+              }
+            }
+          });
         });
 
         header.col(|ui| {
-          ui.strong("Coin");
+          if cfg!(feature = "dev") {
+            ui.strong("Path");
+          } else {
+            ui.heading("Path");
+          }
         });
 
         header.col(|ui| {
-          ui.strong("Path");
-        });
-
-        header.col(|ui| {
-          ui.strong("Address");
+          if cfg!(feature = "dev") {
+            ui.strong("Address");
+          } else {
+            ui.heading("Address");
+          }
         });
 
         if !self.gui.hide_public_keys {
           header.col(|ui| {
-            ui.strong("Public key");
+            if cfg!(feature = "dev") {
+              ui.strong("Public key");
+            } else {
+              ui.heading("Public key");
+            }
           });
         }
 
         header.col(|ui| {
-          ui.strong("Private Key");
+          if cfg!(feature = "dev") {
+            ui.strong("Private key");
+          } else {
+            ui.heading("Private key");
+          }
         });
       })
       .body(|mut body| {
-        for (coin, addresses) in &self.wallet.addresses_by_coin.0 {
-          if !filter_lower.is_empty() && !coin.to_ascii_lowercase().contains(&filter_lower) {
-            continue;
-          }
+        let mut items: Vec<_> = self
+          .wallet
+          .addresses_by_coin
+          .0
+          .iter()
+          .filter(|(coin, _)| filter_lower.is_empty() || coin.to_ascii_lowercase().contains(&filter_lower))
+          .collect();
 
+        items.sort_by(|(coin_a, addrs_a), (coin_b, addrs_b)| {
+          let a = match addrs_a.first() {
+            Some(v) => v,
+            None => return std::cmp::Ordering::Equal,
+          };
+          let b = match addrs_b.first() {
+            Some(v) => v,
+            None => return std::cmp::Ordering::Equal,
+          };
+
+          let cmp = match sort_by {
+            1 => a.symbol.cmp(&b.symbol),
+            2 => coin_a.cmp(coin_b),
+            _ => std::cmp::Ordering::Equal,
+          };
+
+          if ascending { cmp } else { cmp.reverse() }
+        });
+
+        ctx.data_mut(|d| {
+          d.insert_persisted(sort_id, (sort_by, ascending));
+        });
+
+        for (coin, addresses) in items {
           if let Some(first) = addresses.first().cloned() {
             let mut group_expanded = false;
 
@@ -1146,7 +1676,10 @@ impl EgoQuantum {
 
               // Icon
               row.col(|ui| {
-                let icon_path = std::path::Path::new("coin").join("logo").join(format!("{}.svg", *first.coin_index));
+                // TODO: When EVM is active, load coin icon, not Ethereum icon
+                let icon_path = std::path::Path::new("icons")
+                  .join("crypto-logo")
+                  .join(format!("{}.svg", *first.coin_index));
                 let icon_path_str: Zeroizing<String> = Zeroizing::new(icon_path.into_os_string().into_string().unwrap_or_default());
 
                 if let Ok(file) = e_q::get_file_from_resources(icon_path_str) {
@@ -1156,6 +1689,11 @@ impl EgoQuantum {
                       .corner_radius(10),
                   );
                 }
+              });
+
+              // Symbol
+              row.col(|ui| {
+                ui.label(&*first.symbol);
               });
 
               // Coin
@@ -1190,29 +1728,95 @@ impl EgoQuantum {
               // Public key
               if !self.gui.hide_public_keys {
                 row.col(|ui| {
-                  ui.horizontal(|ui| {
-                    if ui.button("📋").on_hover_text("Copy public key").clicked() {
-                      ui.ctx().copy_text(first.public_key.to_string());
-                    }
-                    ui.label(first.public_key.to_string());
-                  });
+                  if first.public_key.as_str().contains('\n') {
+                    let lines: Vec<&str> = first.public_key.lines().collect();
+                    let id = egui::Id::new(format!("pub_select:{}:{}", coin, *first.address));
+                    let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+                    selected = selected.min(lines.len().saturating_sub(1));
+
+                    ui.horizontal(|ui| {
+                      if ui.button("📋").on_hover_text("Copy selected public key").clicked() {
+                        if let Some(line) = lines.get(selected) {
+                          let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                          ui.ctx().copy_text(clean.to_string());
+                        }
+                      }
+
+                      egui::ComboBox::from_id_salt(id)
+                        .selected_text(lines.get(selected).copied().unwrap_or(""))
+                        .width(ui.available_width() - 30.0)
+                        .show_ui(ui, |ui| {
+                          for (i, line) in lines.iter().enumerate() {
+                            ui.selectable_value(&mut selected, i, *line);
+                          }
+                        });
+                    });
+
+                    ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+                  } else {
+                    ui.horizontal(|ui| {
+                      if ui.button("📋").on_hover_text("Copy public key").clicked() {
+                        ui.ctx().copy_text(first.public_key.to_string());
+                      }
+                      ui.label(&*first.public_key);
+                    });
+                  }
                 });
               }
 
               // Private key
               row.col(|ui| {
-                ui.horizontal(|ui| {
-                  if ui.button("📋").on_hover_text("Copy private key").clicked() {
-                    ui.ctx().copy_text(first.private_key.to_string());
-                  }
+                let mut hover_rect = ui.max_rect();
+                hover_rect = hover_rect.expand(80.0);
 
-                  let is_visible = ui.ui_contains_pointer() || !self.gui.hide_private_keys;
-                  if is_visible {
-                    ui.monospace(&*first.private_key);
-                  } else {
-                    ui.monospace("•••••••");
-                  }
-                });
+                let id = egui::Id::new(format!("priv_select:{}:{}", coin, *first.address));
+                let combo_open = ui.ctx().data(|d| d.get_temp::<bool>(id.with("open")).unwrap_or(false));
+                let is_visible = ui.rect_contains_pointer(hover_rect) || combo_open || !self.gui.hide_private_keys;
+
+                if first.private_key.as_str().contains('\n') {
+                  let lines: Vec<&str> = first.private_key.lines().collect();
+                  let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+                  selected = selected.min(lines.len().saturating_sub(1));
+
+                  ui.horizontal(|ui| {
+                    if ui.button("📋").on_hover_text("Copy selected private key").clicked() {
+                      if let Some(line) = lines.get(selected) {
+                        let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                        ui.ctx().copy_text(clean.to_string());
+                      }
+                    }
+
+                    if is_visible {
+                      let response = egui::ComboBox::from_id_salt(id)
+                        .selected_text(lines.get(selected).copied().unwrap_or(""))
+                        .width(ui.available_width() - 30.0)
+                        .show_ui(ui, |ui| {
+                          for (i, line) in lines.iter().enumerate() {
+                            ui.selectable_value(&mut selected, i, *line);
+                          }
+                        });
+
+                      let open = response.inner.is_some();
+                      ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), open));
+                    } else {
+                      ui.monospace("•••••••");
+                      ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), false));
+                    }
+                  });
+
+                  ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+                } else {
+                  ui.horizontal(|ui| {
+                    if ui.button("📋").on_hover_text("Copy private key").clicked() {
+                      ui.ctx().copy_text(first.private_key.to_string());
+                    }
+                    if is_visible {
+                      ui.monospace(&*first.private_key);
+                    } else {
+                      ui.monospace("•••••••");
+                    }
+                  });
+                }
               });
             });
 
@@ -1228,6 +1832,11 @@ impl EgoQuantum {
                   // No icon
                   row.col(|ui| {
                     ui.label("");
+                  });
+
+                  // Symbol
+                  row.col(|ui| {
+                    ui.label(addr.symbol.to_string());
                   });
 
                   // Coin name
@@ -1253,29 +1862,96 @@ impl EgoQuantum {
                   // Public key
                   if !self.gui.hide_public_keys {
                     row.col(|ui| {
-                      ui.horizontal(|ui| {
-                        if ui.button("📋").on_hover_text("Copy public key").clicked() {
-                          ui.ctx().copy_text(addr.public_key.to_string());
-                        }
-                        ui.label(addr.public_key.to_string());
-                      });
+                      if addr.public_key.as_str().contains('\n') {
+                        let lines: Vec<&str> = addr.public_key.lines().collect();
+                        let id = egui::Id::new(format!("pub_sel:{}:{}", coin, *addr.address));
+                        let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+                        selected = selected.min(lines.len().saturating_sub(1));
+
+                        ui.horizontal(|ui| {
+                          if ui.button("📋").on_hover_text("Copy selected public key").clicked() {
+                            if let Some(line) = lines.get(selected) {
+                              let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                              ui.ctx().copy_text(clean.to_string());
+                            }
+                          }
+
+                          egui::ComboBox::from_id_salt(id)
+                            .selected_text(lines.get(selected).copied().unwrap_or(""))
+                            .width(ui.available_width() - 30.0)
+                            .show_ui(ui, |ui| {
+                              for (i, line) in lines.iter().enumerate() {
+                                ui.selectable_value(&mut selected, i, *line);
+                              }
+                            });
+                        });
+
+                        ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+                      } else {
+                        ui.horizontal(|ui| {
+                          if ui.button("📋").on_hover_text("Copy public key").clicked() {
+                            ui.ctx().copy_text(addr.public_key.to_string());
+                          }
+                          ui.label(&*addr.public_key);
+                        });
+                      }
                     });
                   }
 
                   // Private key
                   row.col(|ui| {
-                    ui.horizontal(|ui| {
-                      if ui.button("📋").on_hover_text("Copy private key").clicked() {
-                        ui.ctx().copy_text(addr.private_key.to_string());
-                      }
+                    let mut hover_rect = ui.max_rect();
+                    hover_rect = hover_rect.expand(80.0);
 
-                      let is_visible = ui.ui_contains_pointer() || !self.gui.hide_private_keys;
-                      if is_visible {
-                        ui.monospace(&*addr.private_key);
-                      } else {
-                        ui.monospace("•••••••");
-                      }
-                    });
+                    let id = egui::Id::new(format!("priv_sel:{}:{}", coin, *addr.address));
+                    let combo_open = ui.ctx().data(|d| d.get_temp::<bool>(id.with("open")).unwrap_or(false));
+                    let is_visible = ui.rect_contains_pointer(hover_rect) || combo_open || !self.gui.hide_private_keys;
+
+                    if addr.private_key.as_str().contains('\n') {
+                      let lines: Vec<&str> = addr.private_key.lines().collect();
+                      let mut selected: usize = ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize));
+                      selected = selected.min(lines.len().saturating_sub(1));
+
+                      ui.horizontal(|ui| {
+                        if ui.button("📋").on_hover_text("Copy selected private key").clicked() {
+                          if let Some(line) = lines.get(selected) {
+                            let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                            ui.ctx().copy_text(clean.to_string());
+                          }
+                        }
+
+                        if is_visible {
+                          let response = egui::ComboBox::from_id_salt(id)
+                            .selected_text(lines.get(selected).copied().unwrap_or(""))
+                            .width(ui.available_width() - 30.0)
+                            .show_ui(ui, |ui| {
+                              for (i, line) in lines.iter().enumerate() {
+                                ui.selectable_value(&mut selected, i, *line);
+                              }
+                            });
+
+                          // keep revealed while the dropdown is open
+                          let open = response.inner.is_some();
+                          ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), open));
+                        } else {
+                          ui.monospace("•••••••");
+                          ui.ctx().data_mut(|d| d.insert_temp(id.with("open"), false));
+                        }
+                      });
+
+                      ctx.data_mut(|d| *d.get_persisted_mut_or_insert_with(id, || 0usize) = selected);
+                    } else {
+                      ui.horizontal(|ui| {
+                        if ui.button("📋").on_hover_text("Copy private key").clicked() {
+                          ui.ctx().copy_text(addr.private_key.to_string());
+                        }
+                        if is_visible {
+                          ui.monospace(&*addr.private_key);
+                        } else {
+                          ui.monospace("•••••••");
+                        }
+                      });
+                    }
                   });
                 });
               }
@@ -1284,6 +1960,8 @@ impl EgoQuantum {
         }
       });
   }
+  //
+  //
 
   fn render_wallet_footer(
     &mut self,
@@ -1622,7 +2300,7 @@ impl EgoQuantum {
           let filter_text = &mut self.gui.coin_filter;
           let response = ui.add(
             egui::TextEdit::singleline(filter_text)
-              .desired_width(74.0)
+              .desired_width(100.0)
               .hint_text("Coin name")
               .font(egui::TextStyle::Monospace),
           );
@@ -1762,7 +2440,7 @@ impl eframe::App for EgoQuantum {
             }
           });
 
-          let logo_bytes: &[u8] = include_bytes!("../res/logo/logo.png");
+          let logo_bytes: &[u8] = include_bytes!("../res/icons/app-logo/logo.png");
           let logo = egui::Image::from_bytes("logo", logo_bytes).max_height(512.0);
 
           ui.add(logo);
@@ -1807,7 +2485,7 @@ impl eframe::App for EgoQuantum {
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn set_app_icon() -> FunctionOutput<egui::IconData> {
-  let resource_path = std::path::Path::new("logo").join("logo.png");
+  let resource_path = std::path::Path::new("icons").join("app-logo").join("logo.png");
   let resource_path_str: Zeroizing<String> = Zeroizing::new(resource_path.to_str().unwrap_or_default().to_string());
 
   let icon_file = match e_q::get_file_from_resources(resource_path_str) {
@@ -2004,7 +2682,7 @@ impl ShowAboutWindow {
     ui.add_space(GUI_MARGIN);
 
     ui.vertical_centered(|ui| {
-      let logo_bytes: &[u8] = include_bytes!("../res/logo/logo.png");
+      let logo_bytes: &[u8] = include_bytes!("../res/icons/app-logo/logo.png");
       let logo = egui::Image::from_bytes("logo", logo_bytes).max_height(128.0);
 
       ui.add(logo);

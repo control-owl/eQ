@@ -316,8 +316,7 @@ pub fn get_derivation_path(
     "bip32-ed25519" => {
       // m / 1852' / 1815' / account' / role / address{'}
       Zeroizing::new(format!(
-        "m/{}'/{}'/{}'/{}/{}{}",
-        *path.coin,
+        "m/1852'/{}'/{}'/{}/{}{}",
         *path.coin,
         *path.account,
         *path.change,
@@ -607,6 +606,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
   let mut hash: Zeroizing<String> = wallet.address_components.hash.clone();
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
   let wallet_import_format: Zeroizing<String> = wallet.address_components.wallet_import_format.clone();
+  let coin_symbol: Zeroizing<String> = wallet.address_components.symbol.clone();
 
   let child_private_key_bytes: Zeroizing<Vec<u8>> = wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes.clone();
 
@@ -685,6 +685,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
         .or_default()
         .push(AddressPrivateData {
           coin_index,
+          symbol: coin_symbol,
           path: derivation_path,
           address,
           public_key: public_key_encoded,
@@ -724,6 +725,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
           .or_default()
           .push(AddressPrivateData {
             coin_index,
+            symbol: coin_symbol,
             path: derivation_path,
             address,
             public_key: public_key_encoded,
@@ -762,6 +764,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
     .or_default()
     .push(AddressPrivateData {
       coin_index,
+      symbol: coin_symbol,
       path: derivation_path,
       address,
       public_key: public_key_encoded,
@@ -924,6 +927,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
   let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
   let coin_name: Zeroizing<String> = wallet.address_components.coin_name.clone();
   let pub_key_hash: Zeroizing<String> = wallet.address_components.public_key_hash.clone();
+  let coin_symbol: Zeroizing<String> = wallet.address_components.symbol.clone();
 
   let derivation_path: Zeroizing<String> = match get_derivation_path("ed25519", wallet) {
     Ok(path) => path,
@@ -958,7 +962,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
         Ok(decoded) => match decoded.try_into() {
           Ok(array) => Zeroizing::new(array),
           Err(_) => {
-            return Err(AppError::log("spend_key must be exactly 32 bytes".to_string()));
+            return Err(AppError::log("Monero spend_key must be exactly 32 bytes".to_string()));
           }
         },
         Err(err) => {
@@ -1035,6 +1039,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
     .or_default()
     .push(AddressPrivateData {
       coin_index,
+      symbol: coin_symbol,
       path: derivation_path,
       address,
       public_key,
@@ -1435,9 +1440,15 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
           wallet.address_components.wallet_import_format = Zeroizing::new(columns[10].to_string());
           wallet.address_components.evm = Zeroizing::new(columns[11].trim().eq_ignore_ascii_case("true"));
 
+          wallet.address_components.symbol = Zeroizing::new(columns[2].parse().unwrap_or(String::from("???")));
+
           // JUMP: GENERATE NEW ADDRESSES
           for address_index in start_index..end_index {
             wallet.address_components.derivation_path.address = Zeroizing::new(address_index);
+
+            if wallet.wallet_data.unify_evm && *wallet.address_components.evm {
+              wallet.address_components.derivation_path.coin = Zeroizing::new(60);
+            }
 
             match wallet.address_components.key_derivation.as_str() {
               "secp256k1" => {
@@ -1710,6 +1721,7 @@ fn generate_open_assets_address(
     .or_default()
     .push(AddressPrivateData {
       coin_index: coin_index.clone(),
+      symbol: Zeroizing::new(String::from("OA")),
       path: derivation_path.clone(),
       address: oa_colored_address,
       public_key: public_key_encoded,
@@ -1781,6 +1793,7 @@ pub fn generate_legacy_address(
   let hash: Zeroizing<String> = wallet.address_components.hash.clone();
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
   let wallet_import_format: Zeroizing<String> = wallet.address_components.wallet_import_format.clone();
+  let coin_symbol: Zeroizing<String> = wallet.address_components.symbol.clone();
 
   let public_key_hash_vec: Zeroizing<Vec<u8>> = {
     let trimmed: Zeroizing<String> = Zeroizing::new(public_key_hash.trim_start_matches("0x").to_string());
@@ -1805,6 +1818,7 @@ pub fn generate_legacy_address(
 
   let new_address = AddressPrivateData {
     coin_index: coin_index.clone(),
+    symbol: coin_symbol,
     path: derivation_path.clone(),
     address,
     public_key: public_key_encoded,
@@ -1827,6 +1841,7 @@ pub fn generate_taproot_address(
   let hash: Zeroizing<String> = wallet.address_components.hash.clone();
   let key_derivation: Zeroizing<String> = wallet.address_components.key_derivation.clone();
   let wallet_import_format: Zeroizing<String> = wallet.address_components.wallet_import_format.clone();
+  let coin_symbol: Zeroizing<String> = wallet.address_components.symbol.clone();
 
   let secp_pubkey = match public_key {
     CryptoPublicKey::Secp256k1(pk) => pk,
@@ -1855,6 +1870,7 @@ pub fn generate_taproot_address(
 
   let new_address: AddressPrivateData = AddressPrivateData {
     coin_index: coin_index.clone(),
+    symbol: coin_symbol,
     path: derivation_path.clone(),
     address: taproot_address,
     public_key: public_key_encoded,
@@ -2217,6 +2233,7 @@ pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> Func
     .or_default()
     .push(AddressPrivateData {
       coin_index: Zeroizing::new(1815 as u32),
+      symbol: Zeroizing::new(String::from("ADA")),
       path,
       address: Zeroizing::new(address.clone()),
       public_key: public_keys_str,

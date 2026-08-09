@@ -11,6 +11,7 @@
     - Taproot address support ltc1p... (default)
     - New supporting protocol BIP86
     - Legacy  address support L...
+- new option: Standardize EVM addresses (optional)
 - cargo update:
     - egui (0.34.3 -> 0.36.1)
     - eframe (0.34.3 -> 0.36.1)
