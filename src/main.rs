@@ -449,8 +449,8 @@ impl GuiSettings {
       version_dialog: ShowAboutWindow::default(),
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
 
-      hide_private_keys: if cfg!(feature = "dev") { false } else { true },
-      hide_public_keys: if cfg!(feature = "dev") { false } else { true },
+      hide_private_keys: !cfg!(feature = "dev") && { false } || { true },
+      hide_public_keys: !cfg!(feature = "dev") && { false } || { true },
 
       show_disclaimer: false,
 
@@ -1326,11 +1326,11 @@ impl EgoQuantum {
                     selected = selected.min(lines.len().saturating_sub(1));
 
                     ui.horizontal(|ui| {
-                      if ui.button("📋").on_hover_text("Copy selected public key").clicked() {
-                        if let Some(line) = lines.get(selected) {
-                          let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
-                          ui.ctx().copy_text(clean.to_string());
-                        }
+                      if ui.button("📋").on_hover_text("Copy selected public key").clicked()
+                        && let Some(line) = lines.get(selected)
+                      {
+                        let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                        ui.ctx().copy_text(clean.to_string());
                       }
 
                       egui::ComboBox::from_id_salt(id)
@@ -1370,11 +1370,11 @@ impl EgoQuantum {
                   selected = selected.min(lines.len().saturating_sub(1));
 
                   ui.horizontal(|ui| {
-                    if ui.button("📋").on_hover_text("Copy selected private key").clicked() {
-                      if let Some(line) = lines.get(selected) {
-                        let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
-                        ui.ctx().copy_text(clean.to_string());
-                      }
+                    if ui.button("📋").on_hover_text("Copy selected private key").clicked()
+                      && let Some(line) = lines.get(selected)
+                    {
+                      let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                      ui.ctx().copy_text(clean.to_string());
                     }
 
                     if is_visible {
@@ -1460,11 +1460,11 @@ impl EgoQuantum {
                         selected = selected.min(lines.len().saturating_sub(1));
 
                         ui.horizontal(|ui| {
-                          if ui.button("📋").on_hover_text("Copy selected public key").clicked() {
-                            if let Some(line) = lines.get(selected) {
-                              let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
-                              ui.ctx().copy_text(clean.to_string());
-                            }
+                          if ui.button("📋").on_hover_text("Copy selected public key").clicked()
+                            && let Some(line) = lines.get(selected)
+                          {
+                            let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                            ui.ctx().copy_text(clean.to_string());
                           }
 
                           egui::ComboBox::from_id_salt(id)
@@ -1504,11 +1504,11 @@ impl EgoQuantum {
                       selected = selected.min(lines.len().saturating_sub(1));
 
                       ui.horizontal(|ui| {
-                        if ui.button("📋").on_hover_text("Copy selected private key").clicked() {
-                          if let Some(line) = lines.get(selected) {
-                            let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
-                            ui.ctx().copy_text(clean.to_string());
-                          }
+                        if ui.button("📋").on_hover_text("Copy selected private key").clicked()
+                          && let Some(line) = lines.get(selected)
+                        {
+                          let clean = if let Some(pos) = line.find(": ") { &line[pos + 2..] } else { line };
+                          ui.ctx().copy_text(clean.to_string());
                         }
 
                         if is_visible {

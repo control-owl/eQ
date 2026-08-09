@@ -2,10 +2,10 @@ name: Release macOS x86_64
 
 on:
   workflow_run:
-    workflows: [ "Verify GPG Signature" ]
+    workflows: ["Verify GPG Signature"]
     types:
       - completed
-    branches: [ "stable" ]
+    branches: ["stable"]
 
 permissions:
   contents: write
@@ -30,17 +30,17 @@ jobs:
       CHANGELOG: "doc/changelog.md"
 
     steps:
-      - name: "Install system dependencies"
+      - name: Install system dependencies
         run: |
           brew update
           brew install pkg-config
 
-      - name: "Checkout repository"
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "Cache cargo dependencies"
+      - name: Cache cargo dependencies
         uses: actions/cache@v4
         with:
           path: |
@@ -50,41 +50,46 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: "Install Rust"
-        # git ls-remote https://github.com/dtolnay/rust-toolchain refs/heads/stable
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
         with:
           targets: ${{ matrix.target }}
           components: clippy rustfmt
 
-      - name: "Check code"
+      - name: Check code
         run: |
           cargo fmt --
           cargo clippy --no-deps --verbose --locked --features "${{ matrix.features }}" --target ${{ matrix.target }} -- -D warnings
 
-      - name: "Build project"
+      - name: Build project
         run: |
           echo "Building with features: ${{ matrix.features }}"
           cargo build --release --verbose --locked --target ${{ matrix.target }} --features "${{ matrix.features }}"
 
-      - name: "Test project"
-        run: cargo test --release --locked --verbose --no-fail-fast --target ${{ matrix.target }} --features "${{ matrix.features }}"
-
-      - name: "Extract version number"
+      - name: Test project
         run: |
-          VERSION_NUMBER=$(head -n 1 ${{ env.CHANGELOG }} | cut -d ':' -f 2- | tr -d ' #version')
+          cargo test --release --locked --verbose --no-fail-fast --target ${{ matrix.target }} --features "${{ matrix.features }}"
+
+      - id: extract_version
+        name: Extract version number
+        run: |
+          set -euo pipefail
+          VERSION_NUMBER=$(head -n 1 "${{ env.CHANGELOG }}" | cut -d ':' -f 2- | tr -d ' #version' | xargs)
 
           if [[ ! "$VERSION_NUMBER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: VERSION_NUMBER is not in valid format: ${VERSION_NUMBER}"
+            echo "Expected format: 1.2.3"
             exit 1
           fi
-          echo "VERSION_NUMBER=${VERSION_NUMBER}" | tee -a $GITHUB_ENV
 
-      - name: "Create tag"
+          echo "VERSION_NUMBER=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Create tag
         run: |
+          set -euo pipefail
           git config user.name "${{ env.APP_NAME }}"
           git config user.email "${{ secrets.ACTIONS_EMAIL }}"
-          VERSION="v${{ env.VERSION_NUMBER }}"
+          VERSION="v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
 
           echo "Checking if tag $VERSION exists..."
 
@@ -94,7 +99,7 @@ jobs:
             echo "Tag $VERSION does not exist on remote. Creating new signed tag."
 
             if ! git tag -a "$VERSION" -m "Release $VERSION"; then
-              echo "GPG signing failed"
+              echo "GPG signing or tag creation failed"
               exit 1
             fi
 
@@ -106,44 +111,58 @@ jobs:
             echo "Tag $VERSION created successfully."
           fi
 
-      - name: Prepare release files
+      - id: prepare_release
+        name: Prepare release files
         run: |
+          set -euo pipefail
+
           BIN_DIR="target/${{ matrix.target }}/release"
           APP_NAME="${{ env.APP_NAME }}"
           FEATURES="${{ matrix.features }}"
-          VERSION="${{ env.VERSION_NUMBER }}"
+          VERSION="${{ steps.extract_version.outputs.VERSION_NUMBER }}"
           OUTPUT_DIR="${{ env.OUTPUT_DIR }}"
           TARGET="${{ matrix.target }}"
           BIN_FILE="${APP_NAME}"
           OUTPUT_BIN="${APP_NAME}-${VERSION}"
           TAR_FILE="${APP_NAME}-${VERSION}-${FEATURES}-macOS.tar.gz"
 
-          strip "${BIN_DIR}/${BIN_FILE}"
+          if [ ! -f "${BIN_DIR}/${BIN_FILE}" ]; then
+            echo "Error: binary ${BIN_DIR}/${BIN_FILE} not found"
+            exit 1
+          fi
+
+          strip "${BIN_DIR}/${BIN_FILE}" || true
+
           mkdir -p "${OUTPUT_DIR}"
           cp "${BIN_DIR}/${BIN_FILE}" "${OUTPUT_DIR}/${OUTPUT_BIN}"
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
-            -C ../../ ${{ env.CHANGELOG }} LICENSE
+            -C ../../ "${{ env.CHANGELOG }}" LICENSE
 
-          echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_ENV
+          echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_OUTPUT
           echo "Release files prepared"
 
       - name: Generate SHA256 checksum
         run: |
-          shasum -a 256 "${OUTPUT_DIR}/${TAR_FILE}" > "${OUTPUT_DIR}/${TAR_FILE}.sha256"
+          set -euo pipefail
+          TAR="${{ env.OUTPUT_DIR }}/${{ steps.prepare_release.outputs.TAR_FILE }}"
+          if [ ! -f "${TAR}" ]; then
+            echo "Error: ${TAR} not found"
+            exit 1
+          fi
+          shasum -a 256 "${TAR}" > "${TAR}.sha256"
 
-      - name: "Upload to GitHub Releases"
-        # git ls-remote https://github.com/softprops/action-gh-release refs/tags/v3^{}
+      - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}
-            ${{ env.OUTPUT_DIR }}/${{ env.TAR_FILE }}.sha256
+            ${{ env.OUTPUT_DIR }}/${{ steps.prepare_release.outputs.TAR_FILE }}
+            ${{ env.OUTPUT_DIR }}/${{ steps.prepare_release.outputs.TAR_FILE }}.sha256
             ${{ env.CHANGELOG }}
             LICENSE
           draft: false
           prerelease: true
-          tag_name: v${{ env.VERSION_NUMBER }}
+          tag_name: v${{ steps.extract_version.outputs.VERSION_NUMBER }}

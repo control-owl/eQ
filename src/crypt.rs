@@ -1436,7 +1436,7 @@ pub fn parse_payload(plain: Zeroizing<Vec<u8>>) -> FunctionOutput<WalletPayload>
 pub fn split_entropy(full: &str) -> Result<(String, String), String> {
   let total = full.len();
 
-  if total % 33 != 0 {
+  if !total.is_multiple_of(33) {
     return Err(format!("invalid entropy bit length {}, expected a multiple of 33", total));
   }
 

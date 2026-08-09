@@ -2129,12 +2129,10 @@ pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<
 
 use blake2b_simd::Params;
 use ed25519_bip32::{DerivationScheme, XPrv, XPub};
-use hex;
 use std::num::NonZeroU32;
 
 fn blake2b_224(input: &[u8]) -> Vec<u8> {
-  let out = Params::new().hash_length(28).to_state().update(input).finalize().as_bytes().to_vec();
-  out
+  Params::new().hash_length(28).to_state().update(input).finalize().as_bytes().to_vec()
 }
 
 fn derive_child(
@@ -2143,9 +2141,8 @@ fn derive_child(
   hardened: bool,
 ) -> XPrv {
   let idx = if hardened { index | 0x8000_0000 } else { index };
-  let child = prv.derive(DerivationScheme::V2, idx);
 
-  child
+  prv.derive(DerivationScheme::V2, idx)
 }
 
 pub fn derive_payment_and_stake_xpubs_from_seed(wallet: &mut CryptoWallet) -> FunctionOutput<(XPub, XPub)> {
@@ -2232,7 +2229,7 @@ pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> Func
     .entry("Cardano".to_string())
     .or_default()
     .push(AddressPrivateData {
-      coin_index: Zeroizing::new(1815 as u32),
+      coin_index: Zeroizing::new(1815_u32),
       symbol: Zeroizing::new(String::from("ADA")),
       path,
       address: Zeroizing::new(address.clone()),
@@ -2261,7 +2258,7 @@ fn xprv_from_entropy(entropy: &[u8]) -> Result<XPrv, String> {
 }
 
 fn binary_string_to_bytes(bits: &str) -> Result<Vec<u8>, String> {
-  if bits.is_empty() || bits.len() % 8 != 0 {
+  if bits.is_empty() || !bits.len().is_multiple_of(8) {
     return Err(format!("entropy bit length must be a multiple of 8, got {}", bits.len()));
   }
   let mut bytes = Vec::with_capacity(bits.len() / 8);
