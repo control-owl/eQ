@@ -917,7 +917,7 @@ fn test_cardano_address() {
     expected_cardano_address: &'static str,
   }
 
-  let test_vectors = vec![
+  let test_vectors = [
     CardanoTestVector {
       entropy: "0010110110001100111001010001111001100001011010010111111011011101010111010010000000100010010110001101101001110001111010100110111110110011001111111001110110110100110000110111100001010001110100000001000110010111001100111011111110010000111101111100101101100011",
       mnemonic_words: "collect grunt elegant security obey huge innocent affair flee squeeze kind term crop solution spread humor fade letter grape guess weekend know collect hire",
@@ -1136,7 +1136,7 @@ fn test_sr25519_coins() {
     wif: &'static str,
   }
 
-  let test_vectors = vec![
+  let test_vectors = [
     TestVectors {
       mnemonic_words: "cement identify ship alley frozen bag top truth blame tunnel farm inflict owner olive kiss will thumb monkey trip around base expire come damage",
       derivation_path: DerivationPathData {
