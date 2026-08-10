@@ -19,8 +19,8 @@ mod crypt;
 mod keys;
 mod test_vectors;
 
-#[cfg(feature = "dev")]
-mod dev;
+// #[cfg(feature = "dev")]
+// mod dev;
 
 mod help;
 
@@ -234,8 +234,6 @@ pub struct PolkadotKeySecretData {
   pub payment_chain_code: Zeroizing<String>,
   pub payment_public_key: Zeroizing<String>,
 }
-
-// type CardanoKeys = (Zeroizing<Vec<u8>>, Zeroizing<Vec<u8>>);
 
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 

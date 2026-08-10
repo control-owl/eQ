@@ -1123,3 +1123,71 @@ fn check_wallet_save_open_function() {
 //       assert_eq!(hex::encode(view_pub), vector.expected_monero_view_pub);
 //     }
 //   }
+
+#[test]
+fn test_sr25519_coins() {
+  use super::*;
+  use crate::{CryptoWallet, Zeroizing, keys};
+
+  struct TestVectors {
+    mnemonic_words: &'static str,
+    derivation_path: DerivationPathData,
+    expected_address: &'static str,
+    wif: &'static str,
+  }
+
+  let test_vectors = vec![
+    TestVectors {
+      mnemonic_words: "cement identify ship alley frozen bag top truth blame tunnel farm inflict owner olive kiss will thumb monkey trip around base expire come damage",
+      derivation_path: DerivationPathData {
+        purpose: Zeroizing::new(44),
+        purpose_hardened: Zeroizing::new(true),
+        coin: Zeroizing::new(354),
+        coin_hardened: Zeroizing::new(true),
+        account: Zeroizing::new(0),
+        account_hardened: Zeroizing::new(true),
+        change: Zeroizing::new(0),
+        change_hardened: Zeroizing::new(true),
+        address: Zeroizing::new(0),
+        address_hardened: Zeroizing::new(true),
+        last_index: Zeroizing::new(0),
+      },
+      expected_address: "1h43RjFcar9q5JBx5BAGMwLCwP1rd5RoDjubCtPmH5QGwbo",
+      wif: "0",
+    },
+    TestVectors {
+      mnemonic_words: "patient frequent bean race client cruise avoid second security flight catalog hope",
+      derivation_path: DerivationPathData {
+        purpose: Zeroizing::new(44),
+        purpose_hardened: Zeroizing::new(true),
+        coin: Zeroizing::new(434),
+        coin_hardened: Zeroizing::new(true),
+        account: Zeroizing::new(0),
+        account_hardened: Zeroizing::new(true),
+        change: Zeroizing::new(0),
+        change_hardened: Zeroizing::new(true),
+        address: Zeroizing::new(1),
+        address_hardened: Zeroizing::new(true),
+        last_index: Zeroizing::new(0),
+      },
+      expected_address: "CbVXNMfjADbk3hZ68rH7SRjRScamnpC9bBciSa1Bk2U7kC6",
+      wif: "2",
+    },
+  ];
+
+  for (vector_idx, vector) in test_vectors.iter().enumerate() {
+    let mut wallet = CryptoWallet::new();
+
+    wallet.seed_secret.mnemonic_words = Zeroizing::new(vector.mnemonic_words.to_string());
+    wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
+    // wallet.wallet_data.slip_derivation_path = true;
+    wallet.address_components.wallet_import_format = Zeroizing::new(vector.wif.to_string());
+
+    let _ = keys::generate_sr25519_master_keys(&mut wallet);
+    let _ = keys::generate_sr25519_child_keys(&mut wallet);
+
+    let address = keys::generate_sr25519_address(&mut wallet).unwrap();
+
+    assert_eq!(*address, vector.expected_address, "Test vector #{} failed", vector_idx + 1);
+  }
+}

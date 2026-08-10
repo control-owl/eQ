@@ -4,8 +4,8 @@
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 use crate::{
-  AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, FunctionOutput,
-  MnemonicLanguage, MoneroKeys, Zeroizing,
+  AddressPrivateData, AppError, ChildEd25519KeySecretData, ChildSecp256k1KeySecretData, CryptoPublicKey, CryptoWallet, DerivationPathData,
+  FunctionOutput, MnemonicLanguage, MoneroKeys, Zeroizing,
 };
 use base32::Alphabet;
 use base64::Engine;
@@ -284,7 +284,7 @@ pub fn get_derivation_path(
   curve: &str,
   wallet: &mut CryptoWallet,
 ) -> FunctionOutput<Zeroizing<String>> {
-  let path: Zeroizing<crate::DerivationPathData> = wallet.address_components.derivation_path.clone();
+  let path: Zeroizing<DerivationPathData> = wallet.address_components.derivation_path.clone();
 
   let coin = *wallet.address_components.derivation_path.coin;
 
@@ -1067,6 +1067,35 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
   Ok(())
 }
 
+//                                SR25519 KEYS
+// -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
+
+pub fn generate_sr25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  let (pair, seed) = sr25519::Pair::from_phrase(&wallet.seed_secret.mnemonic_words, Some(&wallet.seed_secret.mnemonic_passphrase))
+    .map_err(|err| AppError::log(format!("Failed to create sr25519 keypair from mnemonic: {:?}", err)))?;
+
+  let public_key = pair.public().to_string();
+
+  wallet.secret_keys.master_sr25519_keys.master_private_key_bytes = Zeroizing::new(seed.to_vec());
+  wallet.secret_keys.master_sr25519_keys.master_private_key_encoded = Zeroizing::new(hex::encode(seed));
+  wallet.secret_keys.master_sr25519_keys.master_public_key_bytes = Zeroizing::new(hex::encode(public_key.clone()).into_bytes());
+  wallet.secret_keys.master_sr25519_keys.master_public_key_encoded = Zeroizing::new(public_key);
+
+  Ok(())
+}
+
+pub fn generate_sr25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  let full_derivation_path: Zeroizing<String> = get_derivation_path("sr25519", wallet)?;
+  let account_path: Zeroizing<String> = get_sr25519_account_path(full_derivation_path)?;
+  let (child_pair, child_seed) = get_sr25519_pair_for_path(wallet, &account_path)?;
+  let child_public_key = child_pair.public();
+
+  wallet.secret_keys.child_sr25519_keys.child_private_key_bytes = child_seed;
+  wallet.secret_keys.child_sr25519_keys.child_public_key_bytes = Zeroizing::new(child_public_key.to_vec());
+
+  Ok(())
+}
+
 //                                  ADDRESSES
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
@@ -1509,7 +1538,7 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
                   }
                 };
 
-                match generate_polkadot_address_for_path(wallet) {
+                match generate_sr25519_address(wallet) {
                   Ok(_) => {}
                   Err(err) => {
                     return Err(AppError::log(format!("Can not derive ed25519 address: {}", err)));
@@ -2338,62 +2367,33 @@ pub fn generate_algorand_address(pubkey: &[u8]) -> FunctionOutput<Zeroizing<Stri
 //                                Polkadot (DOT)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-pub fn generate_sr25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  let (pair, seed) = sr25519::Pair::from_phrase(&wallet.seed_secret.mnemonic_words, Some(&wallet.seed_secret.mnemonic_passphrase))
-    .map_err(|err| AppError::log(format!("Failed to create sr25519 keypair from mnemonic: {:?}", err)))?;
-
-  let public_key = pair.public();
-
-  wallet.secret_keys.master_sr25519_keys.master_private_key_bytes = Zeroizing::new(seed.to_vec());
-  wallet.secret_keys.master_sr25519_keys.master_private_key_encoded = Zeroizing::new(hex::encode(seed));
-  wallet.secret_keys.master_sr25519_keys.master_public_key_bytes = Zeroizing::new(public_key.to_vec());
-  wallet.secret_keys.master_sr25519_keys.master_public_key_encoded = Zeroizing::new(hex::encode(public_key));
-
-  Ok(())
-}
-
-pub fn generate_sr25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
-  let full_derivation_path = get_derivation_path("sr25519", wallet)?;
-  let account_path = get_sr25519_account_path(&full_derivation_path)?;
-  let (child_pair, child_seed) = get_sr25519_pair_for_path(wallet, &account_path)?;
-  let child_public_key = child_pair.public();
-
-  wallet.secret_keys.child_sr25519_keys.child_private_key_bytes = child_seed;
-  wallet.secret_keys.child_sr25519_keys.child_public_key_bytes = Zeroizing::new(child_public_key.to_vec());
-
-  Ok(())
-}
-
-fn get_sr25519_account_path(full_derivation_path: &str) -> FunctionOutput<Zeroizing<String>> {
+fn get_sr25519_account_path(full_derivation_path: Zeroizing<String>) -> FunctionOutput<Zeroizing<String>> {
   let path = full_derivation_path.trim();
-
   if path.is_empty() {
     return Err(AppError::log("sr25519 derivation path cannot be empty".to_string()));
   }
 
   let path_without_m = path.strip_prefix("m/").or_else(|| path.strip_prefix("M/")).unwrap_or(path);
-  let components: Vec<&str> = path_without_m.split('/').filter(|component| !component.is_empty()).collect();
+
+  let components: Vec<&str> = path_without_m.split('/').filter(|c| !c.is_empty()).collect();
 
   if components.len() < 3 {
     return Err(AppError::log(format!(
       "sr25519 derivation path '{}' does not contain enough components for an account path",
-      full_derivation_path
+      *full_derivation_path
     )));
   }
 
   let account_components = &components[..components.len() - 1];
-
   if account_components.is_empty() {
     return Err(AppError::log(format!(
       "Unable to determine sr25519 account path from '{}'",
-      full_derivation_path
+      *full_derivation_path
     )));
   }
 
   let mut account_path = String::from("m/");
-
   account_path.push_str(&account_components.join("/"));
-
   Ok(Zeroizing::new(account_path))
 }
 
@@ -2447,17 +2447,22 @@ fn get_sr25519_address_pair_for_index(
 
   let child_master_pair = sr25519::Pair::from_seed(&child_master_seed);
   let junction = sp_core::crypto::DeriveJunction::hard(address_index);
+
   let (address_pair, address_seed) = child_master_pair
     .derive(std::iter::once(junction), Some(child_master_seed))
     .map_err(|err| AppError::log(format!("Failed to derive sr25519 address index {}: {:?}", address_index, err)))?;
 
-  let address_seed =
-    address_seed.ok_or_else(|| AppError::log(format!("sr25519 address derivation '{}' did not return a child seed", address_index)))?;
+  let address_seed = address_seed.ok_or_else(|| {
+    AppError::log(format!(
+      "sr25519 address derivation for index {} did not return a child seed",
+      address_index
+    ))
+  })?;
 
   Ok((address_pair, Zeroizing::new(address_seed.to_vec())))
 }
 
-pub fn generate_polkadot_address_for_path(wallet: &mut CryptoWallet) -> FunctionOutput<Zeroizing<String>> {
+pub fn generate_sr25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zeroizing<String>> {
   if wallet.secret_keys.child_sr25519_keys.child_private_key_bytes.is_empty() {
     generate_sr25519_child_keys(wallet)?;
   }
@@ -2465,12 +2470,19 @@ pub fn generate_polkadot_address_for_path(wallet: &mut CryptoWallet) -> Function
   let full_derivation_path = get_derivation_path("sr25519", wallet)?;
   let address_index = *wallet.address_components.derivation_path.address;
   let address_path = Zeroizing::new(full_derivation_path.to_string());
+
   let (pair, address_seed) = get_sr25519_address_pair_for_index(wallet, address_index)?;
   let public_key = pair.public();
-  let address = public_key.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(0));
+
+  let ss58_prefix: u16 = wallet.address_components.wallet_import_format.parse().unwrap_or(0);
+
+  let address = public_key.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(ss58_prefix));
 
   if address.is_empty() {
-    return Err(AppError::log("Generated Polkadot address is empty".to_string()));
+    return Err(AppError::log(format!(
+      "Generated {} address is empty (ss58 prefix = {})",
+      *wallet.address_components.coin_name, ss58_prefix
+    )));
   }
 
   let coin_index = wallet.address_components.derivation_path.coin.clone();
@@ -2486,7 +2498,7 @@ pub fn generate_polkadot_address_for_path(wallet: &mut CryptoWallet) -> Function
       symbol,
       path: address_path,
       address: Zeroizing::new(address.clone()),
-      public_key: Zeroizing::new(hex::encode(public_key.clone())),
+      public_key: Zeroizing::new(hex::encode(public_key)),
       private_key: Zeroizing::new(hex::encode(address_seed.as_slice())),
     });
 
@@ -2495,7 +2507,6 @@ pub fn generate_polkadot_address_for_path(wallet: &mut CryptoWallet) -> Function
 
 fn parse_sr25519_hardened_path(path: &str) -> FunctionOutput<Vec<sp_core::crypto::DeriveJunction>> {
   let path = path.trim();
-
   if path.is_empty() {
     return Err(AppError::log("sr25519 derivation path cannot be empty".to_string()));
   }
@@ -2507,7 +2518,6 @@ fn parse_sr25519_hardened_path(path: &str) -> FunctionOutput<Vec<sp_core::crypto
   }
 
   let components: Vec<&str> = path.split('/').collect();
-
   parse_sr25519_hardened_components(&components)
 }
 
@@ -2516,20 +2526,18 @@ fn parse_sr25519_hardened_components(components: &[&str]) -> FunctionOutput<Vec<
 
   for component in components {
     let component = component.trim();
-
     if component.is_empty() {
       return Err(AppError::log("sr25519 derivation path contains an empty component".to_string()));
     }
 
     if !component.ends_with('\'') {
       return Err(AppError::log(format!(
-        "sr25519 derivation component '{}' must be hardened (for example 44')",
+        "sr25519 derivation component '{}' must be hardened (example: 44')",
         component
       )));
     }
 
     let number = &component[..component.len() - 1];
-
     if number.is_empty() {
       return Err(AppError::log("sr25519 derivation path contains an empty hardened index".to_string()));
     }

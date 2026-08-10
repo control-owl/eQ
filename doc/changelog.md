@@ -2,6 +2,7 @@
 - new coin: Monero (XMR)
 - new coin: Algorand (ALGO)
 - new coin: Polkadot (DOT)
+- new coin: Kusama (KSM)
 - new coin: Nano (XNO)
 - new coin: NEM (XEM)
 - new coin: Cardano (ADA)

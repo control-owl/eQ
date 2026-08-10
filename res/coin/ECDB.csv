@@ -432,7 +432,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,431,BTC2,Bitcoin 2,,,,,,,,,
 0,432,XRPHD,XRPHD,,,,,,,,,
 0,433,WE,WE Coin,,,,,,,,,
-0,434,KSM,Kusama,,,,,,,,,
+1,434,KSM,Kusama,sr25519,,,,,,2,,5034
 0,435,PCN,Peepcoin,,,,,,,,,
 0,436,NCH,NetCloth,,,,,,,,,
 0,437,ICU,CHIPO,,,,,,,,,
@@ -1305,6 +1305,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 2,165,XNO,Nano,ed25519,blake2b,,,,,,,1567
 2,283,ALGO,Algorand,ed25519,,,,,,,,4030
 2,313,ZIL,Zilliqa,secp256k1,sha256,,,,,,,2469
-2,354,DOT,Polkadot,sr25519,,,,,,,,6636
+2,354,DOT,Polkadot,sr25519,,,,,,0,,6636
 2,501,SOL,Solana,ed25519,,,,,,,,5426
 2,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,,,2010
+2,434,KSM,Kusama,sr25519,,,,,,2,,5034
