@@ -1,17 +1,18 @@
- - **Status:** Stable
+# Wallet file specifications
 
- - **Wallet format version:** 1
+| Status                 | Stable        |
+| ---------------------- | ------------- |
+| Wallet format version  | 1             |
+| Payload format version | 1             |
+| Encoding               | Binary        |
+| Integer byte order     | Little-endian |
+| Encryption             | AES-256-GCM   |
 
- - **Payload format version:** 1
 
- - **Encoding:** Binary
+This document specifies the binary format of a wallet file produced by the `encrypt_wallet` function. 
+The format is designed to be self-describing, forward-compatible, and resistant to tampering. 
+All offsets described in this document are zero-based and inclusive. 
 
- - **Integer byte order:** Little-endian
-
- - **Encryption:** AES-256-GCM
-
-This document specifies the binary format of a wallet file produced by the `encrypt_wallet` function. The format is designed to be self-describing, forward-compatible, and resistant to tampering.
-All offsets described in this document are zero-based and inclusive.
 
 ---
 
@@ -155,4 +156,3 @@ BIP used when wallet was generated.
 #### Last Index (4 bytes)
 Last derived index used by the wallet.
 Determine how many addresses to generate when wallet is open.
-

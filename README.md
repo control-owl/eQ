@@ -2,28 +2,28 @@
 
 ## Disclaimer
 
-> Read the [DISCLAIMER](./DISCLAIMER.txt) file.
+> Read the [DISCLAIMER](./doc/disclaimer.md) file.
 
 
 ## Info
 
 ```
- ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄ 
-▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌
-▐░▌          ▐░▌       ▐░▌
-▐░█▄▄▄▄▄▄▄▄▄ ▐░▌       ▐░▌
-▐░░░░░░░░░░░▌▐░▌       ▐░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░█▄▄▄▄▄▄▄█░▌
-▐░▌          ▐░░░░░░░░░░░▌
-▐░█▄▄▄▄▄▄▄▄▄  ▀▀▀▀▀▀█░█▀▀ 
-▐░░░░░░░░░░░▌        ▐░▌  
+ ▄▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄▄ 
+█░░░░░░░░░░░█ █░░░░░░░░░░░█
+█░█▀▀▀▀▀▀▀▀▀  █░█▀▀▀▀▀▀▀█░█
+█░█           █░█       █░█
+█░█▄▄▄▄▄▄▄▄▄  █░█       █░█
+█░░░░░░░░░░░█ █░█       █░█
+█░█▀▀▀▀▀▀▀▀▀  █░█▄▄▄▄▄▄▄█░█
+█░█           █░░░░░░░░░░░█
+█░█▄▄▄▄▄▄▄▄▄  ▀▀▀▀▀▀█░█▀▀ 
+█░░░░░░░░░░░█        █░█  
  ▀▀▀▀▀▀▀▀▀▀▀          ▀   
 CC-BY-NC-ND-4.0
 Control Owl [2023-2026]
 ```
 
-**eQ** is a **high-performance, security-focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero-dependency key generation for **284 cryptocurrencies**, with optional **quantum-grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
+**eQ** is a **high-performance, security-focused cryptographic key generator** built with **Rust** and **egui**. It provides fast, deterministic, and zero-dependency key generation for **293 cryptocurrencies**, with optional **quantum-grade entropy** sourced from the **Australian National University (ANU) Quantum Random Number Generator**.
 
 This is the second generation of our key generator, following [QR2M](https://github.com/control-owl/QR2M).
 
@@ -95,7 +95,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 
 ## Features
 
-- Generate keys for **284** [coins](./Coins.md) in one click
+- Generate keys for **293** [coins](./doc/supported-coins.md) in one click
 - **Ultra-fast performance** powered by Rust
 - **Minimalistic UI** built with egui
 - **Cross-platform** support: Windows, Linux, macOS
@@ -119,6 +119,7 @@ See the [![License](https://img.shields.io/badge/license-CC--BY--NC--ND--4.0-blu
 
 1. Download the latest release: [![GitHub release](https://img.shields.io/github/v/release/control-owl/eQ)](https://github.com/control-owl/eQ/releases)
 
+Check changelog if wanted: [Changelog](./doc/changelog.md) file.
 
 ### Manual way
 
@@ -177,9 +178,10 @@ This project uses the following crates:
 - [bs58](https://docs.rs/bs58)
 - [curve25519-dalek](https://docs.rs/curve25519_dalek)
 - [ed25519-dalek](https://docs.rs/ed25519_dalek)
+- [eframe](https://docs.rs/eframe)
 - [egui](https://docs.rs/egui)
 - [egui_keyboard](https://docs.rs/egui_keyboard)
-- [eframe](https://docs.rs/eframe)
+- [egui_commonmark](https://docs.rs/egui_commonmark)
 - [egui_extras](https://docs.rs/egui_extras)
 - [getrandom](https://docs.rs/getrandom)
 - [hex](https://docs.rs/hex)
