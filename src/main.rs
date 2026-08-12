@@ -858,7 +858,6 @@ impl EgoQuantum {
 
         let slip_derivation_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.slip_derivation_path, "Use SLIP-0010 derivation"));
 
-        // BUG: Monero words needs to be re-generated with new path!
         if slip_derivation_resp.changed() && has_addresses {
           self.wallet.addresses_by_coin.0.clear();
           let _ = self.generate_addresses_for_all_coins();
