@@ -27,7 +27,7 @@ use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{Pair, sr25519};
+use sp_core::{DeriveJunction, Pair, sr25519};
 use std::io::BufRead;
 use std::num::NonZeroU32;
 use tiny_keccak::{Hasher, Keccak};
@@ -125,8 +125,8 @@ pub fn generate_seed(
   let key = hmac::Key::new(hmac::HMAC_SHA512, b"Bitcoin seed");
   let tag = hmac::sign(&key, &*seed);
 
-  let mut priv_key = Zeroizing::new([0u8; 32]);
-  let mut chain = Zeroizing::new([0u8; 32]);
+  let mut priv_key: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
+  let mut chain: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
 
   priv_key.copy_from_slice(&tag.as_ref()[..32]);
   chain.copy_from_slice(&tag.as_ref()[32..]);
@@ -141,10 +141,10 @@ pub fn generate_seed(
   };
 
   for (index, hardened) in path {
-    let parent_priv_vec = Zeroizing::new(priv_key.to_vec());
-    let parent_chain_vec = Zeroizing::new(chain.to_vec());
-    let hardened_z = Zeroizing::new(hardened);
-    let index_z = Zeroizing::new(index);
+    let parent_priv_vec: Zeroizing<Vec<u8>> = Zeroizing::new(priv_key.to_vec());
+    let parent_chain_vec: Zeroizing<Vec<u8>> = Zeroizing::new(chain.to_vec());
+    let hardened_z: Zeroizing<bool> = Zeroizing::new(hardened);
+    let index_z: Zeroizing<u32> = Zeroizing::new(index);
 
     let derived = crate::keys::derive_secp256k1_child(parent_priv_vec, parent_chain_vec, index_z, hardened_z).expect("BIP32 child derivation failed");
 
@@ -1027,7 +1027,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
 
     // Algorand
     283 => {
-      let address = generate_algorand_address(&child_public_key_bytes)?;
+      let address = generate_algorand_address(child_public_key_bytes.clone())?;
       (
         address,
         Zeroizing::new(hex::encode(&child_public_key_bytes)),
@@ -2139,7 +2139,7 @@ pub fn generate_nano_public_key(private_key: &Zeroizing<[u8; 32]>) -> FunctionOu
   Ok(public_key)
 }
 
-fn nano_base32_encode(data: &[u8]) -> FunctionOutput<String> {
+fn nano_base32_encode(data: &[u8]) -> FunctionOutput<Zeroizing<String>> {
   let mut bits: Vec<bool> = Vec::with_capacity(data.len() * 8);
 
   for &byte in data {
@@ -2152,7 +2152,7 @@ fn nano_base32_encode(data: &[u8]) -> FunctionOutput<String> {
     bits.splice(0..0, std::iter::repeat_n(false, 4));
   }
 
-  let mut result = String::with_capacity(bits.len().div_ceil(5));
+  let mut result: Zeroizing<String> = Zeroizing::new(String::with_capacity(bits.len().div_ceil(5)));
 
   for chunk in bits.chunks(5) {
     let mut value = 0u8;
@@ -2179,8 +2179,8 @@ pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<
   let mut reversed_checksum: Zeroizing<Vec<u8>> = Zeroizing::new(checksum.to_vec());
   reversed_checksum.reverse();
 
-  let encoded_pubkey: Zeroizing<String> = Zeroizing::new(nano_base32_encode(public_key.as_slice())?);
-  let encoded_checksum: Zeroizing<String> = Zeroizing::new(nano_base32_encode(&reversed_checksum)?);
+  let encoded_pubkey: Zeroizing<String> = nano_base32_encode(public_key.as_slice())?;
+  let encoded_checksum: Zeroizing<String> = nano_base32_encode(&reversed_checksum)?;
 
   let address: Zeroizing<String> = Zeroizing::new(format!("nano_{}{}", *encoded_pubkey, *encoded_checksum));
 
@@ -2190,8 +2190,12 @@ pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<
 //                                Cardano (ADA)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-fn blake2b_224(input: &[u8]) -> Vec<u8> {
-  Params::new().hash_length(28).to_state().update(input).finalize().as_bytes().to_vec()
+fn blake2b_224(input: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<Vec<u8>>> {
+  let hash = Params::new().hash_length(28).to_state().update(&input).finalize();
+
+  let output: Zeroizing<Vec<u8>> = Zeroizing::new(hash.as_bytes().to_vec());
+
+  Ok(output)
 }
 
 fn derive_child(
@@ -2205,8 +2209,8 @@ fn derive_child(
 }
 
 pub fn derive_payment_and_stake_xpubs_from_seed(wallet: &mut CryptoWallet) -> FunctionOutput<(XPub, XPub)> {
-  let entropy = binary_string_to_bytes(wallet.seed_secret.raw_entropy.as_str()).unwrap();
-  let master = xprv_from_entropy(entropy.as_slice()).unwrap();
+  let entropy: Zeroizing<Vec<u8>> = binary_string_to_bytes(wallet.seed_secret.raw_entropy.clone()).unwrap();
+  let master = xprv_from_entropy(entropy).unwrap();
 
   let account = *wallet.address_components.derivation_path.account;
   let address_index = *wallet.address_components.derivation_path.address;
@@ -2226,18 +2230,18 @@ pub fn derive_payment_and_stake_xpubs_from_seed(wallet: &mut CryptoWallet) -> Fu
   let stake_prv = derive_child(&stake_role, 0, false);
   let stake_xpub = stake_prv.public();
 
-  let pay_xprv_bytes = pay_prv.as_ref(); // &[u8; 96]
-  let pay_xpub_bytes = pay_xpub.as_ref(); // &[u8; 64]
-  let stake_xprv_bytes = stake_prv.as_ref();
-  let stake_xpub_bytes = stake_xpub.as_ref();
+  // let pay_xprv_bytes = pay_prv.as_ref(); // &[u8; 96]
+  // let pay_xpub_bytes = pay_xpub.as_ref(); // &[u8; 64]
+  // let stake_xprv_bytes = stake_prv.as_ref();
+  // let stake_xpub_bytes = stake_xpub.as_ref();
 
-  wallet.secret_keys.cardano_keys.payment_private_key = Zeroizing::new(hex::encode(&pay_xprv_bytes[..64])); // 64-byte extended secret
-  wallet.secret_keys.cardano_keys.payment_chain_code = Zeroizing::new(hex::encode(&pay_xprv_bytes[64..])); // 32-byte chain code
-  wallet.secret_keys.cardano_keys.payment_public_key = Zeroizing::new(hex::encode(&pay_xpub_bytes[..32])); // 32-byte public key
+  wallet.secret_keys.cardano_keys.payment_private_key = Zeroizing::new(hex::encode(&pay_prv.as_ref()[..64])); // 64-byte extended secret
+  wallet.secret_keys.cardano_keys.payment_chain_code = Zeroizing::new(hex::encode(&pay_prv.as_ref()[64..])); // 32-byte chain code
+  wallet.secret_keys.cardano_keys.payment_public_key = Zeroizing::new(hex::encode(&pay_xpub.as_ref()[..32])); // 32-byte public key
 
-  wallet.secret_keys.cardano_keys.stake_private_key = Zeroizing::new(hex::encode(&stake_xprv_bytes[..64]));
-  wallet.secret_keys.cardano_keys.stake_chain_code = Zeroizing::new(hex::encode(&stake_xprv_bytes[64..]));
-  wallet.secret_keys.cardano_keys.stake_public_key = Zeroizing::new(hex::encode(&stake_xpub_bytes[..32]));
+  wallet.secret_keys.cardano_keys.stake_private_key = Zeroizing::new(hex::encode(&stake_prv.as_ref()[..64]));
+  wallet.secret_keys.cardano_keys.stake_chain_code = Zeroizing::new(hex::encode(&stake_prv.as_ref()[64..]));
+  wallet.secret_keys.cardano_keys.stake_public_key = Zeroizing::new(hex::encode(&stake_xpub.as_ref()[..32]));
 
   Ok((pay_xpub, stake_xpub))
 }
@@ -2245,28 +2249,44 @@ pub fn derive_payment_and_stake_xpubs_from_seed(wallet: &mut CryptoWallet) -> Fu
 pub fn build_shelley_base_address_from_xpubs(
   payment_xpub: &XPub,
   stake_xpub: &XPub,
-) -> String {
-  let payment_pub = &payment_xpub.as_ref()[..32];
-  let stake_pub = &stake_xpub.as_ref()[..32];
+) -> FunctionOutput<Zeroizing<String>> {
+  let payment_pub: Zeroizing<Vec<u8>> = Zeroizing::new(payment_xpub.as_ref()[..32].into());
+  let stake_pub: Zeroizing<Vec<u8>> = Zeroizing::new(stake_xpub.as_ref()[..32].into());
 
-  let payment_hash = blake2b_224(payment_pub);
-  let stake_hash = blake2b_224(stake_pub);
+  let payment_hash: Zeroizing<Vec<u8>> = match blake2b_224(payment_pub.clone()) {
+    Ok(hash) => hash,
+    Err(err) => {
+      return Err(AppError::log(format!("Problem with blake2b_224 for payment key: {}", err)));
+    }
+  };
+
+  let stake_hash: Zeroizing<Vec<u8>> = match blake2b_224(stake_pub.clone()) {
+    Ok(hash) => hash,
+    Err(err) => {
+      return Err(AppError::log(format!("Problem with blake2b_224 for stake key: {}", err)));
+    }
+  };
 
   let header: u8 = 0x01;
 
-  let mut payload = Vec::with_capacity(57);
+  let mut payload: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(57));
   payload.push(header);
   payload.extend_from_slice(&payment_hash);
   payload.extend_from_slice(&stake_hash);
 
   let hrp = Hrp::parse("addr").unwrap();
-  encode::<Bech32>(hrp, &payload).unwrap()
+  let address: Zeroizing<String> = Zeroizing::new(encode::<Bech32>(hrp, &payload).unwrap());
+
+  Ok(address)
 }
 
-pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> FunctionOutput<String> {
+pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> FunctionOutput<Zeroizing<String>> {
   let (pay, stake) = derive_payment_and_stake_xpubs_from_seed(wallet).unwrap();
 
-  let address = build_shelley_base_address_from_xpubs(&pay, &stake);
+  let address: Zeroizing<String> = match build_shelley_base_address_from_xpubs(&pay, &stake) {
+    Ok(address) => address,
+    Err(err) => return Err(AppError::log(format!("Problem with building shelly base address from xpubs: {}", err))),
+  };
 
   let path = get_derivation_path("bip32-ed25519", wallet).unwrap();
 
@@ -2291,7 +2311,7 @@ pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> Func
       coin_index: Zeroizing::new(1815_u32),
       symbol: Zeroizing::new(String::from("ADA")),
       path,
-      address: Zeroizing::new(address.clone()),
+      address: Zeroizing::new(address.clone().to_string()),
       public_key: public_keys_str,
       private_key: private_keys_str,
     });
@@ -2299,46 +2319,50 @@ pub fn derive_cardano_address_from_seed_bytes(wallet: &mut CryptoWallet) -> Func
   Ok(address)
 }
 
-fn xprv_from_entropy(entropy: &[u8]) -> Result<XPrv, String> {
-  let mut data = [0u8; 96];
+fn xprv_from_entropy(entropy: Zeroizing<Vec<u8>>) -> FunctionOutput<XPrv> {
+  let mut data: Zeroizing<[u8; 96]> = Zeroizing::new([0u8; 96]);
   let iters = NonZeroU32::new(4096).unwrap();
-  pbkdf2::derive(pbkdf2::PBKDF2_HMAC_SHA512, iters, entropy, b"", &mut data);
+
+  pbkdf2::derive(pbkdf2::PBKDF2_HMAC_SHA512, iters, &entropy, b"", &mut *data);
 
   data[0] &= 0xf8;
   data[31] &= 0x1f;
   data[31] |= 0x40;
 
-  let mut sk = [0u8; 64];
-  let mut cc = [0u8; 32];
-  sk.copy_from_slice(&data[..64]);
-  cc.copy_from_slice(&data[64..]);
+  let mut private_key: Zeroizing<[u8; 64]> = Zeroizing::new([0u8; 64]);
+  let mut chain_code: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
 
-  Ok(XPrv::from_extended_and_chaincode(&sk, &cc))
+  private_key.copy_from_slice(&data[..64]);
+  chain_code.copy_from_slice(&data[64..]);
+
+  Ok(XPrv::from_extended_and_chaincode(&private_key, &chain_code))
 }
 
-fn binary_string_to_bytes(bits: &str) -> Result<Vec<u8>, String> {
+fn binary_string_to_bytes(bits: Zeroizing<String>) -> FunctionOutput<Zeroizing<Vec<u8>>> {
   if bits.is_empty() || !bits.len().is_multiple_of(8) {
-    return Err(format!("entropy bit length must be a multiple of 8, got {}", bits.len()));
+    return Err(AppError::log("Binary string length must be a multiple of 8".to_string()));
   }
-  let mut bytes = Vec::with_capacity(bits.len() / 8);
+
+  let mut bytes: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(bits.len() / 8));
   for chunk in bits.as_bytes().chunks(8) {
     let mut byte = 0u8;
     for (i, &b) in chunk.iter().enumerate() {
       match b {
         b'1' => byte |= 1 << (7 - i),
         b'0' => {}
-        _ => return Err(format!("invalid bit character: {}", b as char)),
+        _ => return Err(AppError::log(format!("Invalid bit character: {}", b as char))),
       }
     }
     bytes.push(byte);
   }
+
   Ok(bytes)
 }
 
 //                                Algorand (ALGO)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-pub fn generate_algorand_address(pubkey: &[u8]) -> FunctionOutput<Zeroizing<String>> {
+pub fn generate_algorand_address(pubkey: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
   use sha2::{Digest, Sha512_256};
 
   if pubkey.len() != 32 {
@@ -2346,22 +2370,26 @@ pub fn generate_algorand_address(pubkey: &[u8]) -> FunctionOutput<Zeroizing<Stri
   }
 
   let mut hasher = Sha512_256::new();
-  hasher.update(pubkey);
+  hasher.update(&pubkey);
   let hash = hasher.finalize(); // 32 bytes
-  let checksum = &hash[28..32]; // last 4 bytes
+  let checksum: Zeroizing<[u8; 4]> = Zeroizing::new(
+    hash[28..32]
+      .try_into()
+      .map_err(|_| AppError::log("Failed to extract checksum".to_string()))?,
+  );
 
-  let mut payload = [0u8; 36];
-  payload[..32].copy_from_slice(pubkey);
-  payload[32..].copy_from_slice(checksum);
+  let mut payload: Zeroizing<[u8; 36]> = Zeroizing::new([0u8; 36]);
+  payload[..32].copy_from_slice(&pubkey);
+  payload[32..].copy_from_slice(&*checksum);
 
-  let address = base32::encode(base32::Alphabet::Rfc4648 { padding: false }, &payload);
-  let address = address.trim_end_matches('=').to_string();
+  let address = Zeroizing::new(base32::encode(base32::Alphabet::Rfc4648 { padding: false }, &*payload));
+  // let address = address.trim_end_matches('=').to_string();
 
   if address.len() != 58 {
     return Err(AppError::log(format!("Unexpected Algorand address length: {}", address.len())));
   }
 
-  Ok(Zeroizing::new(address))
+  Ok(address)
 }
 
 //                                Polkadot (DOT)
@@ -2401,7 +2429,7 @@ pub fn get_sr25519_pair_for_path(
   wallet: &CryptoWallet,
   derivation_path: &str,
 ) -> FunctionOutput<(sr25519::Pair, Zeroizing<Vec<u8>>)> {
-  let master_private_key = wallet.secret_keys.master_sr25519_keys.master_private_key_bytes.clone();
+  let master_private_key: Zeroizing<Vec<u8>> = wallet.secret_keys.master_sr25519_keys.master_private_key_bytes.clone();
 
   if master_private_key.len() != 32 {
     return Err(AppError::log(format!(
@@ -2410,28 +2438,34 @@ pub fn get_sr25519_pair_for_path(
     )));
   }
 
-  let master_seed: [u8; 32] = master_private_key
-    .as_slice()
-    .try_into()
-    .map_err(|_| AppError::log("Failed to convert sr25519 master seed to [u8; 32]".to_string()))?;
+  let master_seed: Zeroizing<[u8; 32]> = Zeroizing::new(
+    master_private_key
+      .as_slice()
+      .try_into()
+      .map_err(|_| AppError::log("Failed to convert sr25519 master seed to [u8; 32]".to_string()))?,
+  );
 
   let master_pair = sr25519::Pair::from_seed(&master_seed);
   let junctions = parse_sr25519_hardened_path(derivation_path)?;
 
   let (child_pair, child_seed) = master_pair
-    .derive(junctions.into_iter(), Some(master_seed))
+    .derive(junctions.into_iter(), Some(*master_seed))
     .map_err(|err| AppError::log(format!("Failed to derive sr25519 path '{}': {:?}", derivation_path, err)))?;
 
-  let child_seed = child_seed.ok_or_else(|| AppError::log(format!("sr25519 derivation '{}' did not return a child seed", derivation_path)))?;
+  let child_seed: Zeroizing<Vec<u8>> = Zeroizing::new(
+    child_seed
+      .ok_or_else(|| AppError::log(format!("sr25519 derivation '{}' did not return a child seed", derivation_path)))?
+      .to_vec(),
+  );
 
-  Ok((child_pair, Zeroizing::new(child_seed.to_vec())))
+  Ok((child_pair, child_seed))
 }
 
 fn get_sr25519_address_pair_for_index(
   wallet: &CryptoWallet,
   address_index: u32,
 ) -> FunctionOutput<(sr25519::Pair, Zeroizing<Vec<u8>>)> {
-  let child_master_private_key = wallet.secret_keys.child_sr25519_keys.child_private_key_bytes.clone();
+  let child_master_private_key: Zeroizing<Vec<u8>> = wallet.secret_keys.child_sr25519_keys.child_private_key_bytes.clone();
 
   if child_master_private_key.len() != 32 {
     return Err(AppError::log(format!(
@@ -2440,26 +2474,32 @@ fn get_sr25519_address_pair_for_index(
     )));
   }
 
-  let child_master_seed: [u8; 32] = child_master_private_key
-    .as_slice()
-    .try_into()
-    .map_err(|_| AppError::log("Failed to convert sr25519 child master seed to [u8; 32]".to_string()))?;
+  let child_master_seed: Zeroizing<[u8; 32]> = Zeroizing::new(
+    child_master_private_key
+      .as_slice()
+      .try_into()
+      .map_err(|_| AppError::log("Failed to convert sr25519 child master seed to [u8; 32]".to_string()))?,
+  );
 
   let child_master_pair = sr25519::Pair::from_seed(&child_master_seed);
   let junction = sp_core::crypto::DeriveJunction::hard(address_index);
 
   let (address_pair, address_seed) = child_master_pair
-    .derive(std::iter::once(junction), Some(child_master_seed))
+    .derive(std::iter::once(junction), Some(*child_master_seed))
     .map_err(|err| AppError::log(format!("Failed to derive sr25519 address index {}: {:?}", address_index, err)))?;
 
-  let address_seed = address_seed.ok_or_else(|| {
-    AppError::log(format!(
-      "sr25519 address derivation for index {} did not return a child seed",
-      address_index
-    ))
-  })?;
+  let address_seed: Zeroizing<Vec<u8>> = Zeroizing::new(
+    address_seed
+      .ok_or_else(|| {
+        AppError::log(format!(
+          "sr25519 address derivation for index {} did not return a child seed",
+          address_index
+        ))
+      })?
+      .to_vec(),
+  );
 
-  Ok((address_pair, Zeroizing::new(address_seed.to_vec())))
+  Ok((address_pair, address_seed))
 }
 
 pub fn generate_sr25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zeroizing<String>> {
@@ -2467,26 +2507,17 @@ pub fn generate_sr25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zer
     generate_sr25519_child_keys(wallet)?;
   }
 
-  let full_derivation_path = get_derivation_path("sr25519", wallet)?;
-  let address_index = *wallet.address_components.derivation_path.address;
-  let address_path = Zeroizing::new(full_derivation_path.to_string());
+  let full_derivation_path: Zeroizing<String> = get_derivation_path("sr25519", wallet)?;
+  let address_index: Zeroizing<u32> = wallet.address_components.derivation_path.address.clone();
+  let address_path: Zeroizing<String> = Zeroizing::new(full_derivation_path.to_string());
 
-  let (pair, address_seed) = get_sr25519_address_pair_for_index(wallet, address_index)?;
+  let (pair, address_seed) = get_sr25519_address_pair_for_index(wallet, *address_index)?;
   let public_key = pair.public();
 
   let ss58_prefix: u16 = wallet.address_components.wallet_import_format.parse().unwrap_or(0);
-
-  let address = public_key.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(ss58_prefix));
-
-  if address.is_empty() {
-    return Err(AppError::log(format!(
-      "Generated {} address is empty (ss58 prefix = {})",
-      *wallet.address_components.coin_name, ss58_prefix
-    )));
-  }
-
-  let coin_index = wallet.address_components.derivation_path.coin.clone();
-  let symbol = wallet.address_components.symbol.clone();
+  let address: Zeroizing<String> = Zeroizing::new(public_key.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(ss58_prefix)));
+  let coin_index: Zeroizing<u32> = wallet.address_components.derivation_path.coin.clone();
+  let symbol: Zeroizing<String> = wallet.address_components.symbol.clone();
 
   wallet
     .addresses_by_coin
@@ -2497,16 +2528,17 @@ pub fn generate_sr25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<Zer
       coin_index,
       symbol,
       path: address_path,
-      address: Zeroizing::new(address.clone()),
+      address: address.clone(),
       public_key: Zeroizing::new(hex::encode(public_key)),
       private_key: Zeroizing::new(hex::encode(address_seed.as_slice())),
     });
 
-  Ok(Zeroizing::new(address))
+  Ok(address)
 }
 
-fn parse_sr25519_hardened_path(path: &str) -> FunctionOutput<Vec<sp_core::crypto::DeriveJunction>> {
+fn parse_sr25519_hardened_path(path: &str) -> FunctionOutput<Vec<DeriveJunction>> {
   let path = path.trim();
+
   if path.is_empty() {
     return Err(AppError::log("sr25519 derivation path cannot be empty".to_string()));
   }
@@ -2521,7 +2553,7 @@ fn parse_sr25519_hardened_path(path: &str) -> FunctionOutput<Vec<sp_core::crypto
   parse_sr25519_hardened_components(&components)
 }
 
-fn parse_sr25519_hardened_components(components: &[&str]) -> FunctionOutput<Vec<sp_core::crypto::DeriveJunction>> {
+fn parse_sr25519_hardened_components(components: &[&str]) -> FunctionOutput<Vec<DeriveJunction>> {
   let mut junctions = Vec::with_capacity(components.len());
 
   for component in components {

@@ -1,4 +1,4 @@
-# version 1.6.0
+# version 1.5.0
 - new coin: Monero (XMR)
 - new coin: Algorand (ALGO)
 - new coin: Polkadot (DOT)
@@ -32,17 +32,11 @@
     - serde (1.0.228 -> 1.0.229)
     - serde_json (1.0.150 -> 1.0.151)
     - egui_keyboard (0.6.0 -> 0.7.0)
-
-
----
-
-
-# version 1.5.0
-- new: help window
-- cargo update:
     - getrandom (0.4.2 -> 0.4.3)
     - bech32 (0.11.1 -> 0.12.0)
     - zeroize (1.8.2 -> 1.9.0)
+- new: help window
+- cargo update:
 - cargo add:
     - egui_commonmark
 - new: Coin filter in status bar

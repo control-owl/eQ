@@ -147,7 +147,9 @@ impl HelpWindow {
 
     egui::ScrollArea::vertical()
       .content_margin(egui::Margin::same(GUI_MARGIN as i8))
+      .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
       .show(ui, |ui| {
+        ui.take_available_width();
         let doc_path = format!("doc/{}", self.selected_section.filename());
 
         match fs::read_to_string(&doc_path) {

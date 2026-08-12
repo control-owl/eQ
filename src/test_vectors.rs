@@ -967,10 +967,10 @@ fn test_cardano_address() {
     wallet.seed_secret.seed = Zeroizing::new(seed_hex);
     wallet.address_components.derivation_path = Zeroizing::new(vector.derivation_path.clone());
 
-    let address =
+    let address: Zeroizing<String> =
       keys::derive_cardano_address_from_seed_bytes(&mut wallet).unwrap_or_else(|err| panic!("Test vector #{} failed: {}", vector_idx + 1, err));
 
-    assert_eq!(address, vector.expected_cardano_address, "Test vector #{} failed", vector_idx + 1);
+    assert_eq!(*address, vector.expected_cardano_address, "Test vector #{} failed", vector_idx + 1);
   }
 }
 

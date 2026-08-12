@@ -970,7 +970,7 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 0,1784,JPYS,JPY Stablecoin,,,,,,,,,
 0,1788,USVAC,USVACoin,,,,,,,,,
 0,1789,VEGA,Vega Protocol,,,,,,,,,
-1,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,,,2010
+1,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,0x01,,2010
 1,1818,CUBE,Cube Chain Native Token,secp256k1,keccak256,,,,,,TRUE,
 0,1888,ZTX,Zetrix,,,,,,,,,
 0,1899,XEC,eCash token,,,,,,,,,
@@ -1307,5 +1307,5 @@ status,coin_index,coin_symbol,coin_name,key_derivation,hash,private_header,publi
 2,313,ZIL,Zilliqa,secp256k1,sha256,,,,,,,2469
 2,354,DOT,Polkadot,sr25519,,,,,,0,,6636
 2,501,SOL,Solana,ed25519,,,,,,,,5426
-2,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,,,2010
+2,1815,ADA,Cardano,bip32-ed25519,blake2b-224,,,,,0x01,,2010
 2,434,KSM,Kusama,sr25519,,,,,,2,,5034
