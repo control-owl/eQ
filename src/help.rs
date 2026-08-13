@@ -1,8 +1,8 @@
 use egui::Ui;
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use std::default::Default;
-use std::fs;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
+use zeroize::ZeroizeOnDrop;
 
 use crate::GUI_MARGIN;
 
@@ -150,14 +150,17 @@ impl HelpWindow {
       .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
       .show(ui, |ui| {
         ui.take_available_width();
-        let doc_path = format!("doc/{}", self.selected_section.filename());
 
-        match fs::read_to_string(&doc_path) {
+        match e_q::get_doc_from_resources(self.selected_section.filename()) {
           Ok(content) => {
-            CommonMarkViewer::new().show(ui, &mut self.markdown_cache, &content);
+            CommonMarkViewer::new().default_implicit_uri_scheme("bytes://").show(
+              ui,
+              &mut self.markdown_cache,
+              &content.contents_utf8().unwrap_or("Error"),
+            );
           }
           Err(e) => {
-            ui.colored_label(egui::Color32::RED, format!("Could not load {}: {}", doc_path, e));
+            ui.colored_label(egui::Color32::RED, format!("Could not load {}: {}", self.selected_section.filename(), e));
           }
         }
       });

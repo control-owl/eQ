@@ -23,7 +23,6 @@
     - egui (0.34.3 -> 0.36.1)
     - eframe (0.34.3 -> 0.36.1)
     - egui_extras (0.34.3 -> 0.36.1)
-    - egui_commonmark (0.23.0 -> 0.25.0)
     - sysinfo (0.29.3 -> 0.39.6)
     - ed25519-dalek (2.2.0 -> 3.0.0)
     - curve25519-dalek (4.1.3 -> 5.0.0)
@@ -36,7 +35,6 @@
     - bech32 (0.11.1 -> 0.12.0)
     - zeroize (1.8.2 -> 1.9.0)
 - new: help window
-- cargo update:
 - cargo add:
     - egui_commonmark
 - new: Coin filter in status bar
