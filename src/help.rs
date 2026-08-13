@@ -156,7 +156,7 @@ impl HelpWindow {
             CommonMarkViewer::new().default_implicit_uri_scheme("bytes://").show(
               ui,
               &mut self.markdown_cache,
-              &content.contents_utf8().unwrap_or("Error"),
+              content.contents_utf8().unwrap_or("Error"),
             );
           }
           Err(e) => {

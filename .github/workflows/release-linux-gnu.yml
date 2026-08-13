@@ -132,11 +132,15 @@ jobs:
 
           strip "${BIN_DIR}/${BIN_FILE}" || true
           mkdir -p "${OUTPUT_DIR}"
+
           cp "${BIN_DIR}/${BIN_FILE}" "${OUTPUT_DIR}/${OUTPUT_BIN}"
+          cp "${{ env.CHANGELOG }}" "${OUTPUT_DIR}/changelog.md"
+          cp LICENSE "${OUTPUT_DIR}/LICENSE"
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
-            -C ../../ "${{ env.CHANGELOG }}" LICENSE
+            -C "${OUTPUT_DIR}" "changelog.md" \
+            -C "${OUTPUT_DIR}" "LICENSE"
 
           echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_OUTPUT
           echo "Release files prepared"

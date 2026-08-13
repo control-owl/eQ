@@ -148,12 +148,15 @@ jobs:
           }
 
           New-Item -ItemType Directory -Force -Path $OUTPUT_DIR | Out-Null
+          # Copy binary
           Copy-Item -Path (Join-Path $BIN_DIR $BIN_FILE) -Destination (Join-Path $OUTPUT_DIR $OUTPUT_BIN) -Force
+          Copy-Item -Path (Join-Path $ROOT "${{ env.CHANGELOG }}") -Destination (Join-Path $OUTPUT_DIR "changelog.md") -Force
+          Copy-Item -Path (Join-Path $ROOT "LICENSE") -Destination (Join-Path $OUTPUT_DIR "LICENSE") -Force
 
           $filesToZip = @(
             (Join-Path $OUTPUT_DIR $OUTPUT_BIN),
-            (Join-Path $ROOT "${{ env.CHANGELOG }}"),
-            (Join-Path $ROOT "LICENSE")
+            (Join-Path $OUTPUT_DIR "changelog.md"),
+            (Join-Path $OUTPUT_DIR "LICENSE")
           )
 
           $zipPath = Join-Path $OUTPUT_DIR $ZIP_FILE
