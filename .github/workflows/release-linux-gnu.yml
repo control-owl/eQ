@@ -26,7 +26,7 @@ jobs:
     env:
       APP_NAME: "eQ"
       APP_PATH: "target/${{ matrix.target }}/release"
-      OUTPUT_DIR: "LAB7041/${{ matrix.target }}"
+      OUTPUT_DIR: "${{ github.workspace }}/LAB7041/${{ matrix.target }}"
       CHANGELOG: "doc/changelog.md"
 
     steps:
@@ -117,7 +117,6 @@ jobs:
           APP_NAME="${{ env.APP_NAME }}"
           FEATURES="${{ matrix.features }}"
           VERSION="${{ steps.extract_version.outputs.VERSION_NUMBER }}"
-          OUTPUT_DIR="${{ env.OUTPUT_DIR }}"
           TARGET="${{ matrix.target }}"
           BIN_FILE="${APP_NAME}"
           OUTPUT_BIN="${APP_NAME}-${VERSION}"
