@@ -6,7 +6,7 @@
 [package]
 name = "eQ"
 description = "High-Performance Cryptographic Key Generator"
-version = "1.5.0"
+version = "1.6.0"
 authors = ["Control Owl <eq[at]r-o0-t[dot]wtf>"]
 license = "CC-BY-NC-ND-4.0"
 repository = "https://github.com/control-owl/eQ"

@@ -10,8 +10,10 @@
 use eframe::egui;
 use egui::Color32;
 use egui_extras::{Column, TableBuilder};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::rc::Rc;
 use zeroize::Zeroize;
 use zeroize::{ZeroizeOnDrop, Zeroizing};
 
@@ -19,8 +21,8 @@ mod crypt;
 mod keys;
 mod test_vectors;
 
-// #[cfg(feature = "dev")]
-// mod dev;
+#[cfg(feature = "dev")]
+mod dev;
 
 mod help;
 
@@ -36,6 +38,7 @@ const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &[
   "RNG",
   "QRNG",
+  "MULTI",
   #[cfg(feature = "dev")]
   "File",
 ];
@@ -440,6 +443,8 @@ struct GuiSettings {
 
   help_dialog: help::HelpWindow,
 
+  multi_entropy_dialog: dev::MultiEntropyWindow,
+
   version_dialog: ShowAboutWindow,
   mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
 
@@ -469,6 +474,7 @@ impl GuiSettings {
       anu_dialog: crypt::ShowAnuDialog::new(),
 
       help_dialog: help::HelpWindow::new(),
+      multi_entropy_dialog: dev::MultiEntropyWindow::new(),
 
       version_dialog: ShowAboutWindow::default(),
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),
@@ -539,10 +545,14 @@ impl EgoQuantum {
     &mut self,
     entropy_source: Option<Zeroizing<String>>,
   ) -> FunctionOutput<()> {
-    let entropy_source = entropy_source.unwrap_or_else(|| self.get_entropy_source());
+    let entropy_source: Zeroizing<String> = entropy_source.unwrap_or_else(|| self.get_entropy_source());
+
     self.generate_seed_if_missing(entropy_source.clone())?;
-    self.generate_master_keys_if_missing()?;
-    self.generate_addresses_for_all_coins()?;
+
+    if !self.wallet.seed_secret.seed.is_empty() {
+      self.generate_master_keys_if_missing()?;
+      self.generate_addresses_for_all_coins()?;
+    }
 
     Ok(())
   }
@@ -551,7 +561,22 @@ impl EgoQuantum {
     &mut self,
     entropy_source: Zeroizing<String>,
   ) -> FunctionOutput<()> {
-    if self.wallet.seed_secret.raw_entropy.is_empty() || self.wallet.seed_secret.full_entropy.is_empty() {
+    if self.wallet.seed_secret.raw_entropy.is_empty() {
+      if *self.wallet.seed_secret.entropy_source == "MULTI" {
+        self.gui.multi_entropy_dialog.wallet_to_create = Some(Rc::new(RefCell::new(self.wallet.clone())));
+
+        self.gui.multi_entropy_dialog.entropy_length = *self.wallet.seed_secret.entropy_length.clone();
+
+        self.gui.multi_entropy_dialog.open = true;
+      } else {
+        match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
+          Ok(_) => {}
+          Err(err) => {
+            return Err(AppError::log(format!("Problem with generating seed: {}", err)));
+          }
+        };
+      }
+    } else {
       match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {
         Ok(_) => {}
         Err(err) => {
@@ -2078,6 +2103,7 @@ impl eframe::App for EgoQuantum {
     self.gui.version_dialog.show(ui.ctx());
     self.gui.mnemonic_passphrase_dialog.show(ui.ctx());
     self.gui.help_dialog.show(ui.ctx());
+    self.gui.multi_entropy_dialog.show(ui.ctx());
 
     if let Some(loaded_wallet) = ui
       .ctx()
@@ -2098,6 +2124,18 @@ impl eframe::App for EgoQuantum {
       self.wallet.seed_secret.mnemonic_passphrase_source = Zeroizing::new(String::from("Custom"));
 
       if let Err(err) = self.generate_new_wallet(None) {
+        AppError::log(format!("Problem with generating new wallet: {err:?}"));
+      }
+    }
+
+    if let Some(multi_entropy_wallet) = ui
+      .ctx()
+      .data_mut(|d| d.remove_temp::<Zeroizing<CryptoWallet>>(egui::Id::new("multi_entropy_wallet")))
+    {
+      self.wallet = multi_entropy_wallet;
+      self.wallet.seed_secret.entropy_source = Zeroizing::new(String::from("MULTI"));
+
+      if let Err(err) = self.generate_new_wallet(Some(Zeroizing::new(String::from("MULTI")))) {
         AppError::log(format!("Problem with generating new wallet: {err:?}"));
       }
     }

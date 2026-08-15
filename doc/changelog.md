@@ -1,4 +1,15 @@
 # version 1.5.0
+- new: multi entropy combined from:
+    - RNG
+    - QRNG
+    - Jitter
+    - Mouse movement
+
+
+---
+
+
+# version 1.5.0
 - new coin: Monero (XMR)
 - new coin: Algorand (ALGO)
 - new coin: Polkadot (DOT)

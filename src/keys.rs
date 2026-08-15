@@ -77,6 +77,18 @@ pub fn generate_seed(
       full_entropy = Zeroizing::new(format!("{}{}", *raw_entropy, *entropy_checksum));
       wallet.seed_secret.full_entropy = full_entropy.clone();
     }
+    "MULTI" => {
+      let raw_entropy: Zeroizing<String> = wallet.seed_secret.raw_entropy.clone();
+
+      let entropy_checksum: Zeroizing<String> = e_q::calculate_checksum_for_entropy(raw_entropy.clone());
+      wallet.seed_secret.entropy_checksum = entropy_checksum.clone();
+
+      full_entropy = Zeroizing::new(format!("{}{}", *raw_entropy, *entropy_checksum));
+
+      mnemonic_dictionary = wallet.seed_secret.mnemonic_dictionary.clone();
+
+      wallet.seed_secret.full_entropy = full_entropy.clone();
+    }
     _ => {
       return Err(AppError::log(format!("Unknown entropy source: {:?}", entropy_source)));
     }
@@ -635,7 +647,6 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       if !wallet.wallet_data.bitcoin_legacy_addresses {
         return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
-        // wallet.address_components.coin_name = Zeroizing::new(String::from("Bitcoin (Legacy)"));
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
         let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
@@ -654,7 +665,6 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
       if !wallet.wallet_data.litecoin_legacy_addresses {
         return generate_taproot_address(wallet, &public_key, &derivation_path, private_key);
       } else {
-        // wallet.address_components.coin_name = Zeroizing::new(String::from("Litecoin (Legacy)"));
         wallet.address_components.derivation_path.purpose = Zeroizing::new(wallet.wallet_data.active_bip);
 
         let old_derivation_path: Zeroizing<String> = match get_derivation_path("secp256k1", wallet) {
@@ -708,8 +718,6 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
     // Zilliqa
     313 => {
       if wallet.wallet_data.zilliqa_legacy_addresses {
-        coin_name = Zeroizing::new(String::from("Zilliqa (Legacy)"));
-
         let secp_pubkey = match &public_key {
           CryptoPublicKey::Secp256k1(pk) => pk,
           _ => {
