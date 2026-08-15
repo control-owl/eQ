@@ -43,7 +43,6 @@ const VALID_LANG_CODES: &[&str] = &["EN", "CS", "FR", "IT", "PT", "ES", "ZH-CN",
 const ADD_ADDRESS_COUNT: &[u32] = &[1, 5, 10, 20, 50, 100];
 const VALID_MNEMONIC_SOURCES: &[&str] = &["RNG", "Custom", "Off"];
 const VALID_MNEMONIC_LENGTHS: &[usize] = &[24, 21, 18, 15, 12];
-// const VALID_BIP_DERIVATIONS: &[u32] = &[32, 44];
 const TEXT_WRAPPER: f32 = 350.0;
 const PROJECT_MOTO: &str = "Your entropy, your crypto, your control";
 const STATUS_BAR_BACKGROUND_COLOR: Color32 = egui::Color32::from_rgb(7, 4, 16);
@@ -858,7 +857,6 @@ impl EgoQuantum {
 
         let slip_derivation_resp: egui::Response = ui.add_enabled(true,egui::Checkbox::new(&mut self.wallet.wallet_data.slip_derivation_path, "Use SLIP-0010 derivation"));
 
-        // BUG: Monero words needs to be re-generated with new path!
         if slip_derivation_resp.changed() && has_addresses {
           self.wallet.addresses_by_coin.0.clear();
           let _ = self.generate_addresses_for_all_coins();
@@ -2166,6 +2164,7 @@ fn main() -> FunctionOutput<()> {
     options,
     Box::new(|cc| {
       egui_extras::install_image_loaders(&cc.egui_ctx);
+      e_q::register_doc_images(&cc.egui_ctx);
       Ok(Box::new(EgoQuantum::new()))
     }),
   ) {

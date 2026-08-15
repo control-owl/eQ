@@ -202,3 +202,5 @@ This project uses the following crates:
 - [ureq](https://docs.rs/ureq)
 - [winres](https://docs.rs/winres)
 - [zeroize](https://docs.rs/zeroize)
+
+and maybe more. Check [Cargo.toml](Cargo.toml) file.

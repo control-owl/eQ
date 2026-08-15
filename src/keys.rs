@@ -304,7 +304,7 @@ pub fn get_derivation_path(
 
         // 44
         _ => {
-          if wallet.wallet_data.slip_derivation_path {
+          if wallet.wallet_data.slip_derivation_path || *wallet.address_components.coin_name == "Monero" {
             // m / purpose' / coin' / address'
             Zeroizing::new(format!("m/{}'/{}'/{}'", wallet.wallet_data.active_bip, *path.coin, *path.address,))
           } else {

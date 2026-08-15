@@ -26,7 +26,7 @@ jobs:
     env:
       APP_NAME: "eQ"
       APP_PATH: "target/${{ matrix.target }}/release"
-      OUTPUT_DIR: "LAB7041/${{ matrix.target }}"
+      OUTPUT_DIR: "${{ github.workspace }}/LAB7041/${{ matrix.target }}"
       CHANGELOG: "doc/changelog.md"
 
     steps:
@@ -117,7 +117,6 @@ jobs:
           APP_NAME="${{ env.APP_NAME }}"
           FEATURES="${{ matrix.features }}"
           VERSION="${{ steps.extract_version.outputs.VERSION_NUMBER }}"
-          OUTPUT_DIR="${{ env.OUTPUT_DIR }}"
           TARGET="${{ matrix.target }}"
           BIN_FILE="${APP_NAME}"
           OUTPUT_BIN="${APP_NAME}-${VERSION}"
@@ -132,11 +131,15 @@ jobs:
 
           strip "${BIN_DIR}/${BIN_FILE}" || true
           mkdir -p "${OUTPUT_DIR}"
+
           cp "${BIN_DIR}/${BIN_FILE}" "${OUTPUT_DIR}/${OUTPUT_BIN}"
+          cp "${{ env.CHANGELOG }}" "${OUTPUT_DIR}/changelog.md"
+          cp LICENSE "${OUTPUT_DIR}/LICENSE"
 
           tar -czf "${OUTPUT_DIR}/${TAR_FILE}" \
             -C "${OUTPUT_DIR}" "${OUTPUT_BIN}" \
-            -C ../../ "${{ env.CHANGELOG }}" LICENSE
+            -C "${OUTPUT_DIR}" "changelog.md" \
+            -C "${OUTPUT_DIR}" "LICENSE"
 
           echo "TAR_FILE=${TAR_FILE}" >> $GITHUB_OUTPUT
           echo "Release files prepared"

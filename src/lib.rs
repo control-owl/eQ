@@ -9,6 +9,7 @@ use sysinfo::{RefreshKind, System};
 use zeroize::Zeroizing;
 
 pub static RES_DIR: Dir<'_> = include_dir!("res");
+pub static DOC_DIR: Dir<'_> = include_dir!("doc");
 
 const BLOCK_SIZE: usize = 128;
 const HASH_SIZE: usize = 64;
@@ -104,6 +105,12 @@ pub fn get_text_from_resources(file_name: Zeroizing<String>) -> Zeroizing<String
 pub fn get_file_from_resources(file_name: Zeroizing<String>) -> Result<&'static include_dir::File<'static>, String> {
   RES_DIR
     .get_file(file_name.as_str())
+    .ok_or_else(|| format!("File '{:?}' not found in resources", file_name))
+}
+
+pub fn get_doc_from_resources(file_name: &str) -> Result<&'static include_dir::File<'static>, String> {
+  DOC_DIR
+    .get_file(file_name)
     .ok_or_else(|| format!("File '{:?}' not found in resources", file_name))
 }
 
@@ -233,4 +240,30 @@ pub fn write_u16_le(
 pub fn load_monero_wordlist() -> Vec<&'static str> {
   static WORDLIST: &str = include_str!("../res/wordlists/monero-english.txt");
   WORDLIST.lines().collect()
+}
+
+pub fn register_doc_images(ctx: &egui::Context) {
+  fn register_dir(
+    ctx: &egui::Context,
+    dir: &include_dir::Dir<'static>,
+  ) {
+    use egui::load::Bytes;
+
+    for entry in dir.entries() {
+      match entry {
+        include_dir::DirEntry::Dir(subdir) => {
+          register_dir(ctx, subdir);
+        }
+        include_dir::DirEntry::File(file) => {
+          let path = file.path().to_string_lossy().replace('\\', "/");
+          let uri = format!("bytes://doc/{}", path);
+          let bytes: &'static [u8] = file.contents();
+
+          ctx.include_bytes(uri, Bytes::Static(bytes));
+        }
+      }
+    }
+  }
+
+  register_dir(ctx, &crate::DOC_DIR);
 }
