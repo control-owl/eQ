@@ -443,7 +443,7 @@ struct GuiSettings {
 
   help_dialog: help::HelpWindow,
 
-  multi_entropy_dialog: dev::MultiEntropyWindow,
+  multi_entropy_dialog: crypt::MultiEntropyWindow,
 
   version_dialog: ShowAboutWindow,
   mnemonic_passphrase_dialog: ShowCustomMnemonicWindow,
@@ -474,7 +474,7 @@ impl GuiSettings {
       anu_dialog: crypt::ShowAnuDialog::new(),
 
       help_dialog: help::HelpWindow::new(),
-      multi_entropy_dialog: dev::MultiEntropyWindow::new(),
+      multi_entropy_dialog: crypt::MultiEntropyWindow::new(),
 
       version_dialog: ShowAboutWindow::default(),
       mnemonic_passphrase_dialog: ShowCustomMnemonicWindow::default(),

@@ -38,7 +38,7 @@ const MNEMONIC_PASSPHRASE_LENGTH: u32 = 128;
 const MONERO_PREFIX_LEN: usize = 3;
 const NANO_ALPHABET: &[u8] = b"13456789abcdefghijkmnopqrstuwxyz";
 
-//                                    SEED
+// SECTION: SEED
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_seed(
@@ -376,7 +376,7 @@ pub fn get_derivation_path(
   Ok(derivation_path)
 }
 
-//                                SECP256K1 KEYS
+// SECTION: SECP256K1 KEYS
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_secp256k1_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
@@ -787,7 +787,7 @@ pub fn generate_secp256k1_address(wallet: &mut CryptoWallet) -> FunctionOutput<(
   Ok(())
 }
 
-//                                ED25519 KEYS
+// SECTION: ED25519 KEYS
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_ed25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
@@ -1075,7 +1075,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
   Ok(())
 }
 
-//                                SR25519 KEYS
+// SECTION: SR25519 KEYS
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_sr25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
@@ -1104,7 +1104,7 @@ pub fn generate_sr25519_child_keys(wallet: &mut CryptoWallet) -> FunctionOutput<
   Ok(())
 }
 
-//                                  ADDRESSES
+// SECTION: ADDRESSES
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPublicKey> {
@@ -1580,7 +1580,7 @@ pub fn generate_addresses_for_all_coins(wallet: &mut CryptoWallet) -> FunctionOu
   Ok(())
 }
 
-//                                 COSMOS (ATOM)
+// SECTION: COSMOS (ATOM)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn generate_atom_address(pub_compressed: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
@@ -1629,7 +1629,7 @@ fn bech32_encode<Checksum: bech32::Checksum>(
   Ok(data)
 }
 
-//                                   NEM (XEM)
+// SECTION: NEM (XEM)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_nem_address(
@@ -1692,7 +1692,7 @@ fn keccak256_nis1(data: Zeroizing<Vec<u8>>) -> Zeroizing<[u8; 32]> {
   out
 }
 
-//                               OPEN ASSETS (OA)
+// SECTION: OPEN ASSETS (OA)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn generate_open_assets_address(
@@ -1802,7 +1802,7 @@ fn generate_open_assets_address(
   Ok(())
 }
 
-//                                   TAPROOT
+// SECTION: TAPROOT
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn encode_taproot_bech32m(
@@ -1953,7 +1953,7 @@ pub fn generate_taproot_address(
   Ok(())
 }
 
-//                                 ZILLIQA (ZIL)
+// SECTION: ZILLIQA (ZIL)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn generate_zilliqa_address(pub_compressed: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
@@ -1970,7 +1970,7 @@ fn generate_zilliqa_address(pub_compressed: Zeroizing<Vec<u8>>) -> FunctionOutpu
   Ok(address)
 }
 
-//                                 MONERO (XMR)
+// SECTION: MONERO (XMR)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn monero_seed_to_mnemonic(
@@ -2125,7 +2125,7 @@ pub fn generate_monero_subaddress(
   Ok(address)
 }
 
-//                                   NANO (XNO)
+// SECTION: NANO (XNO)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_nano_public_key(private_key: &Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroizing<[u8; 32]>> {
@@ -2195,7 +2195,7 @@ pub fn generate_nano_address(public_key: &Zeroizing<Vec<u8>>) -> FunctionOutput<
   Ok(address)
 }
 
-//                                Cardano (ADA)
+// SECTION: Cardano (ADA)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn blake2b_224(input: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<Vec<u8>>> {
@@ -2367,7 +2367,7 @@ fn binary_string_to_bytes(bits: Zeroizing<String>) -> FunctionOutput<Zeroizing<V
   Ok(bytes)
 }
 
-//                                Algorand (ALGO)
+// SECTION: Algorand (ALGO)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_algorand_address(pubkey: Zeroizing<Vec<u8>>) -> FunctionOutput<Zeroizing<String>> {
@@ -2400,7 +2400,7 @@ pub fn generate_algorand_address(pubkey: Zeroizing<Vec<u8>>) -> FunctionOutput<Z
   Ok(address)
 }
 
-//                                Polkadot (DOT)
+// SECTION: Polkadot (DOT)
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 fn get_sr25519_account_path(full_derivation_path: Zeroizing<String>) -> FunctionOutput<Zeroizing<String>> {
