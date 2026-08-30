@@ -218,6 +218,8 @@ pub fn get_active_app_feature() -> &'static str {
     "dev"
   } else if cfg!(feature = "osk") {
     "osk"
+  } else if cfg!(feature = "eq-os") {
+    "eq-os"
   } else {
     "default"
   }

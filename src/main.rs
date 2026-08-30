@@ -1105,13 +1105,11 @@ impl EgoQuantum {
     });
 
     if self.gui.show_disclaimer {
-      egui::Window::new("Project Disclaimer")
-        .open(&mut self.gui.show_disclaimer)
-        .show(ui.ctx(), |ui| {
-          egui::ScrollArea::both().show(ui, |ui| {
-            ui.code(DISCLAIMER_TEXT);
-          });
+      egui::Window::new("Disclaimer").open(&mut self.gui.show_disclaimer).show(ui.ctx(), |ui| {
+        egui::ScrollArea::both().show(ui, |ui| {
+          ui.code(DISCLAIMER_TEXT);
         });
+      });
     }
   }
 
@@ -2420,7 +2418,7 @@ pub struct ShowCustomMnemonicWindow {
   show_passphrase: bool,
   pub save_mnemonic: bool,
 
-  #[cfg(feature = "osk")]
+  #[cfg(any(feature = "osk", feature = "eq-os"))]
   pub keyboard: crypt::VirtualKeyboard,
 }
 
@@ -2432,7 +2430,7 @@ impl ShowCustomMnemonicWindow {
       show_passphrase: false,
       save_mnemonic: false,
 
-      #[cfg(feature = "osk")]
+      #[cfg(any(feature = "osk", feature = "eq-os"))]
       keyboard: crypt::VirtualKeyboard::default(),
     }
   }
@@ -2466,7 +2464,7 @@ impl ShowCustomMnemonicWindow {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
-    #[cfg(feature = "osk")]
+    #[cfg(any(feature = "osk", feature = "eq-os"))]
     self.keyboard.0.pump_events(ui.ctx());
 
     ui.add_space(GUI_MARGIN);
@@ -2480,7 +2478,7 @@ impl ShowCustomMnemonicWindow {
           .password(!self.show_passphrase),
       );
 
-      #[cfg(feature = "osk")]
+      #[cfg(any(feature = "osk", feature = "eq-os"))]
       self.keyboard.0.show(ui.ctx());
 
       ui.add_space(GUI_MARGIN);

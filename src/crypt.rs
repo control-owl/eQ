@@ -9,7 +9,7 @@ use crate::{AppError, CryptoWallet, FunctionOutput, GUI_MARGIN, MnemonicLanguage
 use core::f32;
 use egui::{self, Align, Layout};
 use egui::{Color32, Context, RichText, ScrollArea, Ui, scroll_area::ScrollBarVisibility};
-#[cfg(feature = "osk")]
+#[cfg(any(feature = "osk", feature = "eq-os"))]
 use egui_keyboard::Keyboard;
 use rand_core::Rng;
 use ring::aead::*;
@@ -184,7 +184,7 @@ pub struct SaveWalletDialog {
   pub argon2_memory_mb: u32,
   pub argon2_parallelism: u32,
 
-  #[cfg(feature = "osk")]
+  #[cfg(any(feature = "osk", feature = "eq-os"))]
   pub keyboard: VirtualKeyboard,
 }
 
@@ -216,7 +216,7 @@ impl SaveWalletDialog {
       argon2_memory_mb: 64,
       argon2_parallelism: 4,
 
-      #[cfg(feature = "osk")]
+      #[cfg(any(feature = "osk", feature = "eq-os"))]
       keyboard: VirtualKeyboard::default(),
     }
   }
@@ -368,7 +368,7 @@ impl SaveWalletDialog {
     &mut self,
     ui: &mut egui::Ui,
   ) -> FunctionOutput<()> {
-    #[cfg(feature = "osk")]
+    #[cfg(any(feature = "osk", feature = "eq-os"))]
     self.keyboard.0.pump_events(ui.ctx());
 
     egui::ScrollArea::both()
@@ -381,7 +381,7 @@ impl SaveWalletDialog {
             ui.label("Wallet name");
             ui.add(egui::TextEdit::singleline(&mut self.wallet_name).desired_width(ui.available_width()));
 
-            #[cfg(feature = "osk")]
+            #[cfg(any(feature = "osk", feature = "eq-os"))]
             self.keyboard.0.show(ui.ctx());
           });
 
@@ -597,7 +597,7 @@ pub struct OpenWalletDialog {
   #[zeroize(skip)]
   pub loaded_wallet: Option<SharedWallet>,
 
-  #[cfg(feature = "osk")]
+  #[cfg(any(feature = "osk", feature = "eq-os"))]
   pub keyboard: VirtualKeyboard,
 }
 
@@ -728,7 +728,7 @@ impl OpenWalletDialog {
     ui: &mut egui::Ui,
     ctx: &egui::Context,
   ) {
-    #[cfg(feature = "osk")]
+    #[cfg(any(feature = "osk", feature = "eq-os"))]
     self.keyboard.0.pump_events(ui.ctx());
 
     ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
@@ -773,7 +773,7 @@ impl OpenWalletDialog {
             self.show_password = !self.show_password;
           }
 
-          #[cfg(feature = "osk")]
+          #[cfg(any(feature = "osk", feature = "eq-os"))]
           self.keyboard.0.show(ui.ctx());
 
           ui.set_width(ui.available_width());
@@ -2241,25 +2241,25 @@ impl eframe::App for ShowAnuDialog {
 // SECTION: VIRTUAL KEYBOARD
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
-#[cfg(feature = "osk")]
+#[cfg(any(feature = "osk", feature = "eq-os"))]
 #[derive(Default)]
 pub struct VirtualKeyboard(pub egui_keyboard::Keyboard);
 
-#[cfg(feature = "osk")]
+#[cfg(any(feature = "osk", feature = "eq-os"))]
 impl Zeroize for VirtualKeyboard {
   fn zeroize(&mut self) {
     self.0 = egui_keyboard::Keyboard::default();
   }
 }
 
-#[cfg(feature = "osk")]
+#[cfg(any(feature = "osk", feature = "eq-os"))]
 impl Clone for VirtualKeyboard {
   fn clone(&self) -> Self {
     VirtualKeyboard(Keyboard::default())
   }
 }
 
-#[cfg(feature = "osk")]
+#[cfg(any(feature = "osk", feature = "eq-os"))]
 impl std::fmt::Debug for VirtualKeyboard {
   fn fmt(
     &self,
@@ -2289,10 +2289,11 @@ impl EntropySection {
     match self {
       EntropySection::Settings => "Settings",
 
-      EntropySection::Rng => "Rng",
-      EntropySection::Qrng => "Qrng",
+      EntropySection::Rng => "RNG",
+      EntropySection::Qrng => "QRNG",
       EntropySection::Jitter => "Jitter",
       EntropySection::UserMovement => "Mouse",
+
       EntropySection::Final => "Final Entropy",
     }
   }
@@ -2312,6 +2313,9 @@ pub struct MultiEntropyWindow {
   jitter_entropy: Zeroizing<String>,
   mouse_entropy: Zeroizing<String>,
   final_entropy: Zeroizing<String>,
+
+  qrng_full_bits: Zeroizing<String>,
+  qrng_disabled: bool,
 
   rng_saved: bool,
   qrng_saved: bool,
@@ -2345,7 +2349,7 @@ impl MultiEntropyWindow {
     Self {
       open: false,
       selected_section: EntropySection::Settings,
-      entropy_length: 256,
+      entropy_length: Self::ENTROPY_MAX,
 
       mnemonic_dictionary: Zeroizing::new(MnemonicLanguage::English),
 
@@ -2354,6 +2358,9 @@ impl MultiEntropyWindow {
       jitter_entropy: Zeroizing::new(String::new()),
       mouse_entropy: Zeroizing::new(String::new()),
       final_entropy: Zeroizing::new(String::new()),
+
+      qrng_full_bits: Zeroizing::new(String::new()),
+      qrng_disabled: cfg!(feature = "eq-os"),
 
       rng_saved: false,
       qrng_saved: false,
@@ -2414,7 +2421,15 @@ impl MultiEntropyWindow {
     match section {
       EntropySection::Rng => {
         self.rng_saved = true;
-        self.selected_section = EntropySection::Qrng;
+        if self.qrng_disabled || !cfg!(feature = "eq-os") {
+          if self.qrng_disabled {
+            self.selected_section = EntropySection::Jitter;
+          } else {
+            self.selected_section = EntropySection::Qrng;
+          }
+        } else {
+          self.selected_section = EntropySection::Qrng;
+        }
       }
       EntropySection::Qrng => {
         self.qrng_saved = true;
@@ -2480,41 +2495,56 @@ impl MultiEntropyWindow {
         ui.vertical(|ui| {
           ui.add_space(GUI_MARGIN);
 
-          let sections = [
-            EntropySection::Settings,
+          let all_entropies_saved = self.rng_saved && (self.qrng_saved || self.qrng_disabled) && self.jitter_saved && self.mouse_saved;
+
+          let mut sections = vec![
             EntropySection::Rng,
             EntropySection::Qrng,
             EntropySection::Jitter,
             EntropySection::UserMovement,
-            EntropySection::Final,
           ];
+
+          if all_entropies_saved {
+            sections.push(EntropySection::Final);
+          }
+
+          sections.push(EntropySection::Settings);
 
           for &section in &sections {
             let enabled = match section {
               EntropySection::Settings => true,
               EntropySection::Rng => self.started,
-              EntropySection::Qrng => self.rng_saved,
-              EntropySection::Jitter => self.qrng_saved,
+              EntropySection::Qrng => self.rng_saved && !self.qrng_disabled,
+              EntropySection::Jitter => self.rng_saved && (self.qrng_saved || self.qrng_disabled),
               EntropySection::UserMovement => self.jitter_saved,
-              EntropySection::Final => self.mouse_saved,
+              EntropySection::Final => true,
             };
+
+            if section == EntropySection::Settings {
+              ui.add_space(GUI_MARGIN);
+              ui.separator();
+              ui.add_space(GUI_MARGIN);
+            }
+
+            if section == EntropySection::Qrng && self.qrng_disabled {
+              let label = RichText::new(format!("[Disabled] {}", section.label())).color(Color32::RED).small();
+              ui.add_enabled(false, egui::Button::new(label));
+              continue;
+            }
 
             if !enabled {
               ui.add_enabled(false, egui::Button::new(section.label()));
-
               continue;
             }
 
             let is_selected = self.selected_section == section;
 
             let saved = match section {
-              EntropySection::Settings => false,
-              EntropySection::Final => false,
-
               EntropySection::Rng => self.rng_saved,
               EntropySection::Qrng => self.qrng_saved,
               EntropySection::Jitter => self.jitter_saved,
               EntropySection::UserMovement => self.mouse_saved,
+              EntropySection::Settings | EntropySection::Final => false,
             };
 
             let label = if saved {
@@ -2537,13 +2567,17 @@ impl MultiEntropyWindow {
           ui.label(RichText::new("Progress").strong());
           ui.add_space(GUI_MARGIN);
 
-          ui.label(format!(
-            "Saved: {}/4",
-            [self.rng_saved, self.qrng_saved, self.jitter_saved, self.mouse_saved]
-              .iter()
-              .filter(|&&b| b)
-              .count()
-          ));
+          let sources = [
+            (self.rng_saved, false),
+            (self.qrng_saved, self.qrng_disabled),
+            (self.jitter_saved, false),
+            (self.mouse_saved, false),
+          ];
+
+          let total_sources = sources.iter().filter(|(_, disabled)| !disabled).count();
+          let saved_count = sources.iter().filter(|(saved, _)| *saved).count();
+
+          ui.label(format!("Saved: {}/{}", saved_count, total_sources));
 
           ui.label(format!("Target: {}-bit", self.entropy_length));
         });
@@ -2564,6 +2598,32 @@ impl MultiEntropyWindow {
         EntropySection::UserMovement => self.render_mouse_panel(ui),
         EntropySection::Final => self.render_final_panel(ui, ui.ctx().clone()),
       });
+  }
+
+  fn section_description(
+    &mut self,
+    section: EntropySection,
+  ) -> &'static str {
+    match section {
+      EntropySection::Settings => {
+        "Choose how much entropy to collect from each source before starting. When you press Start, the slider becomes locked so the setup stays consistent, and the process moves directly to the first source, which is the system RNG."
+      }
+      EntropySection::Rng => {
+        "Collects secure random data from your operating system. This is the main and required entropy source, so it is always used first and forms the foundation for the rest of the collection process."
+      }
+      EntropySection::Qrng => {
+        "Fetches random data from the ANU quantum random number service. This adds another independent source of entropy, and it can be skipped if you are offline or do not want to use a network-based source."
+      }
+      EntropySection::Jitter => {
+        "Uses tiny CPU timing variations as an additional source of randomness. It works entirely on your device, does not require an internet connection, and helps diversify the entropy collection process."
+      }
+      EntropySection::UserMovement => {
+        "Collects entropy from mouse movement inside the capture area. It records movement, timing, and a fresh nonce for each event so that user interaction can be turned into useful random data."
+      }
+      EntropySection::Final => {
+        "Combines all saved sources into one final output. This final entropy is what the wallet uses to generate your result, so every available source contributes to the finished value."
+      }
+    }
   }
 
   fn render_settings_panel(
@@ -2593,9 +2653,11 @@ impl MultiEntropyWindow {
       });
     });
 
-    ui.add_space(GUI_MARGIN);
     ui.separator();
+
     ui.add_space(GUI_MARGIN);
+    ui.label(RichText::new(self.section_description(EntropySection::Settings)).weak());
+    ui.add_space(GUI_MARGIN * 2.0);
 
     ui.label("Entropy length (bits) collected by each source.");
     ui.add_space(GUI_MARGIN);
@@ -2630,7 +2692,7 @@ impl MultiEntropyWindow {
       ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         let is_saved = match section {
           EntropySection::Rng => self.rng_saved,
-          EntropySection::Qrng => self.qrng_saved,
+          EntropySection::Qrng => self.qrng_saved || self.qrng_disabled,
           EntropySection::Jitter => self.jitter_saved,
           _ => false,
         };
@@ -2643,6 +2705,27 @@ impl MultiEntropyWindow {
         };
 
         let is_randomizing = self.randomizing == Some(section);
+
+        if section == EntropySection::Qrng && !cfg!(feature = "eq-os") && !is_saved {
+          if ui
+            .button(RichText::new("Skip QRNG").strong())
+            .on_hover_text("Skip quantum entropy download")
+            .clicked()
+          {
+            self.qrng_disabled = true;
+            self.qrng_saved = false;
+            self.qrng_entropy.zeroize();
+            self.qrng_entropy.clear();
+            self.qrng_full_bits.zeroize();
+            self.qrng_full_bits.clear();
+
+            self.randomizing = None;
+
+            self.selected_section = EntropySection::Jitter;
+
+            return;
+          }
+        }
 
         let can_save = !is_saved && !is_empty && !is_randomizing;
         if ui
@@ -2675,15 +2758,25 @@ impl MultiEntropyWindow {
     });
 
     ui.separator();
-    ui.add_space(GUI_MARGIN);
 
-    // Entropy display via text_group
+    ui.add_space(GUI_MARGIN);
+    ui.label(RichText::new(self.section_description(section)).weak());
+    ui.add_space(GUI_MARGIN * 2.0);
+
     match section {
       EntropySection::Rng => {
         Self::text_group(ui, "RNG Entropy", &mut self.rng_entropy, true);
       }
       EntropySection::Qrng => {
-        Self::text_group(ui, "QRNG Entropy", &mut self.qrng_entropy, true);
+        if self.qrng_disabled {
+          ui.label(
+            RichText::new("QRNG skipped (offline mode)")
+              .color(Color32::from_rgb(180, 140, 40))
+              .italics(),
+          );
+        } else {
+          Self::text_group(ui, "QRNG Entropy", &mut self.qrng_entropy, true);
+        }
       }
       EntropySection::Jitter => {
         Self::text_group(ui, "Jitter Entropy", &mut self.jitter_entropy, true);
@@ -2693,22 +2786,8 @@ impl MultiEntropyWindow {
 
     if self.randomizing == Some(section) {
       self.randomize_source(section);
-
       ui.ctx().request_repaint();
     }
-
-    // let is_saved = match section {
-    //   EntropySection::Rng => self.rng_saved,
-    //   EntropySection::Qrng => self.qrng_saved,
-    //   EntropySection::Jitter => self.jitter_saved,
-    //   _ => false,
-    // };
-
-    //     if is_saved {
-    //       ui.add_space(GUI_MARGIN);
-    //
-    //       ui.label(RichText::new("[OK] Source locked").color(Color32::GREEN));
-    //     }
   }
 
   fn render_mouse_panel(
@@ -2719,12 +2798,7 @@ impl MultiEntropyWindow {
       ui.heading(EntropySection::UserMovement.label());
 
       ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        /*
-         * Once saved, this source is permanently locked.
-         * Neither Save nor Clear can be used anymore.
-         */
         let can_modify = !self.mouse_saved;
-
         let can_save = can_modify && self.mouse_event_count >= self.entropy_length;
 
         ui.add_enabled_ui(can_save, |ui| {
@@ -2751,21 +2825,15 @@ impl MultiEntropyWindow {
     });
 
     ui.separator();
-    ui.add_space(GUI_MARGIN);
 
-    ui.label(
-      "Move the mouse randomly inside the area below to collect entropy.\n\
-         Move mouse as much as you can. More events = more entropy.",
-    );
+    ui.add_space(GUI_MARGIN);
+    ui.label(RichText::new(self.section_description(EntropySection::UserMovement)).weak());
+    ui.add_space(GUI_MARGIN * 2.0);
 
     let events_needed = self.entropy_length.saturating_sub(self.mouse_event_count);
 
     ui.label(format!("Minimum events needed: {}", events_needed));
 
-    /*
-     * Do not collect any more mouse samples after the
-     * source has been saved.
-     */
     let response = ui.allocate_response(
       egui::vec2(ui.available_width(), 160.0),
       if self.mouse_saved {
@@ -2801,6 +2869,8 @@ impl MultiEntropyWindow {
         "Source locked"
       } else if self.mouse_event_count == 0 {
         "Move mouse here"
+      } else if self.mouse_event_count >= self.entropy_length {
+        "Still collecting..."
       } else {
         "Collecting..."
       },
@@ -2811,12 +2881,6 @@ impl MultiEntropyWindow {
     ui.add_space(GUI_MARGIN);
 
     Self::text_group(ui, "Mouse Entropy", &mut self.mouse_entropy, true);
-
-    //     if self.mouse_saved {
-    //       ui.add_space(GUI_MARGIN);
-    //
-    //       ui.label(RichText::new("[OK] Source locked").color(if ui.theme() == egui::Theme::Dark {Color32::GREEN} else {Color32::RED}));
-    //     }
   }
 
   fn render_final_panel(
@@ -2824,12 +2888,6 @@ impl MultiEntropyWindow {
     ui: &mut Ui,
     ctx: egui::Context,
   ) {
-    /*
-     * Automatically combine the sources as soon as this
-     * panel is reached.
-     *
-     * No user interaction is required.
-     */
     if self.final_entropy.is_empty() {
       self.combine_all_sources();
     }
@@ -2857,7 +2915,10 @@ impl MultiEntropyWindow {
     });
 
     ui.separator();
+
     ui.add_space(GUI_MARGIN);
+    ui.label(RichText::new(self.section_description(EntropySection::Final)).weak());
+    ui.add_space(GUI_MARGIN * 2.0);
 
     if self.final_entropy.is_empty() {
       ui.label(format!("Unable to produce final entropy ({} bits).", self.entropy_length));
@@ -2951,7 +3012,7 @@ impl MultiEntropyWindow {
           return;
         }
 
-        let conditioned = self.secure_condition_source(raw.as_slice(), b"eQ/source/os-csprng/v2");
+        let conditioned = self.secure_condition_source(raw.as_slice(), b"eQ/source/os-csprng/v1");
 
         if bytes_needed > conditioned.len() {
           self.rng_entropy.zeroize();
@@ -2965,26 +3026,30 @@ impl MultiEntropyWindow {
       }
 
       EntropySection::Qrng => {
-        // TODO: Implement QRNG
-        let mut raw = Zeroizing::new(vec![0u8; bytes_needed]);
+        let needed_pool = 10 * final_bits;
 
-        if getrandom::fill(raw.as_mut_slice()).is_err() {
+        if self.qrng_full_bits.len() < needed_pool {
+          self.fetch_qrng_pool(needed_pool);
+        }
+
+        if self.qrng_full_bits.len() < needed_pool {
           self.qrng_entropy.zeroize();
           self.qrng_entropy.clear();
           return;
         }
 
-        let conditioned = self.secure_condition_source(raw.as_slice(), b"eQ/source/qrng/v2");
+        match self.select_random_bits(&self.qrng_full_bits, final_bits) {
+          Some(bits) => {
+            let conditioned = self.secure_condition_source(bits.as_bytes(), b"eQ/source/qrng-anu/v1");
 
-        if bytes_needed > conditioned.len() {
-          self.qrng_entropy.zeroize();
-          self.qrng_entropy.clear();
-          return;
+            let bits = bytes_to_bitstring_exact(&conditioned[..bytes_needed.min(conditioned.len())], final_bits);
+            self.qrng_entropy = bits;
+          }
+          None => {
+            self.qrng_entropy.zeroize();
+            self.qrng_entropy.clear();
+          }
         }
-
-        let bits = bytes_to_bitstring_exact(&conditioned[..bytes_needed], final_bits);
-
-        self.qrng_entropy = bits;
       }
 
       EntropySection::Jitter => {
@@ -2993,7 +3058,7 @@ impl MultiEntropyWindow {
 
         jitter_rng.fill_bytes(jitter_buf.as_mut_slice());
 
-        let conditioned = self.secure_condition_source(jitter_buf.as_slice(), b"eQ/source/jitter/v2");
+        let conditioned = self.secure_condition_source(jitter_buf.as_slice(), b"eQ/source/jitter/v1");
 
         if bytes_needed > conditioned.len() {
           self.jitter_entropy.zeroize();
@@ -3051,7 +3116,7 @@ impl MultiEntropyWindow {
 
     let mut sample = Zeroizing::new(Vec::with_capacity(128));
 
-    sample.extend_from_slice(b"eQ/mouse/raw/v2");
+    sample.extend_from_slice(b"eQ/mouse/raw/v1");
     sample.extend_from_slice(&event_number.to_le_bytes());
     sample.extend_from_slice(&pos.x.to_bits().to_le_bytes());
     sample.extend_from_slice(&pos.y.to_bits().to_le_bytes());
@@ -3066,7 +3131,7 @@ impl MultiEntropyWindow {
       sample.extend_from_slice(&nonce);
     }
 
-    let digest = self.secure_hash512(b"eQ/mouse/sample-conditioner/v2", sample.as_slice());
+    let digest = self.secure_hash512(b"eQ/mouse/sample-conditioner/v1", sample.as_slice());
 
     if let Some(ref previous) = self.last_mouse_digest
       && previous.as_slice() == digest.as_slice()
@@ -3131,7 +3196,7 @@ impl MultiEntropyWindow {
 
     let mut transcript = Zeroizing::new(Vec::<u8>::new());
 
-    transcript.extend_from_slice(b"eQ/entropy-combiner/v2");
+    transcript.extend_from_slice(b"eQ/entropy-combiner/v1");
     transcript.extend_from_slice(&(final_bits as u32).to_le_bytes());
 
     let append_source = |dst: &mut Vec<u8>, label: &[u8], source: &[u8]| {
@@ -3155,7 +3220,7 @@ impl MultiEntropyWindow {
       append_source(transcript.as_mut(), b"mouse", mouse.as_slice());
     }
 
-    let master = self.secure_hmac_sha256(b"eQ/master-conditioner/v2", transcript.as_slice());
+    let master = self.secure_hmac_sha256(b"eQ/master-conditioner/v1", transcript.as_slice());
 
     let mut output = Zeroizing::new(Vec::<u8>::new());
 
@@ -3164,7 +3229,7 @@ impl MultiEntropyWindow {
     while output.len() < bytes_needed {
       let mut info = Zeroizing::new(Vec::<u8>::with_capacity(96));
 
-      info.extend_from_slice(b"eQ/final-output/v2");
+      info.extend_from_slice(b"eQ/final-output/v1");
       info.extend_from_slice(&(final_bits as u32).to_le_bytes());
       info.extend_from_slice(&counter.to_le_bytes());
 
@@ -3194,6 +3259,91 @@ impl MultiEntropyWindow {
 
     self.final_entropy = final_bits_string;
   }
+
+  fn fetch_qrng_pool(
+    &mut self,
+    needed_bits: usize,
+  ) {
+    let bytes_needed = (needed_bits + 7) / 8;
+    let array_len = (bytes_needed as u32).clamp(42, 1024);
+    let block_size = array_len;
+
+    let url = format!(
+      "https://qrng.anu.edu.au/API/jsonI.php?length={}&type=uint8&size={}",
+      array_len, block_size
+    );
+
+    self.qrng_full_bits.clear();
+
+    let result = ureq::get(&url).call();
+    match result {
+      Ok(mut resp) => match resp.body_mut().read_to_string() {
+        Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
+          Ok(json) => {
+            if let Some(arr) = json.get("data").and_then(|v| v.as_array()) {
+              let mut bits = String::with_capacity(arr.len() * 8);
+              for item in arr {
+                if let Some(n) = item.as_u64() {
+                  bits.push_str(&format!("{:08b}", n as u8));
+                }
+              }
+              if bits.len() >= needed_bits {
+                *self.qrng_full_bits = bits;
+              }
+            }
+          }
+          Err(_) => {}
+        },
+        Err(_) => {}
+      },
+      Err(_) => {}
+    }
+  }
+
+  fn select_random_bits(
+    &self,
+    pool: &str,
+    target_bits: usize,
+  ) -> Option<Zeroizing<String>> {
+    use ring::rand::{SecureRandom, SystemRandom};
+
+    if pool.len() < target_bits {
+      return None;
+    }
+
+    let rng = SystemRandom::new();
+    let mut out = Zeroizing::new(String::with_capacity(target_bits));
+    let mut used = vec![false; pool.len()];
+    let mut selected = 0usize;
+
+    let mut buf = [0u8; 4];
+    let max_u32 = u32::MAX as u64;
+    let bound = (max_u32 / (pool.len() as u64)) * (pool.len() as u64);
+
+    while selected < target_bits {
+      let idx = loop {
+        if rng.fill(&mut buf).is_err() {
+          return None;
+        }
+        let v = u32::from_le_bytes(buf) as u64;
+        if v < bound {
+          break (v % (pool.len() as u64)) as usize;
+        }
+      };
+
+      if !used[idx] {
+        used[idx] = true;
+        out.push(pool.as_bytes()[idx] as char);
+        selected += 1;
+      }
+
+      if selected + used.iter().filter(|&&b| b).count() >= pool.len() {
+        break;
+      }
+    }
+
+    if out.len() == target_bits { Some(out) } else { None }
+  }
 }
 
 impl eframe::App for MultiEntropyWindow {
@@ -3213,7 +3363,7 @@ fn bytes_to_bitstring_exact(
   bytes: &[u8],
   bit_len: usize,
 ) -> Zeroizing<String> {
-  let mut bitstring = Zeroizing::new(String::with_capacity(bit_len));
+  let mut bitstring: Zeroizing<String> = Zeroizing::new(String::with_capacity(bit_len));
 
   for byte in bytes {
     for i in (0..8).rev() {
@@ -3232,7 +3382,7 @@ fn bytes_to_bitstring_exact(
 }
 
 fn bitstring_to_bytes(bits: &str) -> Zeroizing<Vec<u8>> {
-  let mut bytes = Zeroizing::new(Vec::with_capacity(bits.len().div_ceil(8)));
+  let mut bytes: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(bits.len().div_ceil(8)));
   let mut current = 0u8;
   let mut count = 0;
 

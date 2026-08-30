@@ -1,32 +1,28 @@
 {
     "version": "0.2.0",
-
     "compounds": [
-
         // "eQ - All Releases"
         {
             "name": "eQ - All Releases",
             "configurations": [
                 "Release - Default",
                 "Release - Dev",
+                "Release - eQ-OS",
                 "Release - OSK"
             ]
         },
-
         // "eQ - All Debugs"
         {
             "name": "eQ - All Debugs",
             "configurations": [
                 "Debug - Default",
                 "Debug - Dev",
+                "Debug - eQ-OS",
                 "Debug - OSK"
             ]
         }
-        
     ],
-
     "configurations": [
-        
         // "Release - Default"
         {
             "type": "lldb",
@@ -49,7 +45,6 @@
             "program": "${workspaceFolder}/target/default/release/eQ",
             "cwd": "${workspaceFolder}"
         },
-
         // "Release - Dev"
         {
             "type": "lldb",
@@ -72,7 +67,28 @@
             "program": "${workspaceFolder}/target/dev/release/eQ",
             "cwd": "${workspaceFolder}"
         },
-
+        // "Release - eQ-OS"
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Release - eQ-OS",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=eq-os",
+                    "--release",
+                    "--bin=eQ",
+                    "--package=eQ",
+                    "--target-dir=target/eq-os",
+                ],
+                "filter": {
+                    "name": "eQ",
+                    "kind": "bin"
+                }
+            },
+            "program": "${workspaceFolder}/target/eq-os/release/eQ",
+            "cwd": "${workspaceFolder}"
+        },
         // "Release - OSK"
         {
             "type": "lldb",
@@ -95,9 +111,6 @@
             "program": "${workspaceFolder}/target/osk/release/eQ",
             "cwd": "${workspaceFolder}"
         },
-
-
-
         // "Debug - Default"
         {
             "type": "lldb",
@@ -119,7 +132,6 @@
             "program": "${workspaceFolder}/target/default/debug/eQ",
             "cwd": "${workspaceFolder}"
         },
-
         // "Debug - Dev"
         {
             "type": "lldb",
@@ -141,7 +153,27 @@
             "program": "${workspaceFolder}/target/dev/debug/eQ",
             "cwd": "${workspaceFolder}"
         },
-
+        // "Debug - eQ-OS"
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug - eQ-OS",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=eq-os",
+                    "--bin=eQ",
+                    "--package=eQ",
+                    "--target-dir=target/eq-os",
+                ],
+                "filter": {
+                    "name": "eQ",
+                    "kind": "bin"
+                }
+            },
+            "program": "${workspaceFolder}/target/eq-os/debug/eQ",
+            "cwd": "${workspaceFolder}"
+        },
         // "Debug - OSK"
         {
             "type": "lldb",
@@ -163,6 +195,5 @@
             "program": "${workspaceFolder}/target/osk/debug/eQ",
             "cwd": "${workspaceFolder}"
         },
-
     ]
 }
