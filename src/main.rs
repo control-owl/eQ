@@ -36,9 +36,9 @@ const LICENSE_TEXT: &str = include_str!("../LICENSE");
 const DISCLAIMER_TEXT: &str = include_str!("../doc/disclaimer.md");
 const GUI_MARGIN: f32 = 10.0;
 const VALID_ENTROPY_SOURCES: &[&str] = &[
+  "MULTI",
   "RNG",
   "QRNG",
-  "MULTI",
   #[cfg(feature = "dev")]
   "File",
 ];
@@ -132,7 +132,7 @@ impl SeedSecretData {
   fn new() -> Self {
     // TODO: Get values from local config
     Self {
-      entropy_source: Zeroizing::new(String::from("RNG")),
+      entropy_source: Zeroizing::new(String::from(VALID_ENTROPY_SOURCES[0])),
       mnemonic_dictionary: Zeroizing::new(MnemonicLanguage::English),
       entropy_length: Zeroizing::new(256),
       mnemonic_passphrase: Zeroizing::new(String::new()),
@@ -564,9 +564,7 @@ impl EgoQuantum {
     if self.wallet.seed_secret.raw_entropy.is_empty() {
       if *self.wallet.seed_secret.entropy_source == "MULTI" {
         self.gui.multi_entropy_dialog.wallet_to_create = Some(Rc::new(RefCell::new(self.wallet.clone())));
-
-        self.gui.multi_entropy_dialog.entropy_length = *self.wallet.seed_secret.entropy_length.clone();
-
+        self.gui.multi_entropy_dialog.mnemonic_dictionary = self.wallet.seed_secret.mnemonic_dictionary.clone();
         self.gui.multi_entropy_dialog.open = true;
       } else {
         match keys::generate_seed(&mut self.wallet, entropy_source.clone()) {

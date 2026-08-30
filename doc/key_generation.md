@@ -77,7 +77,7 @@ wrestle neither effort grit sort drama tribe lava menu early advice domain clutc
 
 ### Technical Notes
 
-- 11 bits → 2048 possible words.  
+- 11 bits -> 2048 possible words.  
 - Mnemonic words **encode both entropy and checksum**.  
 - Any change in entropy or checksum produces a completely different mnemonic.  
 - Different mnemonic languages produce different seeds even with identical entropy.

@@ -66,6 +66,7 @@ This provides an additional entropy option beyond system RNGs, especially valuab
 - [Features](#features)
 - [Installation](#installation)
 - [Screenshots](#screenshots)
+- [Donations](#donations)
 - [Third-Party Libraries](#third-party-libraries)
 
 ---
@@ -168,14 +169,19 @@ cargo run --release
 
 ---
 
+## Donations
+
+If you want to donate to support me advance this app to the next level, then you have this two options:
+- [Crypto donations](./doc/donations.md) - donate any crypto coin, check the list
+- [Buy Me A Coffee](https://www.buymeacoffee.com/control.owl) - donate EUR, USD or any other world money
+
+
+---
+
 ## Third-Party Libraries
 
 This project uses the following crates:
 
-- [base32](https://docs.rs/base32)
-- [base64](https://docs.rs/base64)
-- [bech32](https://docs.rs/bech32)
-- [bs58](https://docs.rs/bs58)
 - [curve25519-dalek](https://docs.rs/curve25519_dalek)
 - [ed25519-dalek](https://docs.rs/ed25519_dalek)
 - [eframe](https://docs.rs/eframe)
@@ -183,24 +189,10 @@ This project uses the following crates:
 - [egui_keyboard](https://docs.rs/egui_keyboard)
 - [egui_commonmark](https://docs.rs/egui_commonmark)
 - [egui_extras](https://docs.rs/egui_extras)
-- [getrandom](https://docs.rs/getrandom)
-- [hex](https://docs.rs/hex)
-- [include_dir](https://docs.rs/include_dir)
-- [num-bigint](https://docs.rs/num_bigint)
-- [rfd](https://docs.rs/rfd)
 - [ring](https://docs.rs/ring)
 - [ripemd](https://docs.rs/ripemd)
 - [secp256k1](https://docs.rs/secp256k1)
-- [serde](https://docs.rs/serde)
-- [serde_json](https://docs.rs/serde_json)
-- [sha2](https://docs.rs/sha2)
-- [sha3](https://docs.rs/sha3)
 - [shamir_share](https://docs.rs/shamir_share)
-- [svg](https://docs.rs/svg)
-- [sysinfo](https://docs.rs/sysinfo)
-- [tiny-keccak](https://docs.rs/tiny_keccak)
-- [ureq](https://docs.rs/ureq)
-- [winres](https://docs.rs/winres)
 - [zeroize](https://docs.rs/zeroize)
 
-and maybe more. Check [Cargo.toml](Cargo.toml) file.
+and many more. Check [Cargo.toml](Cargo.toml) file.

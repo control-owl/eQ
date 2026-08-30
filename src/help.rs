@@ -35,6 +35,7 @@ enum HelpSection {
   WalletFile,
   SupportedCoins,
   Changelog,
+  Donations,
 }
 
 impl HelpSection {
@@ -47,6 +48,7 @@ impl HelpSection {
       HelpSection::WalletFile => "Wallet File",
       HelpSection::SupportedCoins => "Supported Coins",
       HelpSection::Changelog => "Changelog",
+      HelpSection::Donations => "Donations",
     }
   }
 
@@ -59,6 +61,7 @@ impl HelpSection {
       HelpSection::WalletFile => "wallet_file.md",
       HelpSection::SupportedCoins => "supported_coins.md",
       HelpSection::Changelog => "changelog.md",
+      HelpSection::Donations => "donations.md",
     }
   }
 }
@@ -129,6 +132,7 @@ impl HelpWindow {
       HelpSection::WalletFile,
       HelpSection::SupportedCoins,
       HelpSection::Changelog,
+      HelpSection::Donations,
     ];
 
     for &section in &sections {
@@ -145,9 +149,9 @@ impl HelpWindow {
   ) {
     ui.style_mut().url_in_tooltip = true;
 
-    egui::ScrollArea::vertical()
+    egui::ScrollArea::both()
       .content_margin(egui::Margin::same(GUI_MARGIN as i8))
-      .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+      .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
       .show(ui, |ui| {
         ui.take_available_width();
 

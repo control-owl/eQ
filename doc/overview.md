@@ -1,7 +1,7 @@
 # Welcome to eQ
 
 eQ is a high-performance, privacy-focused key generator designed for users who want full control over their cryptographic keys. 
-It supports **+280** coins, follows all major industry standards, and gives you complete transparency over every step of the key-generation process.
+It supports **+290** coins, follows all major industry standards, and gives you complete transparency over every step of the key-generation process.
 
 All sensitive operations-entropy generation, mnemonic creation, seed derivation, and key generation-are performed **locally on your machine**. 
 No network connection is required unless you explicitly choose to use `QRNG` for quantum-grade entropy.
@@ -77,11 +77,11 @@ eQ supports:
 
 - BIP-39 (mnemonics) 
 - BIP-32 (Legacy wallets) 
-- BIP-44
-- BIP-86
+- BIP-44 (Standard coin derivation)
+- BIP-86 (Taproot addresses)
 - SLIP-0010
-- secp256k1 and Ed25519 curves 
-- 280+ cryptocurrencies across many chains
+- secp256k1, ed25519, sr25519, bip32-ed25519 curves 
+
 
 ---
 ## Air-Gapped Version: eQ-OS

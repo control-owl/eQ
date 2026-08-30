@@ -24,7 +24,7 @@ use num_bigint::BigUint;
 use ring::hmac;
 use ring::pbkdf2;
 use ripemd::Ripemd160;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use sha3::Keccak256;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{DeriveJunction, Pair, sr25519};
@@ -436,12 +436,10 @@ pub fn generate_secp256k1_master_keys(wallet: &mut CryptoWallet) -> FunctionOutp
   };
 
   let master_secret_key =
-    secp256k1::SecretKey::from_byte_array(*array).map_err(|err| AppError::log(format!("Invalid master_secret_key: {err:?}")))?;
+    secp256k1::SecretKey::from_secret_bytes(*array).map_err(|err| AppError::log(format!("Invalid master_secret_key: {err:?}")))?;
 
-  let secp = secp256k1::Secp256k1::new();
-
-  let master_public_key_bytes: Zeroizing<[u8; 33]> = Zeroizing::new(secp256k1::PublicKey::from_secret_key(&secp, &master_secret_key).serialize());
-  master_secret_key.secret_bytes().zeroize();
+  let master_public_key_bytes: Zeroizing<[u8; 33]> = Zeroizing::new(secp256k1::PublicKey::from_secret_key(&master_secret_key).serialize());
+  master_secret_key.to_secret_bytes().zeroize();
 
   let mut master_public_key: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::new());
 
@@ -528,7 +526,7 @@ pub fn generate_secp256k1_child_keys(wallet: &mut CryptoWallet) -> FunctionOutpu
   let array: Zeroizing<[u8; 32]> =
     Zeroizing::new(<[u8; 32]>::try_from(private_key.as_slice()).map_err(|err| AppError::log(format!("private_key must be 32 bytes {:?}", err)))?);
 
-  let secret_key = secp256k1::SecretKey::from_byte_array(*array).map_err(|err| AppError::log(format!("Invalid secret_key: {:?}", err)))?;
+  let secret_key = secp256k1::SecretKey::from_secret_bytes(*array).map_err(|err| AppError::log(format!("Invalid secret_key: {:?}", err)))?;
 
   let mut chain_code_array: Zeroizing<[u8; 32]> = Zeroizing::new([0u8; 32]);
   chain_code_array.copy_from_slice(&chain_code);
@@ -536,7 +534,7 @@ pub fn generate_secp256k1_child_keys(wallet: &mut CryptoWallet) -> FunctionOutpu
   let mut public_key_array: Zeroizing<[u8; 33]> = Zeroizing::new([0u8; 33]);
   public_key_array.copy_from_slice(&public_key);
 
-  wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes = Zeroizing::new(secret_key.secret_bytes().to_vec());
+  wallet.secret_keys.child_secp256k1_keys.child_private_key_bytes = Zeroizing::new(secret_key.to_secret_bytes().to_vec());
   wallet.secret_keys.child_secp256k1_keys.child_public_key_bytes = Zeroizing::new(public_key_array.to_vec());
   wallet.secret_keys.child_secp256k1_keys.child_chain_code_bytes = Zeroizing::new(chain_code_array.to_vec());
 
@@ -553,7 +551,6 @@ pub fn derive_secp256k1_child(
     return Err(AppError::log(format!("Problem with index {:?}", index)));
   }
 
-  let secp = secp256k1::Secp256k1::new();
   let mut data: Zeroizing<Vec<u8>> = Zeroizing::new(Vec::with_capacity(37));
 
   if *hardened {
@@ -564,8 +561,8 @@ pub fn derive_secp256k1_child(
       <[u8; 32]>::try_from(parent_key.as_slice()).map_err(|err| AppError::log(format!("Slice error: parent_key must be 32 bytes: {:?}", err)))?,
     );
 
-    let parent_secret_key = secp256k1::SecretKey::from_byte_array(*array).map_err(|err| AppError::log(format!("Invalid SecretKey: {err}")))?;
-    let parent_pubkey = secp256k1::PublicKey::from_secret_key(&secp, &parent_secret_key);
+    let parent_secret_key = secp256k1::SecretKey::from_secret_bytes(*array).map_err(|err| AppError::log(format!("Invalid SecretKey: {err}")))?;
+    let parent_pubkey = secp256k1::PublicKey::from_secret_key(&parent_secret_key);
 
     data.extend_from_slice(&parent_pubkey.serialize()[..]);
   }
@@ -601,11 +598,10 @@ pub fn derive_secp256k1_child(
   };
 
   let child_private_key =
-    secp256k1::SecretKey::from_byte_array(*combined_bytes_padded).map_err(|err| AppError::log(format!("Invalid child_private_key: {err}")))?;
-  let child_private_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(child_private_key.secret_bytes().to_vec());
+    secp256k1::SecretKey::from_secret_bytes(*combined_bytes_padded).map_err(|err| AppError::log(format!("Invalid child_private_key: {err}")))?;
+  let child_private_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(child_private_key.to_secret_bytes().to_vec());
 
-  let child_public_key_bytes: Zeroizing<Vec<u8>> =
-    Zeroizing::new(secp256k1::PublicKey::from_secret_key(&secp, &child_private_key).serialize().to_vec());
+  let child_public_key_bytes: Zeroizing<Vec<u8>> = Zeroizing::new(secp256k1::PublicKey::from_secret_key(&child_private_key).serialize().to_vec());
 
   Ok(ChildSecp256k1KeySecretData {
     child_private_key_bytes,
@@ -1079,6 +1075,7 @@ pub fn generate_ed25519_address(wallet: &mut CryptoWallet) -> FunctionOutput<()>
 // -.-. --- .--. -.-- .-. .. --. .... - / -.-. --- -. - .-. --- .-.. / --- .-- .-..
 
 pub fn generate_sr25519_master_keys(wallet: &mut CryptoWallet) -> FunctionOutput<()> {
+  // BUG: sr25519 excepts only English mnemonic words
   let (pair, seed) = sr25519::Pair::from_phrase(&wallet.seed_secret.mnemonic_words, Some(&wallet.seed_secret.mnemonic_passphrase))
     .map_err(|err| AppError::log(format!("Failed to create sr25519 keypair from mnemonic: {:?}", err)))?;
 
@@ -1112,8 +1109,6 @@ pub fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPu
 
   match key_derivation.as_str() {
     "secp256k1" => {
-      let secp = secp256k1::Secp256k1::new();
-
       let child_private_key: Zeroizing<[u8; 32]> = Zeroizing::new(
         wallet
           .secret_keys
@@ -1125,8 +1120,8 @@ pub fn generate_public_key(wallet: &mut CryptoWallet) -> FunctionOutput<CryptoPu
       );
 
       let secret_key =
-        secp256k1::SecretKey::from_byte_array(*child_private_key).map_err(|err| AppError::log(format!("Invalid SecretKey: {:?}", err)))?;
-      let secp_pub_key = secp256k1::PublicKey::from_secret_key(&secp, &secret_key);
+        secp256k1::SecretKey::from_secret_bytes(*child_private_key).map_err(|err| AppError::log(format!("Invalid SecretKey: {:?}", err)))?;
+      let secp_pub_key = secp256k1::PublicKey::from_secret_key(&secret_key);
 
       Ok(CryptoPublicKey::Secp256k1(secp_pub_key))
     }
@@ -1248,7 +1243,7 @@ pub fn create_private_key_for_address(
       extended_key.extend_from_slice(&wallet_import_format_bytes);
 
       if let Some(private_key) = private_key {
-        extended_key.extend_from_slice(&private_key.secret_bytes());
+        extended_key.extend_from_slice(&private_key.to_secret_bytes());
 
         if *compressed {
           extended_key.push(0x01);
@@ -1272,9 +1267,9 @@ pub fn create_private_key_for_address(
     "keccak256" => {
       if let Some(private_key) = private_key {
         if *coin_index == 195 {
-          Ok(Zeroizing::new(hex::encode(private_key.secret_bytes())))
+          Ok(Zeroizing::new(hex::encode(private_key.to_secret_bytes())))
         } else {
-          Ok(Zeroizing::new(format!("0x{}", hex::encode(private_key.secret_bytes()))))
+          Ok(Zeroizing::new(format!("0x{}", hex::encode(private_key.to_secret_bytes()))))
         }
       } else {
         Err(AppError::log("Private key must be provided".to_string()))
@@ -1282,7 +1277,7 @@ pub fn create_private_key_for_address(
     }
     "sha256+ripemd160" => match private_key {
       Some(key) => {
-        let private_key_hex = hex::encode(key.secret_bytes());
+        let private_key_hex = hex::encode(key.to_secret_bytes());
         Ok(Zeroizing::new(private_key_hex))
       }
       None => Err(AppError::log(String::from("Private key must be provided"))),
@@ -1302,7 +1297,7 @@ fn encode_private_key(
     Ok(Zeroizing::new(bs58::encode(private_key_bytes).into_string()))
   } else {
     let secret_key =
-      secp256k1::SecretKey::from_byte_array(*private_key_bytes).map_err(|err| AppError::log(format!("Invalid SecretKey: {:?}", err)))?;
+      secp256k1::SecretKey::from_secret_bytes(*private_key_bytes).map_err(|err| AppError::log(format!("Invalid SecretKey: {:?}", err)))?;
 
     create_private_key_for_address(
       Some(&secret_key),
@@ -1837,17 +1832,16 @@ fn tweak_taproot_key(internal_key: Zeroizing<[u8; 32]>) -> FunctionOutput<Zeroiz
   hasher.update(merkle_root);
   let tweak = hasher.finalize();
 
-  let secp = secp256k1::Secp256k1::new();
   let internal_pubkey =
     secp256k1::XOnlyPublicKey::from_byte_array(*internal_key).map_err(|e| AppError::log(format!("Invalid x-only public key: {}", e)))?;
 
   let tweak_scalar = secp256k1::Scalar::from_be_bytes(tweak.into()).map_err(|_| AppError::log("Invalid tweak scalar"))?;
 
   let tweaked = internal_pubkey
-    .add_tweak(&secp, &tweak_scalar)
+    .add_tweak(&tweak_scalar)
     .map_err(|e| AppError::log(format!("Taproot tweak failed: {}", e)))?;
 
-  let serialized: Zeroizing<[u8; 32]> = Zeroizing::new(tweaked.0.serialize());
+  let serialized: Zeroizing<[u8; 32]> = Zeroizing::new(tweaked.0.to_byte_array());
 
   Ok(serialized)
 }
